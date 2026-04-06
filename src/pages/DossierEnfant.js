@@ -42,7 +42,10 @@ export default function DossierEnfant({ profile }) {
   async function fetchEnfant() {
     const { data } = await supabase
       .from('enfants')
-      .select(`*, af_principal:profiles!enfants_af_principal_id_fkey(id,nom,prenom,matricule,telephone,email), referent:profiles!enfants_referent_id_fkey(id,nom,prenom,telephone,email)`)
+      .select(`*,
+        af_principal:af_principal_id(id,nom,prenom,matricule,telephone,email),
+        referent:referent_id(id,nom,prenom,telephone,email)
+      `)
       .eq('id', id).single()
     if (data) { setEnfant(data); setEditData(data) }
     setLoading(false)
