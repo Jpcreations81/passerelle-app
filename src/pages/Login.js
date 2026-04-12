@@ -41,7 +41,7 @@ export default function Login() {
                 height: 90,
                 width: 'auto',
                 objectFit: 'contain',
-                filter: 'brightness(0) invert(1)'
+                filter: 'brightness(1) invert(0)'
               }}
               onError={e => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block' }}
             />
