@@ -101,7 +101,7 @@ export default function DossierEnfant({ profile }) {
   const [toast, setToast] = useState('')
   const [journalNotes, setJournalNotes] = useState([])
   const [showNoteModal, setShowNoteModal] = useState(false)
-  const [newNote, setNewNote] = useState({ date: new Date().toISOString().slice(0,10), humeur:'😊', texte:'', tags:'' })
+  const [newNote, setNewNote] = useState({ date: new Date().toISOString().slice(0,10), heure:'', humeur:'😊', texte:'', tags:'', type_note:'principal', relais_debut:'', relais_fin:'' })
   const [noteLoading, setNoteLoading] = useState(false)
   const [documents, setDocuments] = useState([])
   const [uploadingDoc, setUploadingDoc] = useState(null)
@@ -584,14 +584,18 @@ export default function DossierEnfant({ profile }) {
       enfant_id: id,
       auteur_id: profile.id,
       date: newNote.date,
+      heure: newNote.heure || null,
       humeur: newNote.humeur,
       texte: newNote.texte,
       tags,
+      type_note: newNote.type_note || 'principal',
+      relais_debut: newNote.type_note === 'relais' ? newNote.relais_debut || null : null,
+      relais_fin: newNote.type_note === 'relais' ? newNote.relais_fin || null : null,
     })
     if (!error) {
       showToast('✅ Note ajoutée !')
       setShowNoteModal(false)
-      setNewNote({ date: new Date().toISOString().slice(0,10), humeur:'😊', texte:'', tags:'' })
+      setNewNote({ date: new Date().toISOString().slice(0,10), heure:'', humeur:'😊', texte:'', tags:'', type_note:'principal', relais_debut:'', relais_fin:'' })
       fetchJournal()
     } else showToast('❌ Erreur')
     setNoteLoading(false)
@@ -1486,17 +1490,30 @@ export default function DossierEnfant({ profile }) {
             ══════════════════════════════════════════════════════════════ */}
             {onglet === 'journal' && (
               <>
-                <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
+                {/* Barre actions */}
+                <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16, flexWrap:'wrap' }}>
                   <button onClick={() => setShowNoteModal(true)} className="btn btn-primary">+ Nouvelle note</button>
-                  <div style={{ display:'flex', gap:6 }}>
+                  <div style={{ display:'flex', gap:4 }}>
                     {['😊','😐','😢','⚠️'].map(m => (
-                      <button key={m} style={{ fontSize:18, padding:'6px 10px', borderRadius:8, border:'1px solid #dde3f0', background:'#fff', cursor:'pointer' }}
-                        onClick={() => showToast(`Filtrer par humeur ${m}...`)}>{m}</button>
+                      <button key={m} style={{ fontSize:16, padding:'5px 9px', borderRadius:8, border:'1px solid #dde3f0', background:'#fff', cursor:'pointer' }}>{m}</button>
                     ))}
                   </div>
-                  <button onClick={() => showToast('📄 Rapport synthétique ASE...')} className="btn btn-success" style={{ marginLeft:'auto', background:'#2e8b4a', color:'#fff' }}>
-                    📄 Rapport ASE
+                  <button onClick={() => showToast('📄 Rapport synthétique ASE...')}
+                    style={{ marginLeft:'auto', padding:'8px 14px', borderRadius:8, border:'none', background:'#2e8b4a', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Sora,sans-serif' }}>
+                    📄 Rapport synthétique ASE
                   </button>
+                </div>
+
+                {/* Légende */}
+                <div style={{ display:'flex', gap:16, marginBottom:16, fontSize:11, color:'#9aa3b8' }}>
+                  <span style={{ display:'flex', alignItems:'center', gap:5 }}>
+                    <span style={{ width:12, height:12, borderRadius:3, background:'#fff', border:'1px solid #dde3f0', display:'inline-block' }}></span>
+                    Notes AF Principal (privées)
+                  </span>
+                  <span style={{ display:'flex', alignItems:'center', gap:5 }}>
+                    <span style={{ width:12, height:12, borderRadius:3, background:'#e8f5e9', border:'1px solid #a5d6a7', display:'inline-block' }}></span>
+                    Notes relais (visibles par tous)
+                  </span>
                 </div>
 
                 {journalNotes.length === 0 ? (
@@ -1505,29 +1522,54 @@ export default function DossierEnfant({ profile }) {
                     <div style={{ fontSize:14 }}>Aucune note dans le journal</div>
                     <div style={{ fontSize:12, marginTop:4 }}>Ajoutez des observations quotidiennes sur l'enfant</div>
                   </div>
-                ) : journalNotes.map(note => (
-                  <div key={note.id} style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:12, padding:16, marginBottom:12, boxShadow:'0 2px 8px rgba(26,75,143,.06)' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-                      <span style={{ fontSize:12, color:'#9aa3b8' }}>
-                        {(() => { const [y,m,d] = note.date.split('-'); const dt = new Date(+y,+m-1,+d); return dt.toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'long', year:'numeric' }) })()}
-                      </span>
-                      <span style={{ padding:'2px 8px', borderRadius:10, background:'#e8eef8', color:'#1a4b8f', fontSize:10, fontWeight:700 }}>AF Principal</span>
-                      <span style={{ fontSize:18, marginLeft:'auto' }}>{note.humeur}</span>
-                      {(profile?.id === note.auteur_id || isReferent) && (
-                        <button onClick={() => deleteNote(note.id)}
-                          style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>
+                ) : journalNotes.map(note => {
+                  const isRelais = note.type_note === 'relais'
+                  const isOwner = profile?.id === note.auteur_id
+                  const canSee = isRelais || isOwner || isReferent
+                  if (!canSee) return null
+                  return (
+                    <div key={note.id} style={{
+                      background: isRelais ? '#f0faf0' : '#fff',
+                      border: `1px solid ${isRelais ? '#a5d6a7' : '#dde3f0'}`,
+                      borderRadius:12, padding:16, marginBottom:12,
+                      boxShadow:'0 2px 8px rgba(26,75,143,.06)'
+                    }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+                        <span style={{ fontSize:12, color:'#5a6478', fontWeight:500 }}>
+                          {(() => { const [y,m,d] = note.date.split('-'); return new Date(+y,+m-1,+d).toLocaleDateString('fr-FR', { weekday:'short', day:'numeric', month:'long', year:'numeric' }) })()}
+                          {note.heure && ` · ${note.heure}`}
+                        </span>
+                        <span style={{ padding:'2px 8px', borderRadius:10, fontSize:10, fontWeight:700,
+                          background: isRelais ? '#c8e6c9' : '#e8eef8',
+                          color: isRelais ? '#2e7d32' : '#1a4b8f' }}>
+                          {isRelais ? '🔄 AF Relais' : '🏠 AF Principal'}
+                        </span>
+                        <span style={{ fontSize:18, marginLeft:'auto' }}>{note.humeur}</span>
+                        {(isOwner || isReferent) && (
+                          <button onClick={() => deleteNote(note.id)}
+                            style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>
+                        )}
+                      </div>
+                      {isRelais && note.relais_debut && note.relais_fin && (
+                        <div style={{ background:'#c8e6c9', borderRadius:8, padding:'6px 12px', marginBottom:10, fontSize:12, color:'#2e7d32', fontWeight:600 }}>
+                          🔄 Rapport de relais — Du {fmtDate(note.relais_debut)} au {fmtDate(note.relais_fin)}
+                          {(() => { const d1 = new Date(note.relais_debut), d2 = new Date(note.relais_fin); const j = Math.ceil((d2-d1)/(1000*60*60*24))+1; return ` (${j} jour${j>1?'s':''})` })()}
+                        </div>
+                      )}
+                      <div style={{ fontSize:13, lineHeight:1.8, color:'#1c2333', whiteSpace:'pre-wrap' }}>{note.texte}</div>
+                      {note.tags && note.tags.length > 0 && (
+                        <div style={{ display:'flex', gap:5, marginTop:10, flexWrap:'wrap' }}>
+                          {note.tags.map((t, i) => (
+                            <span key={i} style={{ padding:'2px 8px', borderRadius:10,
+                              background: isRelais ? '#e8f5e9' : '#f4f6fb',
+                              border: `1px solid ${isRelais ? '#a5d6a7' : '#dde3f0'}`,
+                              fontSize:11, color:'#5a6478' }}>{t}</span>
+                          ))}
+                        </div>
                       )}
                     </div>
-                    <div style={{ fontSize:13, lineHeight:1.7, color:'#1c2333' }}>{note.texte}</div>
-                    {note.tags && note.tags.length > 0 && (
-                      <div style={{ display:'flex', gap:6, marginTop:8, flexWrap:'wrap' }}>
-                        {note.tags.map((t, i) => (
-                          <span key={i} style={{ padding:'2px 8px', borderRadius:10, background:'#f4f6fb', border:'1px solid #dde3f0', fontSize:11, color:'#5a6478' }}>{t}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </>
             )}
 
@@ -1538,38 +1580,78 @@ export default function DossierEnfant({ profile }) {
       {/* ── Modal nouvelle note ── */}
       {showNoteModal && (
         <div className="modal-overlay" onClick={() => setShowNoteModal(false)}>
-          <div className="modal-box" style={{ maxWidth:480 }} onClick={e => e.stopPropagation()}>
+          <div className="modal-box" style={{ maxWidth:520 }} onClick={e => e.stopPropagation()}>
             <div className="modal-title">📝 Nouvelle note journal</div>
-            <div className="form-grid-2">
+
+            {/* Type de note */}
+            <div className="form-group" style={{ marginBottom:14 }}>
+              <label className="form-label">Type de note</label>
+              <div style={{ display:'flex', gap:8 }}>
+                {[
+                  { v:'principal', icon:'🏠', l:'AF Principal', desc:'Visible AF + ASE uniquement', bg:'#e8eef8', color:'#1a4b8f' },
+                  { v:'relais',    icon:'🔄', l:'AF Relais',    desc:'Visible par tous',            bg:'#e8f5e9', color:'#2e7d32' },
+                ].map(t => (
+                  <button key={t.v} type="button" onClick={() => setNewNote(n => ({...n, type_note: t.v}))}
+                    style={{ flex:1, padding:'10px', borderRadius:10, border:`2px solid ${newNote.type_note === t.v ? t.color : '#dde3f0'}`, background: newNote.type_note === t.v ? t.bg : '#fff', cursor:'pointer', textAlign:'left', fontFamily:'Sora,sans-serif' }}>
+                    <div style={{ fontSize:13, fontWeight:700, color: newNote.type_note === t.v ? t.color : '#1c2333' }}>{t.icon} {t.l}</div>
+                    <div style={{ fontSize:10, color:'#9aa3b8', marginTop:2 }}>{t.desc}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Dates relais si type relais */}
+            {newNote.type_note === 'relais' && (
+              <div className="form-grid-2" style={{ marginBottom:14 }}>
+                <div className="form-group">
+                  <label className="form-label">Début relais</label>
+                  <input type="date" className="form-control" value={newNote.relais_debut || ''} onChange={e => setNewNote(n => ({...n, relais_debut: e.target.value}))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Fin relais</label>
+                  <input type="date" className="form-control" value={newNote.relais_fin || ''} onChange={e => setNewNote(n => ({...n, relais_fin: e.target.value}))} />
+                </div>
+              </div>
+            )}
+
+            <div className="form-grid-2" style={{ marginBottom:12 }}>
               <div className="form-group">
                 <label className="form-label">Date</label>
                 <input type="date" className="form-control" value={newNote.date} onChange={e => setNewNote(n => ({...n, date: e.target.value}))} />
               </div>
               <div className="form-group">
-                <label className="form-label">Humeur</label>
-                <div style={{ display:'flex', gap:8, marginTop:4 }}>
-                  {['😊','😐','😢','⚠️'].map(m => (
-                    <button key={m} onClick={() => setNewNote(n => ({...n, humeur: m}))}
-                      style={{ fontSize:22, padding:'6px 10px', borderRadius:8, border:`2px solid ${newNote.humeur === m ? '#1a4b8f' : '#dde3f0'}`, background: newNote.humeur === m ? '#e8eef8' : '#fff', cursor:'pointer' }}>
-                      {m}
-                    </button>
-                  ))}
-                </div>
+                <label className="form-label">Heure</label>
+                <input type="time" className="form-control" value={newNote.heure || ''} onChange={e => setNewNote(n => ({...n, heure: e.target.value}))} />
               </div>
             </div>
-            <div className="form-group" style={{ marginTop:12 }}>
+
+            <div className="form-group" style={{ marginBottom:12 }}>
+              <label className="form-label">Humeur</label>
+              <div style={{ display:'flex', gap:8, marginTop:4 }}>
+                {['😊','😐','😢','⚠️'].map(m => (
+                  <button key={m} onClick={() => setNewNote(n => ({...n, humeur: m}))}
+                    style={{ fontSize:22, padding:'6px 10px', borderRadius:8, border:`2px solid ${newNote.humeur === m ? '#1a4b8f' : '#dde3f0'}`, background: newNote.humeur === m ? '#e8eef8' : '#fff', cursor:'pointer' }}>
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-group" style={{ marginBottom:12 }}>
               <label className="form-label">Observation</label>
               <textarea className="form-control" rows={4} value={newNote.texte}
                 onChange={e => setNewNote(n => ({...n, texte: e.target.value}))}
                 placeholder="Décrivez la journée, le comportement, les événements notables..."
                 style={{ resize:'vertical' }} />
             </div>
-            <div className="form-group" style={{ marginTop:10 }}>
+
+            <div className="form-group" style={{ marginBottom:12 }}>
               <label className="form-label">Tags <span style={{ fontSize:10, color:'#9aa3b8', fontWeight:400 }}>(séparés par des virgules)</span></label>
               <input className="form-control" value={newNote.tags}
                 onChange={e => setNewNote(n => ({...n, tags: e.target.value}))}
-                placeholder="école, comportement, sommeil, post-visite..." />
+                placeholder="École, Comportement, Sommeil, Post-visite..." />
             </div>
+
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowNoteModal(false)}>Annuler</button>
               <button className="btn btn-primary" onClick={saveNote} disabled={noteLoading}>
