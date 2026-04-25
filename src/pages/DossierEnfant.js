@@ -867,17 +867,11 @@ export default function DossierEnfant({ profile }) {
                         <span>{label}</span>
                         {masque && <span style={{ padding:'2px 8px', borderRadius:10, background:'#fef3e2', color:'#d97706', fontSize:11, fontWeight:600 }}>Masqué</span>}
                         <div style={{ marginLeft:'auto', display:'flex', gap:6 }}>
-                          {isReferent && (
-                            <>
-                              <button onClick={() => openParentModal(type)}
-                                style={{ padding:'3px 10px', borderRadius:8, border:'1px solid #c4d4f5', background:'#e8eef8', color:'#1a4b8f', fontSize:11, cursor:'pointer', fontWeight:600 }}>
-                                {data ? '✏️ Modifier' : '+ Ajouter'}
-                              </button>
-                              <button onClick={() => masquerParent(type)}
-                                style={{ padding:'3px 10px', borderRadius:8, border:'1px solid #dde3f0', background: masque ? '#e6f5eb' : '#fdf0ee', color: masque ? '#2e8b4a' : '#c0392b', fontSize:11, cursor:'pointer' }}>
-                                {masque ? '👁 Afficher' : '🙈 Masquer'}
-                              </button>
-                            </>
+                          {isReferent && editMode && (
+                            <button onClick={() => masquerParent(type)}
+                              style={{ padding:'3px 10px', borderRadius:8, border:'1px solid #dde3f0', background: masque ? '#e6f5eb' : '#fdf0ee', color: masque ? '#2e8b4a' : '#c0392b', fontSize:11, cursor:'pointer' }}>
+                              {masque ? '👁 Afficher' : '🙈 Masquer'}
+                            </button>
                           )}
                         </div>
                       </div>
@@ -887,15 +881,18 @@ export default function DossierEnfant({ profile }) {
                           {label} masqué (famille monoparentale ou pupille de l'état)
                         </div>
                       ) : !data ? (
-                        <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13, display:'flex', alignItems:'center', gap:12 }}>
-                          <span>Aucune information renseignée</span>
-                          {isReferent && (
-                            <button onClick={() => openParentModal(type)} className="btn btn-secondary" style={{ fontSize:11 }}>
-                              + Ajouter le {label.toLowerCase()}
-                            </button>
-                          )}
+                        <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13 }}>
+                          Aucune information renseignée — utilisez ✏️ Modifier pour renseigner
                         </div>
                       ) : (
+                        <>
+                        {editMode && (
+                          <div style={{ marginBottom:12 }}>
+                            <button onClick={() => openParentModal(type)} className="btn btn-secondary" style={{ fontSize:11 }}>
+                              ✏️ Modifier les infos {label.toLowerCase()}
+                            </button>
+                          </div>
+                        )}
                         <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16 }}>
                           {[
                             { label:'Nom', v: data.nom },
@@ -919,6 +916,7 @@ export default function DossierEnfant({ profile }) {
                             </div>
                           ))}
                         </div>
+                        </>
                       )}
 
                       {/* Documents du parent */}
@@ -1059,8 +1057,8 @@ export default function DossierEnfant({ profile }) {
                   )}
 
                   <FormGrid cols={3}>
-                    <Field label="Date de placement" type="date" value={v('date_placement')} onChange={F('date_placement')} readOnly={!editMode} />
-                    <Field label="Date de fin prévue" type="date" value={v('date_fin_placement')} onChange={F('date_fin_placement')} readOnly={!editMode} />
+                    <Field label="Date de placement" type="date" value={v('date_placement')} onChange={F('date_placement')} readOnly={true} />
+                    <Field label="Date de fin prévue" type="date" value={v('date_fin_placement')} onChange={F('date_fin_placement')} readOnly={true} />
                     <Field label="Durée" readOnly value={
                       form.date_placement && form.date_fin_placement ? (() => {
                         const d1 = new Date(form.date_placement), d2 = new Date(form.date_fin_placement)
@@ -1069,6 +1067,9 @@ export default function DossierEnfant({ profile }) {
                       })() : '—'
                     } />
                   </FormGrid>
+                  <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic', marginTop:8 }}>
+                    📌 Les dates sont modifiables dans l'onglet ⚖️ Judiciaire
+                  </div>
                 </SectionCard>
 
                 {/* ── MAISON DU DÉPARTEMENT ── */}
