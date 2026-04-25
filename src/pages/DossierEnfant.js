@@ -1027,10 +1027,10 @@ export default function DossierEnfant({ profile }) {
                     return editMode ? (
                       <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
                         {placements.map(p => (
-                          <div key={p.v} onClick={() => F('type_placement')(p.v)}
-                            style={{ flex:1, minWidth:90, padding:'12px 8px', borderRadius:12, textAlign:'center', cursor:'pointer',
+                          <div key={p.v}
+                            style={{ flex:1, minWidth:90, padding:'12px 8px', borderRadius:12, textAlign:'center',
                               border:`2px solid ${form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#dde3f0'}`,
-                              background: form.type_placement === p.v ? (p.secret ? '#fdf0f0' : '#e8eef8') : '#f4f6fb', transition:'all .15s' }}>
+                              background: form.type_placement === p.v ? (p.secret ? '#fdf0f0' : '#e8eef8') : '#f4f6fb', opacity: form.type_placement === p.v ? 1 : 0.4 }}>
                             <div style={{ fontSize:22, marginBottom:4 }}>{p.icon}</div>
                             <div style={{ fontSize:11, fontWeight:700, color: form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#1c2333' }}>{p.label}</div>
                           </div>
@@ -1213,6 +1213,96 @@ export default function DossierEnfant({ profile }) {
                   <span style={{ fontSize:18 }}>🔒</span>
                   <div><strong>Accès restreint</strong> — Visible uniquement par les référents, encadrants et gestionnaires.</div>
                 </div>
+
+                {/* Type de placement — modifiable ici */}
+                <SectionCard icon="🏠" title="Type de placement">
+                  <div style={{ display:'flex', gap:10, marginBottom:8, flexWrap:'wrap' }}>
+                    {[
+                      { v:'judiciaire',    icon:'⚖️',  label:'Judiciaire',    desc:'Décision du juge' },
+                      { v:'administratif', icon:'📋',  label:'Administratif', desc:'Accord parental' },
+                      { v:'urgence',       icon:'🚨',  label:'Urgence',       desc:'Placement immédiat' },
+                      { v:'aemo',          icon:'👁',  label:'AEMO',          desc:'Action éducative' },
+                      { v:'aemo_r',        icon:'👁',  label:'AEMO-R',        desc:'Renforcé' },
+                      { v:'secret',        icon:'🔒',  label:'Secret',        desc:'Adresse masquée', secret:true },
+                    ].map(p => (
+                      <div key={p.v} onClick={() => editMode && F('type_placement')(p.v)}
+                        style={{ flex:1, minWidth:90, padding:'12px 8px', borderRadius:12, textAlign:'center', cursor: editMode ? 'pointer' : 'default',
+                          border:`2px solid ${form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#dde3f0'}`,
+                          background: form.type_placement === p.v ? (p.secret ? '#fdf0f0' : '#e8eef8') : '#f4f6fb',
+                          opacity: form.type_placement === p.v ? 1 : (editMode ? 1 : 0.4), transition:'all .15s' }}>
+                        <div style={{ fontSize:22, marginBottom:4 }}>{p.icon}</div>
+                        <div style={{ fontSize:11, fontWeight:700, color: form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#1c2333' }}>{p.label}</div>
+                        <div style={{ fontSize:10, color:'#9aa3b8', marginTop:1 }}>{p.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <FormGrid cols={3}>
+                    <Field label="Date de placement" type="date" value={v('date_placement')} onChange={F('date_placement')} readOnly={!editMode} />
+                    <Field label="Date de fin prévue" type="date" value={v('date_fin_placement')} onChange={F('date_fin_placement')} readOnly={!editMode} />
+                    <Field label="Durée" readOnly value={
+                      form.date_placement && form.date_fin_placement ? (() => {
+                        const d1 = new Date(form.date_placement), d2 = new Date(form.date_fin_placement)
+                        const mois = Math.round((d2-d1)/(1000*60*60*24*30))
+                        return mois >= 12 ? `${Math.round(mois/12)} an(s)` : `${mois} mois`
+                      })() : '—'
+                    } />
+                  </FormGrid>
+                </SectionCard>
+
+                {/* Droits parentaux — modifiables ici */}
+                <SectionCard icon="👨‍👩‍👧" title="Droits parentaux & Droits de visite">
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+                    {[
+                      { icon:'👨', label:'Père', idKey:'pere_id', parent: pere },
+                      { icon:'👩', label:'Mère', idKey:'mere_id', parent: mere },
+                    ].map(({ icon, label, idKey, parent: p }) => p && (
+                      <div key={idKey} style={{ background:'#f4f6fb', borderRadius:10, padding:14, border:'1px solid #dde3f0' }}>
+                        <div style={{ fontSize:13, fontWeight:700, marginBottom:12 }}>{icon} {label} — {p.prenom} {p.nom}</div>
+                        <div style={{ marginBottom:10 }}>
+                          <label style={{ fontSize:10, fontWeight:600, color:'#5a6478', textTransform:'uppercase', display:'block', marginBottom:4 }}>Droits parentaux</label>
+                          {editMode ? (
+                            <select value={p.droits_parentaux || ''} onChange={async e => {
+                              await supabase.from('parents').update({ droits_parentaux: e.target.value }).eq('id', p.id)
+                              if (idKey === 'pere_id') setPere(prev => ({ ...prev, droits_parentaux: e.target.value }))
+                              else setMere(prev => ({ ...prev, droits_parentaux: e.target.value }))
+                            }} style={{ width:'100%', padding:'8px 10px', border:'1.5px solid #dde3f0', borderRadius:7, fontFamily:'Sora,sans-serif', fontSize:12, background:'#fff', outline:'none' }}>
+                              <option value="">—</option>
+                              <option>Autorité parentale complète</option>
+                              <option>Autorité parentale partielle</option>
+                              <option>Déchéance partielle</option>
+                              <option>Déchéance totale</option>
+                            </select>
+                          ) : (
+                            <div style={{ padding:'7px 10px', background:'#fff', borderRadius:7, fontSize:12, color: p.droits_parentaux ? '#1c2333' : '#9aa3b8', border:'1px solid #dde3f0' }}>
+                              {p.droits_parentaux || '—'}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <label style={{ fontSize:10, fontWeight:600, color:'#5a6478', textTransform:'uppercase', display:'block', marginBottom:4 }}>Droit de visite</label>
+                          {editMode ? (
+                            <select value={p.droit_visite || ''} onChange={async e => {
+                              await supabase.from('parents').update({ droit_visite: e.target.value }).eq('id', p.id)
+                              if (idKey === 'pere_id') setPere(prev => ({ ...prev, droit_visite: e.target.value }))
+                              else setMere(prev => ({ ...prev, droit_visite: e.target.value }))
+                            }} style={{ width:'100%', padding:'8px 10px', border:'1.5px solid #dde3f0', borderRadius:7, fontFamily:'Sora,sans-serif', fontSize:12, background:'#fff', outline:'none' }}>
+                              <option value="">—</option>
+                              <option>Visite médiatisée</option>
+                              <option>Visite libre</option>
+                              <option>Mixte (médiatisé + temps libre)</option>
+                              <option>Aucun droit</option>
+                              <option>Suspendu</option>
+                            </select>
+                          ) : (
+                            <div style={{ padding:'7px 10px', background:'#fff', borderRadius:7, fontSize:12, color: p.droit_visite ? '#1c2333' : '#9aa3b8', border:'1px solid #dde3f0' }}>
+                              {p.droit_visite || '—'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
 
                 <SectionCard icon="⚖️" title="Décisions judiciaires">
                   <FormGrid cols={3}>
