@@ -103,6 +103,7 @@ export default function DossierEnfant({ profile }) {
   const [showNoteModal, setShowNoteModal] = useState(false)
   const [newNote, setNewNote] = useState({ date: new Date().toISOString().slice(0,10), heure:'', humeur:'😊', texte:'', tags:'', type_note:'principal', relais_debut:'', relais_fin:'' })
   const [noteLoading, setNoteLoading] = useState(false)
+  const [editNoteId, setEditNoteId] = useState(null) // ID note en cours d'édition
   const [documents, setDocuments] = useState([])
   const [uploadingDoc, setUploadingDoc] = useState(null)
   const [showFratrieModal, setShowFratrieModal] = useState(false)
@@ -576,13 +577,34 @@ export default function DossierEnfant({ profile }) {
   }
 
   // ── Journal ─────────────────────────────────────────────────────────────────
+
+
+  async function deleteNote(noteId) {
+    if (!window.confirm('Supprimer cette note ?')) return
+    await supabase.from('journal_enfant').delete().eq('id', noteId)
+    fetchJournal()
+  }
+
+  function openEditNote(note) {
+    setEditNoteId(note.id)
+    setNewNote({
+      date: note.date,
+      heure: note.heure || '',
+      humeur: note.humeur || '😊',
+      texte: note.texte,
+      tags: (note.tags || []).join(', '),
+      type_note: note.type_note || 'principal',
+      relais_debut: note.relais_debut || '',
+      relais_fin: note.relais_fin || '',
+    })
+    setShowNoteModal(true)
+  }
+
   async function saveNote() {
     if (!newNote.texte) { showToast('⚠️ Texte requis'); return }
     setNoteLoading(true)
     const tags = newNote.tags ? newNote.tags.split(',').map(t => t.trim()).filter(Boolean) : []
-    const { error } = await supabase.from('journal_enfant').insert({
-      enfant_id: id,
-      auteur_id: profile.id,
+    const payload = {
       date: newNote.date,
       heure: newNote.heure || null,
       humeur: newNote.humeur,
@@ -591,20 +613,27 @@ export default function DossierEnfant({ profile }) {
       type_note: newNote.type_note || 'principal',
       relais_debut: newNote.type_note === 'relais' ? newNote.relais_debut || null : null,
       relais_fin: newNote.type_note === 'relais' ? newNote.relais_fin || null : null,
-    })
+    }
+
+    let error
+    if (editNoteId) {
+      // Modification
+      const res = await supabase.from('journal_enfant').update(payload).eq('id', editNoteId)
+      error = res.error
+    } else {
+      // Création
+      const res = await supabase.from('journal_enfant').insert({ ...payload, enfant_id: id, auteur_id: profile.id })
+      error = res.error
+    }
+
     if (!error) {
-      showToast('✅ Note ajoutée !')
+      showToast(editNoteId ? '✅ Note modifiée !' : '✅ Note ajoutée !')
       setShowNoteModal(false)
+      setEditNoteId(null)
       setNewNote({ date: new Date().toISOString().slice(0,10), heure:'', humeur:'😊', texte:'', tags:'', type_note:'principal', relais_debut:'', relais_fin:'' })
       fetchJournal()
     } else showToast('❌ Erreur')
     setNoteLoading(false)
-  }
-
-  async function deleteNote(noteId) {
-    if (!window.confirm('Supprimer cette note ?')) return
-    await supabase.from('journal_enfant').delete().eq('id', noteId)
-    fetchJournal()
   }
 
   if (loading) return (
@@ -1546,8 +1575,12 @@ export default function DossierEnfant({ profile }) {
                         </span>
                         <span style={{ fontSize:18, marginLeft:'auto' }}>{note.humeur}</span>
                         {(isOwner || isReferent) && (
-                          <button onClick={() => deleteNote(note.id)}
-                            style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>
+                          <>
+                            <button onClick={() => openEditNote(note)}
+                              style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>✏️</button>
+                            <button onClick={() => deleteNote(note.id)}
+                              style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>
+                          </>
                         )}
                       </div>
                       {isRelais && note.relais_debut && note.relais_fin && (
@@ -1581,7 +1614,7 @@ export default function DossierEnfant({ profile }) {
       {showNoteModal && (
         <div className="modal-overlay" onClick={() => setShowNoteModal(false)}>
           <div className="modal-box" style={{ maxWidth:520 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-title">📝 Nouvelle note journal</div>
+            <div className="modal-title">{editNoteId ? '✏️ Modifier la note' : '📝 Nouvelle note journal'}</div>
 
             {/* Type de note */}
             <div className="form-group" style={{ marginBottom:14 }}>
@@ -1653,7 +1686,7 @@ export default function DossierEnfant({ profile }) {
             </div>
 
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowNoteModal(false)}>Annuler</button>
+              <button className="btn btn-secondary" onClick={() => { setShowNoteModal(false); setEditNoteId(null); setNewNote({ date: new Date().toISOString().slice(0,10), heure:'', humeur:'😊', texte:'', tags:'', type_note:'principal', relais_debut:'', relais_fin:'' }) }}>Annuler</button>
               <button className="btn btn-primary" onClick={saveNote} disabled={noteLoading}>
                 {noteLoading ? '⏳...' : '💾 Enregistrer'}
               </button>
