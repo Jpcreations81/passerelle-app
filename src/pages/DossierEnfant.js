@@ -1371,7 +1371,7 @@ export default function DossierEnfant({ profile }) {
             ══════════════════════════════════════════════════════════════ */}
             {onglet === 'quotidien' && (
               <>
-                <SectionCard icon="🏥" title="Santé & Conditions spécifiques">
+                <SectionCard icon="🏥" title="Santé">
                   <FormGrid cols={3}>
                     <Field label="Médecin traitant" value={v('medecin')} onChange={F('medecin')} readOnly={!editMode} />
                     <Field label="Pédopsychiatre / Spécialiste" value={v('specialiste')} onChange={F('specialiste')} readOnly={!editMode} />
@@ -1379,29 +1379,85 @@ export default function DossierEnfant({ profile }) {
                       options={['A+','A-','B+','B-','AB+','AB-','O+','O-']} />
                   </FormGrid>
 
+                  {/* Allergies & Conditions */}
                   <div style={{ marginTop:16 }}>
                     <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:8 }}>Allergies & Conditions</label>
                     <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
                       {(form.conditions_sante || []).map((c, i) => (
-                        <span key={i} style={{ padding:'4px 12px', borderRadius:15, fontSize:12, fontWeight:600, background:'#fef3e2', color:'#d97706', border:'1px solid #f5dca4', display:'flex', alignItems:'center', gap:4 }}>
+                        <span key={i} style={{ padding:'5px 12px', borderRadius:15, fontSize:12, fontWeight:600, background:'#fef3e2', color:'#d97706', border:'1px solid #f5dca4', display:'flex', alignItems:'center', gap:4 }}>
                           {c}
-                          {editMode && <span onClick={() => setForm(f => ({ ...f, conditions_sante: f.conditions_sante.filter((_,j) => j !== i) }))} style={{ cursor:'pointer', color:'#c0392b', marginLeft:3 }}>×</span>}
+                          {editMode && <span onClick={() => setForm(f => ({ ...f, conditions_sante: f.conditions_sante.filter((_,j) => j !== i) }))} style={{ cursor:'pointer', color:'#c0392b', marginLeft:3, fontSize:14 }}>×</span>}
                         </span>
                       ))}
                       {editMode && (
                         <button onClick={() => {
-                          const c = prompt('Allergie ou condition (ex: ⚠️ Allergie arachides, 💊 Ritaline 10mg) :')
+                          const c = prompt('Allergie ou condition
+Exemples :
+⚠️ Allergie arachides
+💊 Ritaline 10mg/matin
+🧠 TDA/H
+🍽️ Sans gluten')
                           if (c) setForm(f => ({ ...f, conditions_sante: [...(f.conditions_sante || []), c] }))
-                        }} style={{ padding:'4px 12px', borderRadius:15, fontSize:12, border:'1px dashed #dde3f0', background:'#f4f6fb', cursor:'pointer' }}>
+                        }} style={{ padding:'5px 12px', borderRadius:15, fontSize:12, border:'1px dashed #c4d4f5', background:'#e8eef8', color:'#1a4b8f', cursor:'pointer', fontWeight:600 }}>
                           + Ajouter
                         </button>
                       )}
                     </div>
+                    {(!form.conditions_sante || form.conditions_sante.length === 0) && !editMode && (
+                      <div style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Aucune allergie ou condition renseignée</div>
+                    )}
                   </div>
 
-                  <Field label="Notes santé importantes (visibles par AF relais)" type="textarea"
-                    value={v('notes_sante')} onChange={F('notes_sante')} readOnly={!editMode}
-                    placeholder="Traitement, comportements, précautions importantes..." />
+                  {/* Notes santé */}
+                  <div style={{ marginTop:14 }}>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:6 }}>
+                      📋 Notes santé importantes
+                      <span style={{ fontSize:10, color:'#9aa3b8', fontWeight:400, marginLeft:6 }}>visibles par AF relais</span>
+                    </label>
+                    {editMode ? (
+                      <textarea className="form-control" rows={3} value={v('notes_sante')} onChange={e => F('notes_sante')(e.target.value)}
+                        placeholder="Traitements, comportements, précautions importantes..."
+                        style={{ resize:'vertical' }} />
+                    ) : (
+                      <div style={{ padding:'10px 14px', background: v('notes_sante') ? '#fff9e6' : '#f4f6fb', borderRadius:8, border:`1px solid ${v('notes_sante') ? '#f5dca4' : '#dde3f0'}`, fontSize:13, color: v('notes_sante') ? '#1c2333' : '#9aa3b8', fontStyle: v('notes_sante') ? 'normal' : 'italic', minHeight:48 }}>
+                        {v('notes_sante') || 'Aucune note renseignée'}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Ordonnances */}
+                  <div style={{ marginTop:16 }}>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:8 }}>💊 Ordonnances en cours</label>
+                    {documents.filter(d => d.type_doc === 'ordonnance').map(d => {
+                      const dateExpir = d.date_expiration ? new Date(d.date_expiration) : null
+                      const joursRestants = dateExpir ? Math.ceil((dateExpir - new Date()) / (1000*60*60*24)) : null
+                      const alerte = joursRestants !== null && joursRestants <= 30
+                      return (
+                        <div key={d.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background: alerte ? '#fef3e2' : '#f4f6fb', borderRadius:8, border:`1px solid ${alerte ? '#f5dca4' : '#dde3f0'}`, marginBottom:8 }}>
+                          <span style={{ fontSize:20 }}>💊</span>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:12, fontWeight:600 }}>{d.nom}</div>
+                            <div style={{ fontSize:10, color:'#9aa3b8' }}>
+                              {d.taille ? `${Math.round(d.taille/1024)} Ko` : ''} · {fmtDate(d.created_at?.slice(0,10))}
+                              {alerte && joursRestants > 0 && <span style={{ color:'#d97706', fontWeight:600, marginLeft:6 }}>⚠️ À renouveler dans {joursRestants}j</span>}
+                              {alerte && joursRestants <= 0 && <span style={{ color:'#c0392b', fontWeight:600, marginLeft:6 }}>🚨 Ordonnance expirée !</span>}
+                            </div>
+                          </div>
+                          <button onClick={async () => { const { data: url } = await supabase.storage.from('documents-enfants').createSignedUrl(d.storage_path, 3600); if (url?.signedUrl) window.open(url.signedUrl, '_blank') }}
+                            style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>👁</button>
+                          <button onClick={async () => { const { data: url } = await supabase.storage.from('documents-enfants').createSignedUrl(d.storage_path, 60); if (url?.signedUrl) { const resp = await fetch(url.signedUrl); const blob = await resp.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = d.nom; document.body.appendChild(a); a.click(); document.body.removeChild(a) } }}
+                            style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>⬇</button>
+                          {isReferent && <button onClick={() => deleteDocument(d.id, d.storage_path)}
+                            style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #fde8e8', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>}
+                        </div>
+                      )
+                    })}
+                    <label style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', border:'1px dashed #c4d4f5', borderRadius:8, background:'#f0f9ff', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontFamily:'Sora,sans-serif', marginTop:4 }}>
+                      {uploadingDoc === 'ordonnance' ? '⏳ Upload...' : '📎 Ajouter une ordonnance'}
+                      <input type="file" accept="image/*,application/pdf" style={{ display:'none' }}
+                        onChange={e => { if (e.target.files[0]) uploadDocument(e.target.files[0], 'ordonnance') }} />
+                    </label>
+                  </div>
                 </SectionCard>
 
                 <SectionCard icon="👕" title="Vêture & Argent de poche">
