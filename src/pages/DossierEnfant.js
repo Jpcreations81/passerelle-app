@@ -1108,13 +1108,6 @@ export default function DossierEnfant({ profile }) {
               </>
             )}
 
-                      </select>
-                    </div>
-                  )}
-                </SectionCard>
-              </>
-            )}
-
             {/* ══════════════════════════════════════════════════════════════
                 ONGLET JUDICIAIRE (restreint aux non-AF)
             ══════════════════════════════════════════════════════════════ */}
