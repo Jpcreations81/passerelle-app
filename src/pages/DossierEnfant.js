@@ -1014,25 +1014,42 @@ export default function DossierEnfant({ profile }) {
               <>
                 {/* ── TYPE DE PLACEMENT ── */}
                 <SectionCard icon="🏠" title="Type de placement">
-                  <div style={{ display:'flex', gap:12, marginBottom:16, flexWrap:'wrap' }}>
-                    {[
+                  {(() => {
+                    const placements = [
                       { v:'judiciaire',    icon:'⚖️',  label:'Judiciaire',    desc:'Décision du juge' },
                       { v:'administratif', icon:'📋',  label:'Administratif', desc:'Accord parental' },
                       { v:'urgence',       icon:'🚨',  label:'Urgence',       desc:'Placement immédiat' },
                       { v:'aemo',          icon:'👁',  label:'AEMO',          desc:'Action éducative' },
                       { v:'aemo_r',        icon:'👁',  label:'AEMO-R',        desc:'Renforcé' },
                       { v:'secret',        icon:'🔒',  label:'Secret',        desc:'Adresse masquée', secret:true },
-                    ].map(p => (
-                      <div key={p.v} onClick={() => editMode && F('type_placement')(p.v)}
-                        style={{ flex:1, minWidth:100, padding:'14px 10px', borderRadius:12, textAlign:'center', cursor: editMode ? 'pointer' : 'default',
-                          border:`2px solid ${form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#dde3f0'}`,
-                          background: form.type_placement === p.v ? (p.secret ? '#fdf0f0' : '#e8eef8') : '#f4f6fb', transition:'all .15s' }}>
-                        <div style={{ fontSize:24, marginBottom:4 }}>{p.icon}</div>
-                        <div style={{ fontSize:12, fontWeight:700, color: form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#1c2333' }}>{p.label}</div>
-                        <div style={{ fontSize:10, color:'#9aa3b8', marginTop:2 }}>{p.desc}</div>
+                    ]
+                    const selected = placements.find(p => p.v === form.type_placement)
+                    return editMode ? (
+                      <div style={{ display:'flex', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+                        {placements.map(p => (
+                          <div key={p.v} onClick={() => F('type_placement')(p.v)}
+                            style={{ flex:1, minWidth:90, padding:'12px 8px', borderRadius:12, textAlign:'center', cursor:'pointer',
+                              border:`2px solid ${form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#dde3f0'}`,
+                              background: form.type_placement === p.v ? (p.secret ? '#fdf0f0' : '#e8eef8') : '#f4f6fb', transition:'all .15s' }}>
+                            <div style={{ fontSize:22, marginBottom:4 }}>{p.icon}</div>
+                            <div style={{ fontSize:11, fontWeight:700, color: form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#1c2333' }}>{p.label}</div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
+                    ) : selected ? (
+                      <div style={{ display:'inline-flex', alignItems:'center', gap:12, padding:'12px 20px', borderRadius:12,
+                        border:`2px solid ${selected.secret ? '#8b1a1a' : '#1a4b8f'}`,
+                        background: selected.secret ? '#fdf0f0' : '#e8eef8', marginBottom:16 }}>
+                        <span style={{ fontSize:28 }}>{selected.icon}</span>
+                        <div>
+                          <div style={{ fontSize:15, fontWeight:700, color: selected.secret ? '#8b1a1a' : '#1a4b8f' }}>{selected.label}</div>
+                          <div style={{ fontSize:12, color:'#9aa3b8' }}>{selected.desc}</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13, marginBottom:16 }}>Type de placement non renseigné</div>
+                    )
+                  })()}
 
                   {form.type_placement === 'secret' && (
                     <div style={{ background:'#fdf0f0', border:'1px solid #f5c4c4', borderRadius:10, padding:'12px 16px', marginBottom:12, fontSize:13, color:'#8b1a1a', display:'flex', gap:10 }}>
@@ -1088,29 +1105,42 @@ export default function DossierEnfant({ profile }) {
                     </div>
                   )}
 
-                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:12, marginTop:8 }}>
-                    <ContactCard icon="👩‍💼" role="Référente Enfant"
-                      nom={enfant.referent?.nom} prenom={enfant.referent?.prenom}
-                      tel={enfant.referent?.telephone} email={enfant.referent?.email}
-                      bg="#e8eef8" />
-                    <ContactCard icon="👨‍💼" role="Assistant Familial Principal"
-                      nom={enfant.af_principal?.nom} prenom={enfant.af_principal?.prenom}
-                      tel={enfant.af_principal?.telephone} email={enfant.af_principal?.email}
-                      bg="#e6f5eb" />
+                  {/* Contacts ASE */}
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:12, marginTop:12 }}>
+                    {[
+                      { role:'referent',      icon:'👩‍💼', label:'Référent(e) Enfant',         bg:'#e8eef8', idKey:'referent_id',     data: enfant.referent },
+                      { role:'af',            icon:'👨‍👩‍👧', label:'AF Principal',               bg:'#e6f5eb', idKey:'af_principal_id', data: enfant.af_principal },
+                      { role:'ref_sante',     icon:'👩‍⚕️', label:'Référent(e) Santé',          bg:'#f0ebfb', idKey:'ref_sante_id',    data: null },
+                      { role:'gestionnaire',  icon:'👨‍💼', label:'Gestionnaire Enfant',         bg:'#fef3e2', idKey:'gestionnaire_id', data: null },
+                      { role:'rt_ase',        icon:'🎖️', label:'Responsable Territorial ASE', bg:'#e6f5eb', idKey:'rt_ase_id',       data: null },
+                    ].map(({ role, icon, label, bg, idKey, data }) => {
+                      const profil = collegues.find(c => c.id === v(idKey)) || data
+                      return (
+                        <div key={role} style={{ background: bg, borderRadius:10, padding:14, border:'1px solid #dde3f0' }}>
+                          <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.3px', marginBottom:8 }}>
+                            {icon} {label}
+                          </div>
+                          {editMode ? (
+                            <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)}
+                              style={{ fontSize:12 }}>
+                              <option value="">— Sélectionner —</option>
+                              {collegues.filter(c => role === 'af' ? c.role === 'af' : ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
+                                <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
+                              ))}
+                            </select>
+                          ) : profil ? (
+                            <div>
+                              <div style={{ fontSize:13, fontWeight:600 }}>{profil.prenom} {profil.nom}</div>
+                              {profil.telephone && <div style={{ fontSize:11, color:'#5a6478', marginTop:3 }}>📞 <a href={`tel:${profil.telephone}`} style={{ color:'#1a4b8f' }}>{profil.telephone}</a></div>}
+                              {profil.email && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Non renseigné</div>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-
-                  {/* Changer AF assigné */}
-                  {editMode && (
-                    <div style={{ marginTop:16 }}>
-                      <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:6 }}>AF Principal assigné</label>
-                      <select className="form-control" style={{ maxWidth:340 }} value={v('af_principal_id')} onChange={e => F('af_principal_id')(e.target.value)}>
-                        <option value="">— Sélectionner un AF —</option>
-                        {collegues.filter(c => c.role === 'af').map(c => (
-                          <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                 </SectionCard>
               </>
             )}
