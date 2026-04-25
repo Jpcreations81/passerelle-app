@@ -26,8 +26,6 @@ export default function ListeEnfants({ profile }) {
 
   const fetchEnfants = useCallback(async () => {
     if (!profile) return
-    console.log('fetchEnfants - role:', profile.role, 'id:', profile.id)
-    console.log('fetchEnfants - role:', profile.role, 'id:', profile.id)
     let q = supabase.from('enfants').select(`
       id, prenom, nom, date_naissance, sexe, numero_dossier, type_placement, date_placement,
       af_principal:af_principal_id(nom, prenom),
@@ -44,6 +42,8 @@ export default function ListeEnfants({ profile }) {
     const { data } = await supabase.from('profiles').select('id, nom, prenom, role').eq('territoire', profile?.territoire)
     if (data) setCollegues(data)
   }, [profile])
+
+  useEffect(() => { fetchEnfants(); fetchCollegues() }, [fetchEnfants, fetchCollegues])
 
   function calcAge(ddn) {
     if (!ddn) return ''
@@ -76,14 +76,6 @@ export default function ListeEnfants({ profile }) {
     showToast('✅ Ajouté !')
   }
 
-  function calcAge(ddn) {
-    if (!ddn) return ''
-    const d = new Date(ddn), now = new Date()
-    let age = now.getFullYear() - d.getFullYear()
-    if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) age--
-    return `${age} ans`
-  }
-
   async function createEnfant() {
     if (!newEnfant.prenom || !newEnfant.nom) { showToast('⚠️ Prénom et nom requis'); return }
     setSaving(true)
@@ -104,7 +96,7 @@ export default function ListeEnfants({ profile }) {
     if (!error && data) {
       showToast('✅ Dossier créé !')
       setShowModal(false)
-      setNewEnfant({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire' })
+      setNewEnfant({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', lieu_accueil:'af_principal', af_principal_id:'', fratrie:[] })
       navigate(`/enfants/${data.id}`)
     } else showToast('❌ Erreur : ' + error?.message)
     setSaving(false)
@@ -120,6 +112,9 @@ export default function ListeEnfants({ profile }) {
     administratif: { bg:'#e6f5eb', color:'#2e8b4a', label:'📋 Administratif' },
     urgence: { bg:'#fdf0ee', color:'#c0392b', label:'🚨 Urgence' },
     secret: { bg:'#fdf0f0', color:'#8b1a1a', label:'🔒 Secret' },
+    aemo: { bg:'#f0ebfb', color:'#6b21a8', label:'👁 AEMO' },
+    aemo_r: { bg:'#f0ebfb', color:'#6b21a8', label:'👁 AEMO-R' },
+    non_place: { bg:'#f4f6fb', color:'#9aa3b8', label:'🏠 Non placé' },
   }
 
   return (
@@ -133,8 +128,6 @@ export default function ListeEnfants({ profile }) {
         </PageHeader>
 
         <div style={{ padding:24 }}>
-
-          {/* Recherche */}
           <div style={{ marginBottom:20 }}>
             <input className="form-control" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="🔍 Rechercher par nom ou n° dossier..."
@@ -165,9 +158,8 @@ export default function ListeEnfants({ profile }) {
                 return (
                   <div key={e.id} onClick={() => navigate(`/enfants/${e.id}`)}
                     style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:14, padding:18, cursor:'pointer', boxShadow:'0 2px 12px rgba(26,75,143,.08)', transition:'all .15s' }}
-                    onMouseOver={e => { e.currentTarget.style.boxShadow='0 4px 20px rgba(26,75,143,.15)'; e.currentTarget.style.transform='translateY(-2px)' }}
-                    onMouseOut={e => { e.currentTarget.style.boxShadow='0 2px 12px rgba(26,75,143,.08)'; e.currentTarget.style.transform='none' }}>
-
+                    onMouseOver={ev => { ev.currentTarget.style.boxShadow='0 4px 20px rgba(26,75,143,.15)'; ev.currentTarget.style.transform='translateY(-2px)' }}
+                    onMouseOut={ev => { ev.currentTarget.style.boxShadow='0 2px 12px rgba(26,75,143,.08)'; ev.currentTarget.style.transform='none' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
                       <div style={{ width:44, height:44, borderRadius:'50%', background:'linear-gradient(135deg, #1a4b8f, #2e8b4a)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700, color:'#fff', flexShrink:0 }}>
                         {initiales}
@@ -175,27 +167,19 @@ export default function ListeEnfants({ profile }) {
                       <div style={{ flex:1 }}>
                         <div style={{ fontSize:15, fontWeight:700 }}>{e.prenom} {e.nom}</div>
                         <div style={{ fontSize:12, color:'#9aa3b8' }}>
-                          {age}{e.date_naissance && ` · ${new Date(e.date_naissance).toLocaleDateString('fr-FR')}`}
+                          {age}{e.date_naissance && (() => { const [y,m,d] = e.date_naissance.split('-'); return ` · ${d}/${m}/${y}` })()}
                         </div>
                       </div>
-                      {e.type_placement === 'secret' && (
-                        <span style={{ fontSize:14 }}>🔒</span>
-                      )}
+                      {e.type_placement === 'secret' && <span style={{ fontSize:14 }}>🔒</span>}
                     </div>
-
                     <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
                       {e.numero_dossier && (
-                        <span style={{ padding:'2px 8px', borderRadius:10, background:'#e8eef8', color:'#1a4b8f', fontSize:10, fontWeight:600 }}>
-                          {e.numero_dossier}
-                        </span>
+                        <span style={{ padding:'2px 8px', borderRadius:10, background:'#e8eef8', color:'#1a4b8f', fontSize:10, fontWeight:600 }}>{e.numero_dossier}</span>
                       )}
                       {e.type_placement && (
-                        <span style={{ padding:'2px 8px', borderRadius:10, background: placement.bg, color: placement.color, fontSize:10, fontWeight:600 }}>
-                          {placement.label}
-                        </span>
+                        <span style={{ padding:'2px 8px', borderRadius:10, background: placement.bg, color: placement.color, fontSize:10, fontWeight:600 }}>{placement.label}</span>
                       )}
                     </div>
-
                     <div style={{ borderTop:'1px solid #f0f0f0', paddingTop:10, display:'flex', justifyContent:'space-between', fontSize:11, color:'#9aa3b8' }}>
                       <span>👨‍👩‍👧 {e.af_principal ? `${e.af_principal.prenom} ${e.af_principal.nom}` : 'AF non assigné'}</span>
                       <span>👩‍💼 {e.referent ? `${e.referent.prenom} ${e.referent.nom}` : '—'}</span>
@@ -207,13 +191,11 @@ export default function ListeEnfants({ profile }) {
           )}
         </div>
 
-        {/* ── Modal création dossier ── */}
+        {/* Modal création dossier */}
         {showModal && (
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal-box" style={{ maxWidth:560 }} onClick={e => e.stopPropagation()}>
               <div className="modal-title">👶 Nouveau dossier enfant</div>
-
-              {/* Identité */}
               <div style={{ fontSize:11, fontWeight:700, color:'#1a4b8f', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>Identité</div>
               <div className="form-grid-2" style={{ marginBottom:16 }}>
                 <div className="form-group">
@@ -241,8 +223,6 @@ export default function ListeEnfants({ profile }) {
                   <input className="form-control" value={newEnfant.numero_dossier} onChange={e => setNewEnfant(n => ({...n, numero_dossier: e.target.value}))} placeholder="CD81-2026-XXXX" />
                 </div>
               </div>
-
-              {/* Type de placement */}
               <div style={{ fontSize:11, fontWeight:700, color:'#1a4b8f', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>Type de placement</div>
               <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:16 }}>
                 {[
@@ -261,8 +241,6 @@ export default function ListeEnfants({ profile }) {
                   </button>
                 ))}
               </div>
-
-              {/* Lieu d'accueil */}
               <div style={{ fontSize:11, fontWeight:700, color:'#1a4b8f', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>Lieu d'accueil</div>
               <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:12 }}>
                 {[
@@ -279,8 +257,6 @@ export default function ListeEnfants({ profile }) {
                   </button>
                 ))}
               </div>
-
-              {/* AF Principal si lieu = af_principal */}
               {newEnfant.lieu_accueil === 'af_principal' && (
                 <div className="form-group" style={{ marginBottom:16 }}>
                   <label className="form-label">AF Principal</label>
@@ -292,25 +268,6 @@ export default function ListeEnfants({ profile }) {
                   </select>
                 </div>
               )}
-
-              {/* Fratrie */}
-              <div style={{ fontSize:11, fontWeight:700, color:'#1a4b8f', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>Fratrie</div>
-              <div style={{ marginBottom:16 }}>
-                {(newEnfant.fratrie || []).map((f, i) => (
-                  <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 12px', background:'#f4f6fb', borderRadius:8, marginBottom:6, border:'1px solid #dde3f0' }}>
-                    <span>{f.sexe === 'F' ? '👧' : '👦'}</span>
-                    <span style={{ fontSize:13, fontWeight:600, flex:1 }}>{f.prenom} {f.nom}</span>
-                    <span style={{ fontSize:11, color: f.meme_af ? '#2e8b4a' : '#d97706' }}>{f.meme_af ? "Même AF" : "Autre AF"}</span>
-                    <button onClick={() => setNewEnfant(n => ({...n, fratrie: n.fratrie.filter((_,j) => j !== i)}))}
-                      style={{ padding:'2px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', color:'#c0392b', fontSize:11, cursor:'pointer' }}>✕</button>
-                  </div>
-                ))}
-                <button type="button" onClick={() => { setFratrieModal(true); setFratrieMode('question') }}
-                  className="btn btn-secondary" style={{ fontSize:11 }}>
-                  + Ajouter fratrie
-                </button>
-              </div>
-
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Annuler</button>
                 <button className="btn btn-primary" onClick={createEnfant} disabled={saving}>
@@ -321,12 +278,11 @@ export default function ListeEnfants({ profile }) {
           </div>
         )}
 
-        {/* ── Modal fratrie ── */}
+        {/* Modal fratrie */}
         {fratrieModal && (
           <div className="modal-overlay" onClick={() => setFratrieModal(false)}>
             <div className="modal-box" style={{ maxWidth:460 }} onClick={e => e.stopPropagation()}>
               <div className="modal-title">👧👦 Ajouter un membre de la fratrie</div>
-
               {fratrieMode === 'question' && (
                 <div style={{ textAlign:'center', padding:'20px 0' }}>
                   <div style={{ fontSize:32, marginBottom:16 }}>🔍</div>
@@ -337,7 +293,6 @@ export default function ListeEnfants({ profile }) {
                   </div>
                 </div>
               )}
-
               {fratrieMode === 'search' && (
                 <div>
                   <div className="form-group">
@@ -367,7 +322,6 @@ export default function ListeEnfants({ profile }) {
                   </div>
                 </div>
               )}
-
               {fratrieMode === 'create' && (
                 <div>
                   <div className="form-grid-2">
@@ -393,18 +347,6 @@ export default function ListeEnfants({ profile }) {
                         <option value="M">👦 Masculin</option>
                         <option value="F">👧 Féminin</option>
                       </select>
-                    </div>
-                    <div className="form-group col-span-2">
-                      <label className="form-label">Famille d'accueil</label>
-                      <div style={{ display:'flex', gap:8 }}>
-                        {[{v:true,l:"Même AF"},{v:false,l:"Autre AF"}].map(opt => (
-                          <button key={String(opt.v)} type="button"
-                            onClick={() => setNewFratrieItem(n => ({...n, meme_af: opt.v}))}
-                            style={{ flex:1, padding:'8px', borderRadius:8, border:`1.5px solid ${newFratrieItem.meme_af === opt.v ? '#1a4b8f' : '#dde3f0'}`, background: newFratrieItem.meme_af === opt.v ? '#e8eef8' : '#fff', color: newFratrieItem.meme_af === opt.v ? '#1a4b8f' : '#5a6478', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                            {opt.l}
-                          </button>
-                        ))}
-                      </div>
                     </div>
                   </div>
                   <div className="modal-footer">
