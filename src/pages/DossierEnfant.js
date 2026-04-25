@@ -113,6 +113,7 @@ export default function DossierEnfant({ profile }) {
   const [editParent, setEditParent] = useState({})
   const [savingParent, setSavingParent] = useState(false)
   const [docsParent, setDocsParent] = useState([])
+  const [maisonsDept, setMaisonsDept] = useState([])
   const [uploadingDocParent, setUploadingDocParent] = useState(false)
   const [fratrieSearch, setFratrieSearch] = useState('')
   const [fratrieSearchResults, setFratrieSearchResults] = useState([])
@@ -406,6 +407,11 @@ export default function DossierEnfant({ profile }) {
     showToast(msgs[parentCommun] || '✅ Dossier créé !')
   }
 
+  const fetchMaisonsDept = useCallback(async () => {
+    const { data } = await supabase.from('maisons_departement').select('*').order('ville', { ascending: true })
+    if (data) setMaisonsDept(data)
+  }, [])
+
   const fetchDocuments = useCallback(async () => {
     if (!id) return
     const { data } = await supabase
@@ -504,7 +510,8 @@ export default function DossierEnfant({ profile }) {
     fetchCollegues()
     fetchJournal()
     fetchDocuments()
-  }, [fetchEnfant, fetchCollegues, fetchJournal, fetchDocuments])
+    fetchMaisonsDept()
+  }, [fetchEnfant, fetchCollegues, fetchJournal, fetchDocuments, fetchMaisonsDept])
 
   // Charger docs parents quand pere/mere chargés
   const [docsPereFiche, setDocsPereFiche] = useState([])
@@ -767,6 +774,7 @@ export default function DossierEnfant({ profile }) {
                       { key:'livret_famille', icon:'📋', label:'Livret de famille', statusKey:'livret_famille_statut', options:['Disponible','Non disponible','En cours'] },
                       { key:'carnet_sante', icon:'📗', label:'Carnet de santé', statusKey:'carnet_sante_statut', options:['Disponible','Non disponible'] },
                       { key:'carnet_vaccination', icon:'💉', label:'Carnet de vaccination', statusKey:'vaccination_statut', options:['À jour','Non à jour','Inconnu'] },
+                      { key:'extrait_naissance', icon:'📜', label:'Extrait de naissance', statusKey:'extrait_naissance_statut', options:['Disponible','Non disponible','En cours'] },
                     ]
                     const docsAvecScan = DOCS.filter(d => documents.some(doc => doc.type_doc === d.key))
                     const docsSansScan = DOCS.filter(d => !documents.some(doc => doc.type_doc === d.key))
@@ -995,44 +1003,34 @@ export default function DossierEnfant({ profile }) {
                       + Ajouter un membre de la fratrie
                     </button>
                   )}
-                  {(!form.fratrie || form.fratrie.length === 0) && !editMode && (
-                    <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13 }}>Aucun membre de la fratrie renseigné</div>
-                  )}
-                </SectionCard>
-              </>
-            )}
-
             {onglet === 'placement' && (
               <>
+                {/* ── TYPE DE PLACEMENT ── */}
                 <SectionCard icon="🏠" title="Type de placement">
-                  <div style={{ display:'flex', gap:12, marginBottom:20, flexWrap:'wrap' }}>
+                  <div style={{ display:'flex', gap:12, marginBottom:16, flexWrap:'wrap' }}>
                     {[
-                      { v:'judiciaire', icon:'⚖️', label:'Judiciaire', desc:'Décision du juge' },
-                      { v:'administratif', icon:'📋', label:'Administratif', desc:'Accord parental' },
-                      { v:'urgence', icon:'🚨', label:'Urgence', desc:'Placement immédiat' },
-                      { v:'secret', icon:'🔒', label:'Secret', desc:'Adresse masquée', secret:true },
+                      { v:'judiciaire',    icon:'⚖️',  label:'Judiciaire',    desc:'Décision du juge' },
+                      { v:'administratif', icon:'📋',  label:'Administratif', desc:'Accord parental' },
+                      { v:'urgence',       icon:'🚨',  label:'Urgence',       desc:'Placement immédiat' },
+                      { v:'aemo',          icon:'👁',  label:'AEMO',          desc:'Action éducative' },
+                      { v:'aemo_r',        icon:'👁',  label:'AEMO-R',        desc:'Renforcé' },
+                      { v:'secret',        icon:'🔒',  label:'Secret',        desc:'Adresse masquée', secret:true },
                     ].map(p => (
                       <div key={p.v} onClick={() => editMode && F('type_placement')(p.v)}
-                        style={{
-                          flex:1, minWidth:120, padding:'16px 12px', borderRadius:12, textAlign:'center', cursor: editMode ? 'pointer' : 'default',
-                          border: `2px solid ${form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#dde3f0'}`,
-                          background: form.type_placement === p.v ? (p.secret ? '#fdf0f0' : '#e8eef8') : '#f4f6fb',
-                          transition:'all .15s'
-                        }}>
-                        <div style={{ fontSize:28, marginBottom:6 }}>{p.icon}</div>
-                        <div style={{ fontSize:13, fontWeight:700, color: form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#1c2333' }}>{p.label}</div>
-                        <div style={{ fontSize:11, color:'#9aa3b8', marginTop:2 }}>{p.desc}</div>
+                        style={{ flex:1, minWidth:100, padding:'14px 10px', borderRadius:12, textAlign:'center', cursor: editMode ? 'pointer' : 'default',
+                          border:`2px solid ${form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#dde3f0'}`,
+                          background: form.type_placement === p.v ? (p.secret ? '#fdf0f0' : '#e8eef8') : '#f4f6fb', transition:'all .15s' }}>
+                        <div style={{ fontSize:24, marginBottom:4 }}>{p.icon}</div>
+                        <div style={{ fontSize:12, fontWeight:700, color: form.type_placement === p.v ? (p.secret ? '#8b1a1a' : '#1a4b8f') : '#1c2333' }}>{p.label}</div>
+                        <div style={{ fontSize:10, color:'#9aa3b8', marginTop:2 }}>{p.desc}</div>
                       </div>
                     ))}
                   </div>
 
                   {form.type_placement === 'secret' && (
-                    <div style={{ background:'#fdf0f0', border:'1px solid #f5c4c4', borderRadius:10, padding:'12px 16px', marginBottom:16, fontSize:13, color:'#8b1a1a', display:'flex', gap:10, alignItems:'flex-start' }}>
+                    <div style={{ background:'#fdf0f0', border:'1px solid #f5c4c4', borderRadius:10, padding:'12px 16px', marginBottom:12, fontSize:13, color:'#8b1a1a', display:'flex', gap:10 }}>
                       <span style={{ fontSize:18 }}>🔒</span>
-                      <div>
-                        <strong>Placement secret</strong> — Les informations suivantes ne doivent pas apparaître sur les documents destinés aux parents :
-                        nom/prénom AF, adresse domicile, téléphone, ville, établissement scolaire.
-                      </div>
+                      <div><strong>Placement secret</strong> — Adresse AF, téléphone, ville et école masqués sur les documents destinés aux parents.</div>
                     </div>
                   )}
 
@@ -1040,25 +1038,50 @@ export default function DossierEnfant({ profile }) {
                     <Field label="Date de placement" type="date" value={v('date_placement')} onChange={F('date_placement')} readOnly={!editMode} />
                     <Field label="Date de fin prévue" type="date" value={v('date_fin_placement')} onChange={F('date_fin_placement')} readOnly={!editMode} />
                     <Field label="Durée" readOnly value={
-                      form.date_placement && form.date_fin_placement
-                        ? (() => {
-                            const d1 = new Date(form.date_placement), d2 = new Date(form.date_fin_placement)
-                            const mois = Math.round((d2 - d1) / (1000 * 60 * 60 * 24 * 30))
-                            return mois >= 12 ? `${Math.round(mois/12)} an(s)` : `${mois} mois`
-                          })()
-                        : '—'
+                      form.date_placement && form.date_fin_placement ? (() => {
+                        const d1 = new Date(form.date_placement), d2 = new Date(form.date_fin_placement)
+                        const mois = Math.round((d2-d1)/(1000*60*60*24*30))
+                        return mois >= 12 ? `${Math.round(mois/12)} an(s)` : `${mois} mois`
+                      })() : '—'
                     } />
                   </FormGrid>
                 </SectionCard>
 
+                {/* ── MAISON DU DÉPARTEMENT ── */}
                 <SectionCard icon="🏛️" title="Maison du Département">
-                  <FormGrid cols={3}>
-                    <Field label="Nom de la MD" value={v('md_nom')} onChange={F('md_nom')} readOnly={!editMode} placeholder="MD Gaillac-Graulhet" />
-                    <Field label="Territoire" value={v('territoire')} onChange={F('territoire')} readOnly={!editMode} />
-                    <Field label="Adresse" value={v('md_adresse')} onChange={F('md_adresse')} readOnly={!editMode} />
-                  </FormGrid>
+                  {editMode ? (
+                    <div style={{ marginBottom:16 }}>
+                      <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:6 }}>Sélectionner la MD</label>
+                      <select className="form-control" style={{ maxWidth:400 }}
+                        value={v('md_id') || ''}
+                        onChange={e => {
+                          const md = maisonsDept.find(m => m.id === e.target.value)
+                          if (md) {
+                            F('md_id')(md.id)
+                            F('md_nom')(md.nom)
+                            F('md_adresse')(`${md.adresse}, ${md.code_postal} ${md.ville}`)
+                            F('md_tel')(md.telephone)
+                            F('md_email')(md.email)
+                          }
+                        }}>
+                        <option value="">— Sélectionner une MD —</option>
+                        {maisonsDept.map(md => (
+                          <option key={md.id} value={md.id}>{md.nom} — {md.ville}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ) : null}
 
-                  <div style={{ marginTop:20, display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:12 }}>
+                  {v('md_nom') && (
+                    <div style={{ background:'#f4f6fb', borderRadius:10, padding:16, border:'1px solid #dde3f0', marginBottom:16 }}>
+                      <div style={{ fontSize:14, fontWeight:700, color:'#1a4b8f', marginBottom:6 }}>🏛️ {v('md_nom')}</div>
+                      {v('md_adresse') && <div style={{ fontSize:13, color:'#5a6478' }}>📍 {v('md_adresse')}</div>}
+                      {v('md_tel') && <div style={{ fontSize:13, color:'#5a6478', marginTop:4 }}>📞 <a href={`tel:${v('md_tel')}`} style={{ color:'#1a4b8f' }}>{v('md_tel')}</a></div>}
+                      {v('md_email') && <div style={{ fontSize:13, color:'#5a6478', marginTop:4 }}>✉️ <a href={`mailto:${v('md_email')}`} style={{ color:'#1a4b8f' }}>{v('md_email')}</a></div>}
+                    </div>
+                  )}
+
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:12, marginTop:8 }}>
                     <ContactCard icon="👩‍💼" role="Référente Enfant"
                       nom={enfant.referent?.nom} prenom={enfant.referent?.prenom}
                       tel={enfant.referent?.telephone} email={enfant.referent?.email}
@@ -1067,49 +1090,24 @@ export default function DossierEnfant({ profile }) {
                       nom={enfant.af_principal?.nom} prenom={enfant.af_principal?.prenom}
                       tel={enfant.af_principal?.telephone} email={enfant.af_principal?.email}
                       bg="#e6f5eb" />
-                    <ContactCard icon="👩‍⚕️" role="Référente Santé"
-                      nom={v('ref_sante_nom')} prenom={v('ref_sante_prenom')}
-                      tel={v('ref_sante_tel')} email={v('ref_sante_email')}
-                      bg="#f0ebfb"
-                      onEdit={editMode ? () => showToast('✏️ Modifier référente santé...') : null} />
-                    <ContactCard icon="🎖️" role="Délégué ASE"
-                      nom={v('delegue_nom')} prenom={v('delegue_prenom')}
-                      tel={v('delegue_tel')} email={v('delegue_email')}
-                      bg="#fef3e2"
-                      onEdit={editMode ? () => showToast('✏️ Modifier délégué ASE...') : null} />
                   </div>
 
-                  {editMode && (
-                    <div style={{ marginTop:16, display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:16 }}>
-                      <SectionCard icon="👩‍⚕️" title="Modifier référente santé" defaultOpen={false}>
-                        <FormGrid cols={2}>
-                          <Field label="Prénom" value={v('ref_sante_prenom')} onChange={F('ref_sante_prenom')} />
-                          <Field label="Nom" value={v('ref_sante_nom')} onChange={F('ref_sante_nom')} />
-                          <Field label="Téléphone" value={v('ref_sante_tel')} onChange={F('ref_sante_tel')} />
-                          <Field label="Email" value={v('ref_sante_email')} onChange={F('ref_sante_email')} />
-                        </FormGrid>
-                      </SectionCard>
-                      <SectionCard icon="🎖️" title="Modifier délégué ASE" defaultOpen={false}>
-                        <FormGrid cols={2}>
-                          <Field label="Prénom" value={v('delegue_prenom')} onChange={F('delegue_prenom')} />
-                          <Field label="Nom" value={v('delegue_nom')} onChange={F('delegue_nom')} />
-                          <Field label="Téléphone" value={v('delegue_tel')} onChange={F('delegue_tel')} />
-                          <Field label="Email" value={v('delegue_email')} onChange={F('delegue_email')} />
-                        </FormGrid>
-                      </SectionCard>
-                    </div>
-                  )}
-
-                  {/* AF assigné */}
+                  {/* Changer AF assigné */}
                   {editMode && (
                     <div style={{ marginTop:16 }}>
                       <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:6 }}>AF Principal assigné</label>
-                      <select value={v('af_principal_id')} onChange={e => F('af_principal_id')(e.target.value)}
-                        style={{ width:'100%', maxWidth:340, padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontFamily:'Sora,sans-serif', fontSize:13, background:'#f4f6fb', outline:'none' }}>
+                      <select className="form-control" style={{ maxWidth:340 }} value={v('af_principal_id')} onChange={e => F('af_principal_id')(e.target.value)}>
                         <option value="">— Sélectionner un AF —</option>
                         {collegues.filter(c => c.role === 'af').map(c => (
                           <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
                         ))}
+                      </select>
+                    </div>
+                  )}
+                </SectionCard>
+              </>
+            )}
+
                       </select>
                     </div>
                   )}
