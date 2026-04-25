@@ -1149,7 +1149,6 @@ export default function DossierEnfant({ profile }) {
                     const DOCS_PLACEMENT = [
                       { key:'contrat_accueil',   icon:'📋', label:"Contrat d'accueil" },
                       { key:'projet_accueil',    icon:'📝', label:"Projet pour l'enfant (PPE)" },
-                      { key:'rapport_situation', icon:'📊', label:'Rapport de situation' },
                       { key:'autre_placement',   icon:'📎', label:'Autre document' },
                     ]
                     const docsPlacement = documents.filter(d => ['contrat_accueil','projet_accueil','rapport_situation','autre_placement'].includes(d.type_doc))
