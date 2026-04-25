@@ -1391,12 +1391,7 @@ export default function DossierEnfant({ profile }) {
                       ))}
                       {editMode && (
                         <button onClick={() => {
-                          const c = prompt('Allergie ou condition
-Exemples :
-⚠️ Allergie arachides
-💊 Ritaline 10mg/matin
-🧠 TDA/H
-🍽️ Sans gluten')
+                          const c = prompt('Allergie ou condition (ex: ⚠️ Allergie arachides, 💊 Ritaline 10mg/matin, 🧠 TDA/H, 🍽️ Sans gluten)')
                           if (c) setForm(f => ({ ...f, conditions_sante: [...(f.conditions_sante || []), c] }))
                         }} style={{ padding:'5px 12px', borderRadius:15, fontSize:12, border:'1px dashed #c4d4f5', background:'#e8eef8', color:'#1a4b8f', cursor:'pointer', fontWeight:600 }}>
                           + Ajouter
