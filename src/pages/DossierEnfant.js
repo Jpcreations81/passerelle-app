@@ -1224,9 +1224,29 @@ export default function DossierEnfant({ profile }) {
                     <Field label="Mesure" value={v('tj_mesure')} onChange={F('tj_mesure')} readOnly={!editMode}
                       options={['OPP','Placement judiciaire','AEMO','AESF','Tutelle ASE']} />
                   </FormGrid>
-                  <button onClick={() => showToast('📎 Ajouter document judiciaire...')} className="btn btn-secondary" style={{ marginTop:16 }}>
-                    📎 Ajouter document
-                  </button>
+                  {/* Documents judiciaires */}
+                  <div style={{ marginTop:16 }}>
+                    {documents.filter(d => d.type_doc === 'judiciaire').map(d => (
+                      <div key={d.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 12px', background:'#f4f6fb', borderRadius:8, border:'1px solid #dde3f0', marginBottom:6 }}>
+                        <span>{d.mime_type?.includes('pdf') ? '📄' : '🖼️'}</span>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ fontSize:11, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.nom}</div>
+                          <div style={{ fontSize:10, color:'#9aa3b8' }}>{d.taille ? `${Math.round(d.taille/1024)} Ko` : ''}</div>
+                        </div>
+                        <button onClick={async () => { const { data: url } = await supabase.storage.from('documents-enfants').createSignedUrl(d.storage_path, 3600); if (url?.signedUrl) window.open(url.signedUrl, '_blank') }}
+                          style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>👁</button>
+                        <button onClick={async () => { const { data: url } = await supabase.storage.from('documents-enfants').createSignedUrl(d.storage_path, 60); if (url?.signedUrl) { const resp = await fetch(url.signedUrl); const blob = await resp.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = d.nom; document.body.appendChild(a); a.click(); document.body.removeChild(a) } }}
+                          style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>⬇</button>
+                        {isReferent && <button onClick={() => deleteDocument(d.id, d.storage_path)}
+                          style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #fde8e8', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>}
+                      </div>
+                    ))}
+                    <label style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', border:'1px dashed #c4d4f5', borderRadius:8, background:'#f0f9ff', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontFamily:'Sora,sans-serif', marginTop:4 }}>
+                      {uploadingDoc === 'judiciaire' ? '⏳ Upload...' : '📎 Ajouter jugement, ordonnance, OPP...'}
+                      <input type="file" accept="image/*,application/pdf" style={{ display:'none' }}
+                        onChange={e => { if (e.target.files[0]) uploadDocument(e.target.files[0], 'judiciaire') }} />
+                    </label>
+                  </div>
                 </SectionCard>
 
                 <SectionCard icon="👨‍👩‍👧" title="Autorité parentale">
