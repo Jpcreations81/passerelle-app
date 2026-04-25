@@ -1003,6 +1003,13 @@ export default function DossierEnfant({ profile }) {
                       + Ajouter un membre de la fratrie
                     </button>
                   )}
+                  {(!form.fratrie || form.fratrie.length === 0) && !editMode && (
+                    <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13 }}>Aucun membre de la fratrie renseigné</div>
+                  )}
+                </SectionCard>
+              </>
+            )}
+
             {onglet === 'placement' && (
               <>
                 {/* ── TYPE DE PLACEMENT ── */}
