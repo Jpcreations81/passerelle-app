@@ -1601,28 +1601,10 @@ export default function DossierEnfant({ profile }) {
                 <input className="form-control" value={editParent.ville || ''}
                   onChange={e => setEditParent(p => ({...p, ville: e.target.value}))} />
               </div>
-              <div className="form-group">
-                <label className="form-label">Droits parentaux</label>
-                <select className="form-control" value={editParent.droits_parentaux || ''}
-                  onChange={e => setEditParent(p => ({...p, droits_parentaux: e.target.value}))}>
-                  <option value="">—</option>
-                  <option>Autorité parentale complète</option>
-                  <option>Autorité parentale partielle</option>
-                  <option>Déchéance partielle</option>
-                  <option>Déchéance totale</option>
-                </select>
-              </div>
               <div className="form-group col-span-2">
-                <label className="form-label">Droit de visite</label>
-                <select className="form-control" value={editParent.droit_visite || ''}
-                  onChange={e => setEditParent(p => ({...p, droit_visite: e.target.value}))}>
-                  <option value="">—</option>
-                  <option>Visite médiatisée</option>
-                  <option>Visite libre</option>
-                  <option>Mixte (médiatisé + temps libre)</option>
-                  <option>Aucun droit</option>
-                  <option>Suspendu</option>
-                </select>
+                <div style={{ padding:'10px 14px', background:'#f0f9ff', border:'1px solid #c4d4f5', borderRadius:8, fontSize:12, color:'#1a4b8f' }}>
+                  📌 Les droits parentaux et droits de visite sont à renseigner dans l'onglet ⚖️ Judiciaire
+                </div>
               </div>
               <div className="form-group col-span-2">
                 <label className="form-label">Notes</label>
