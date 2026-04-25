@@ -1142,6 +1142,66 @@ export default function DossierEnfant({ profile }) {
                     })}
                   </div>
                 </SectionCard>
+
+                {/* ── DOCUMENTS PLACEMENT ── */}
+                <SectionCard icon="📄" title="Documents placement">
+                  {(() => {
+                    const DOCS_PLACEMENT = [
+                      { key:'contrat_accueil',   icon:'📋', label:"Contrat d'accueil" },
+                      { key:'projet_accueil',    icon:'📝', label:"Projet pour l'enfant (PPE)" },
+                      { key:'rapport_situation', icon:'📊', label:'Rapport de situation' },
+                      { key:'autre_placement',   icon:'📎', label:'Autre document' },
+                    ]
+                    const docsPlacement = documents.filter(d => ['contrat_accueil','projet_accueil','rapport_situation','autre_placement'].includes(d.type_doc))
+                    const docsSansUpload = DOCS_PLACEMENT.filter(d => !docsPlacement.some(doc => doc.type_doc === d.key))
+
+                    return (
+                      <>
+                        {/* Documents uploadés */}
+                        {docsPlacement.length > 0 && (
+                          <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:12 }}>
+                            {docsPlacement.map(d => (
+                              <div key={d.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8, border:'1px solid #dde3f0' }}>
+                                <span style={{ fontSize:18 }}>{d.mime_type?.includes('pdf') ? '📄' : '🖼️'}</span>
+                                <div style={{ flex:1, minWidth:0 }}>
+                                  <div style={{ fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.nom}</div>
+                                  <div style={{ fontSize:10, color:'#9aa3b8' }}>{d.taille ? `${Math.round(d.taille/1024)} Ko` : ''} · {fmtDate(d.created_at?.slice(0,10))}</div>
+                                </div>
+                                <button onClick={async () => { const { data: url } = await supabase.storage.from('documents-enfants').createSignedUrl(d.storage_path, 3600); if (url?.signedUrl) window.open(url.signedUrl, '_blank') }}
+                                  style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>👁</button>
+                                <button onClick={async () => { const { data: url } = await supabase.storage.from('documents-enfants').createSignedUrl(d.storage_path, 60); if (url?.signedUrl) { const resp = await fetch(url.signedUrl); const blob = await resp.blob(); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = d.nom; document.body.appendChild(a); a.click(); document.body.removeChild(a) } }}
+                                  style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>⬇</button>
+                                {isReferent && <button onClick={() => deleteDocument(d.id, d.storage_path)}
+                                  style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #fde8e8', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Documents manquants */}
+                        {docsSansUpload.length > 0 && (
+                          <div style={{ background:'#fef3e2', border:'1px solid #f5dca4', borderRadius:10, padding:12 }}>
+                            <div style={{ fontSize:12, fontWeight:700, color:'#d97706', marginBottom:8 }}>
+                              ⚠️ Documents manquants ({docsSansUpload.length})
+                            </div>
+                            <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                              {docsSansUpload.map(doc => (
+                                <label key={doc.key} style={{ display:'flex', alignItems:'center', gap:6, padding:'6px 12px', borderRadius:20, background:'#fff', border:'1px solid #f5dca4', fontSize:12, cursor:'pointer', fontFamily:'Sora,sans-serif' }}>
+                                  <span>{doc.icon}</span>
+                                  <span style={{ color:'#1c2333' }}>{doc.label}</span>
+                                  <span style={{ color:'#1a4b8f', fontWeight:600, fontSize:11 }}>+ Ajouter</span>
+                                  {uploadingDoc === doc.key && <span>⏳</span>}
+                                  <input type="file" accept="image/*,application/pdf" style={{ display:'none' }}
+                                    onChange={e => { if (e.target.files[0]) uploadDocument(e.target.files[0], doc.key) }} />
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
+                </SectionCard>
               </>
             )}
 
