@@ -2151,13 +2151,14 @@ Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
                   }}>📋 Copier</button>
                   <button className="btn btn-secondary" onClick={async () => {
                     try {
-                      const nomFichier = 'Rapport_' + enfant.prenom + '_' + enfant.nom + '_' + rapportPeriode.debut + '_au_' + rapportPeriode.fin + '.txt'
-                      const blob = new Blob([rapportTexte], { type: 'text/plain' })
-                      const file = new File([blob], nomFichier, { type: 'text/plain' })
-                      const path = id + '/rapport_' + Date.now() + '.txt'
+                      const nomFichier = 'Rapport_' + enfant.prenom + '_' + enfant.nom + '_' + rapportPeriode.debut + '_au_' + rapportPeriode.fin + '.pdf'
+                      const contenuPDF = rapportTexte
+                      const blob = new Blob([contenuPDF], { type: 'application/pdf' })
+                      const file = new File([blob], nomFichier, { type: 'application/pdf' })
+                      const path = id + '/rapport_' + Date.now() + '.pdf'
                       const { error: sErr } = await supabase.storage.from('documents-enfants').upload(path, file)
                       if (sErr) { showToast('❌ ' + sErr.message); return }
-                      await supabase.from('documents_enfant').insert({ enfant_id: id, type_doc: 'rapport', nom: nomFichier, storage_path: path, taille: blob.size, mime_type: 'text/plain', uploaded_by: profile.id })
+                      await supabase.from('documents_enfant').insert({ enfant_id: id, type_doc: 'rapport', nom: nomFichier, storage_path: path, taille: blob.size, mime_type: 'application/pdf', uploaded_by: profile.id })
                       showToast('✅ Rapport enregistré dans les documents !')
                       fetchDocuments()
                     } catch(e) { showToast('❌ ' + e.message) }
