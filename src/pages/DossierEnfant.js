@@ -600,7 +600,7 @@ export default function DossierEnfant({ profile }) {
       return `${d} (${type}) ${humeur} ${tags}\n${n.texte}`
     }).join('\n\n---\n\n')
 
-    const prompt = `Tu es un travailleur social rédigeant un rapport de synthèse pour l'ASE (Aide Sociale à l'Enfance) du Tarn.
+    const prompt = `Rédige un rapport de synthèse professionnel pour l'ASE (Aide Sociale à l'Enfance) du Tarn, en tant qu'outil Passerelle.
 
 Voici les notes du journal de l'enfant ${enfant.prenom} ${enfant.nom} (${calcAge(enfant.date_naissance)}) 
 pour la période du ${fmtDate(rapportPeriode.debut)} au ${fmtDate(rapportPeriode.fin)} :
@@ -2188,8 +2188,7 @@ Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
                       '<span>Genere le ' + new Date().toLocaleDateString('fr-FR') + ' · Periode : ' + fmtDate(rapportPeriode.debut) + ' au ' + fmtDate(rapportPeriode.fin) + '</span></div>' +
                       '<h1>Rapport de synthese — ' + enfant.prenom + ' ' + enfant.nom + '</h1>' +
                       enteteHtml +
-                      '<div style="line-height:1.9;">' + rapportTexte.split('
-').map(function(l){return l ? '<p>' + l + '</p>' : '<br/>'}).join('') + '</div>' +
+                      '<div style="line-height:1.9;">' + rapportTexte.split('\n').map(function(l){return l ? '<p>' + l + '</p>' : '<br/>'}).join('') + '</div>' +
                       '</body></html>')
                     w.document.close()
                     w.print()
