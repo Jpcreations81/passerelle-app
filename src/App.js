@@ -10,6 +10,7 @@ import FichePresence from './pages/FichePresence'
 import Rapports from './pages/Rapports'
 import Assfam from './pages/Assfam'
 import DossierAssfam from './pages/DossierAssfam'
+import Documents from './pages/Documents'
 import './App.css'
 
 export default function App() {
@@ -60,6 +61,7 @@ export default function App() {
         <Route path="/rapports" element={session ? <Rapports profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/assfam" element={session ? <Assfam profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/assfam/:id" element={session ? <DossierAssfam profile={profile} /> : <Navigate to="/login" />} />
+        <Route path="/documents" element={session ? <Documents profile={profile} /> : <Navigate to="/login" />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
