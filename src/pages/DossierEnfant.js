@@ -2147,24 +2147,54 @@ Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
                   <button className="btn btn-secondary" onClick={() => setShowRapportModal(false)}>Fermer</button>
                   <button className="btn btn-secondary" onClick={() => {
                     navigator.clipboard.writeText(rapportTexte)
-                    showToast('📋 Copié dans le presse-papiers !')
+                    showToast('📋 Copié !')
                   }}>📋 Copier</button>
+                  <button className="btn btn-secondary" onClick={async () => {
+                    try {
+                      const nomFichier = 'Rapport_' + enfant.prenom + '_' + enfant.nom + '_' + rapportPeriode.debut + '_au_' + rapportPeriode.fin + '.txt'
+                      const blob = new Blob([rapportTexte], { type: 'text/plain' })
+                      const file = new File([blob], nomFichier, { type: 'text/plain' })
+                      const path = id + '/rapport_' + Date.now() + '.txt'
+                      const { error: sErr } = await supabase.storage.from('documents-enfants').upload(path, file)
+                      if (sErr) { showToast('❌ ' + sErr.message); return }
+                      await supabase.from('documents_enfant').insert({ enfant_id: id, type_doc: 'rapport', nom: nomFichier, storage_path: path, taille: blob.size, mime_type: 'text/plain', uploaded_by: profile.id })
+                      showToast('✅ Rapport enregistré dans les documents !')
+                      fetchDocuments()
+                    } catch(e) { showToast('❌ ' + e.message) }
+                  }}>💾 Enregistrer</button>
                   <button className="btn btn-primary" onClick={() => {
                     const w = window.open('', '_blank')
-                    w.document.write(`<html><head><title>Rapport - ${enfant.prenom} ${enfant.nom}</title>
-                      <style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;line-height:1.8;font-size:14px;}
-                      h1{font-size:18px;border-bottom:2px solid #1a4b8f;padding-bottom:8px;color:#1a4b8f;}
-                      .header{display:flex;justify-content:space-between;margin-bottom:20px;font-size:12px;color:#666;}
-                      </style></head><body>
-                      <div class="header"><span>Passerelle — Département du Tarn (81)</span><span>Période : ${fmtDate(rapportPeriode.debut)} au ${fmtDate(rapportPeriode.fin)}</span></div>
-                      <h1>Rapport de synthèse — ${enfant.prenom} ${enfant.nom}</h1>
-                      <p>${rapportTexte.split('\n').join('</p><p>')}</p>
-                      </body></html>`)
+                    const enteteHtml = '<h2 style="font-size:14px;color:#1a4b8f;margin-top:20px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px;">Identite de l enfant</h2>' +
+                      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin-bottom:16px;font-size:12px;">' +
+                      '<div><div style="color:#666;font-size:11px;">Nom et prenom</div><div>' + enfant.prenom + ' ' + enfant.nom + '</div></div>' +
+                      '<div><div style="color:#666;font-size:11px;">Date de naissance</div><div>' + fmtDate(enfant.date_naissance) + ' (' + calcAge(enfant.date_naissance) + ')</div></div>' +
+                      '<div><div style="color:#666;font-size:11px;">N dossier CD81</div><div>' + (enfant.numero_dossier || '—') + '</div></div>' +
+                      '</div>' +
+                      '<h2 style="font-size:14px;color:#1a4b8f;margin-top:20px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px;">Situation de placement</h2>' +
+                      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px;margin-bottom:16px;font-size:12px;">' +
+                      '<div><div style="color:#666;font-size:11px;">Type de placement</div><div>' + (enfant.type_placement || '—') + '</div></div>' +
+                      '<div><div style="color:#666;font-size:11px;">Date de placement</div><div>' + (fmtDate(enfant.date_placement) || '—') + '</div></div>' +
+                      '<div><div style="color:#666;font-size:11px;">Maison du Departement</div><div>' + (enfant.md_nom || '—') + '</div></div>' +
+                      '<div><div style="color:#666;font-size:11px;">Referente</div><div>' + (enfant.referent ? enfant.referent.prenom + ' ' + enfant.referent.nom : '—') + '</div></div>' +
+                      '<div><div style="color:#666;font-size:11px;">AF Principal</div><div>' + (enfant.af_principal ? enfant.af_principal.prenom + ' ' + enfant.af_principal.nom : '—') + '</div></div>' +
+                      '</div>' +
+                      '<h2 style="font-size:14px;color:#1a4b8f;margin-top:20px;margin-bottom:8px;border-bottom:1px solid #eee;padding-bottom:4px;">Observations de la periode</h2>'
+                    w.document.write('<html><head><title>Rapport - ' + enfant.prenom + ' ' + enfant.nom + '</title>' +
+                      '<style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;line-height:1.8;font-size:13px;}' +
+                      '.header{display:flex;justify-content:space-between;margin-bottom:24px;font-size:11px;color:#666;border-bottom:1px solid #ddd;padding-bottom:8px;}' +
+                      'h1{font-size:18px;border-bottom:2px solid #1a4b8f;padding-bottom:8px;color:#1a4b8f;margin-top:0;}' +
+                      '@media print{body{margin:20px;}}</style></head><body>' +
+                      '<div class="header"><span>Passerelle — Departement du Tarn (81)</span>' +
+                      '<span>Genere le ' + new Date().toLocaleDateString('fr-FR') + ' · Periode : ' + fmtDate(rapportPeriode.debut) + ' au ' + fmtDate(rapportPeriode.fin) + '</span></div>' +
+                      '<h1>Rapport de synthese — ' + enfant.prenom + ' ' + enfant.nom + '</h1>' +
+                      enteteHtml +
+                      '<div style="line-height:1.9;">' + rapportTexte.split('
+').map(function(l){return l ? '<p>' + l + '</p>' : '<br/>'}).join('') + '</div>' +
+                      '</body></html>')
                     w.document.close()
                     w.print()
                   }}>🖨️ Imprimer</button>
                 </div>
-              </>
             )}
           </div>
         </div>
