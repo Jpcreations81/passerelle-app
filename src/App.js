@@ -8,6 +8,8 @@ import DossierEnfant from './pages/DossierEnfant'
 import Agenda from './pages/Agenda'
 import FichePresence from './pages/FichePresence'
 import Rapports from './pages/Rapports'
+import Assfam from './pages/Assfam'
+import DossierAssfam from './pages/DossierAssfam'
 import './App.css'
 
 export default function App() {
@@ -56,6 +58,8 @@ export default function App() {
         <Route path="/agenda" element={session ? <Agenda profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/fiche-presence" element={session ? <FichePresence profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/rapports" element={session ? <Rapports profile={profile} /> : <Navigate to="/login" />} />
+        <Route path="/assfam" element={session ? <Assfam profile={profile} /> : <Navigate to="/login" />} />
+        <Route path="/assfam/:id" element={session ? <DossierAssfam profile={profile} /> : <Navigate to="/login" />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
