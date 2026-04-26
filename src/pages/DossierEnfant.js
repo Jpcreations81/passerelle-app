@@ -768,7 +768,6 @@ Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
             ) : (
               <>
                 {canEdit && <button onClick={() => setEditMode(true)} className="btn btn-secondary">✏️ Modifier</button>}
-                <button onClick={() => showToast('📄 Rapport en cours...')} className="btn btn-success" style={{ background:'#2e8b4a', color:'#fff' }}>📄 Rapport</button>
               </>
             )}
           </div>
@@ -2151,16 +2150,17 @@ Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
                   }}>📋 Copier</button>
                   <button className="btn btn-secondary" onClick={async () => {
                     try {
-                      const nomFichier = 'Rapport_' + enfant.prenom + '_' + enfant.nom + '_' + rapportPeriode.debut + '_au_' + rapportPeriode.fin + '.pdf'
-                      const contenuPDF = rapportTexte
-                      const blob = new Blob([contenuPDF], { type: 'application/pdf' })
-                      const file = new File([blob], nomFichier, { type: 'application/pdf' })
-                      const path = id + '/rapport_' + Date.now() + '.pdf'
-                      const { error: sErr } = await supabase.storage.from('documents-enfants').upload(path, file)
-                      if (sErr) { showToast('❌ ' + sErr.message); return }
-                      await supabase.from('documents_enfant').insert({ enfant_id: id, type_doc: 'rapport', nom: nomFichier, storage_path: path, taille: blob.size, mime_type: 'application/pdf', uploaded_by: profile.id })
-                      showToast('✅ Rapport enregistré dans les documents !')
-                      fetchDocuments()
+                      const titre = 'Rapport ' + enfant.prenom + ' ' + enfant.nom + ' — ' + fmtDate(rapportPeriode.debut) + ' au ' + fmtDate(rapportPeriode.fin)
+                      const { error } = await supabase.from('rapports').insert({
+                        enfant_id: id,
+                        auteur_id: profile.id,
+                        titre,
+                        contenu: rapportTexte,
+                        periode_debut: rapportPeriode.debut,
+                        periode_fin: rapportPeriode.fin,
+                      })
+                      if (error) { showToast('❌ ' + error.message); return }
+                      showToast('✅ Rapport enregistré !')
                     } catch(e) { showToast('❌ ' + e.message) }
                   }}>💾 Enregistrer</button>
                   <button className="btn btn-primary" onClick={() => {
