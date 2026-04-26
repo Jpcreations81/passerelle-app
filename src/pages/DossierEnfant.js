@@ -2162,8 +2162,7 @@ Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
                       </style></head><body>
                       <div class="header"><span>Passerelle — Département du Tarn (81)</span><span>Période : ${fmtDate(rapportPeriode.debut)} au ${fmtDate(rapportPeriode.fin)}</span></div>
                       <h1>Rapport de synthèse — ${enfant.prenom} ${enfant.nom}</h1>
-                      <p>${rapportTexte.replace(/
-/g, '</p><p>')}</p>
+                      <p>${rapportTexte.split('\n').join('</p><p>')}</p>
                       </body></html>`)
                     w.document.close()
                     w.print()
