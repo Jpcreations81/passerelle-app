@@ -7,6 +7,7 @@ const navItems = [
   { icon: '👶', label: 'Enfants', path: '/enfants' },
   { icon: '👨‍👩‍👧', label: 'Assfam', path: '/assfam' },
   { icon: '📅', label: 'Agenda', path: '/agenda' },
+  { icon: '📂', label: 'Docs', path: '/documents' },
   { icon: '📄', label: 'Rapports', path: '/rapports' },
 ]
 
