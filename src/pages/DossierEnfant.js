@@ -613,18 +613,14 @@ Sois factuel, bienveillant et objectif.
 Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
 
     try {
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      const resp = await fetch('/api/generate-rapport', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-haiku-4-5',
-          max_tokens: 1500,
-          messages: [{ role: 'user', content: prompt }]
-        })
+        body: JSON.stringify({ prompt })
       })
       const data = await resp.json()
-      const texte = data.content?.[0]?.text || ''
-      setRapportTexte(texte)
+      if (data.texte) setRapportTexte(data.texte)
+      else showToast('❌ Erreur : ' + (data.error || 'Réponse vide'))
     } catch(e) {
       showToast('❌ Erreur génération : ' + e.message)
     }
