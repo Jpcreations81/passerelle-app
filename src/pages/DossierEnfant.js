@@ -103,7 +103,11 @@ export default function DossierEnfant({ profile }) {
   const [showNoteModal, setShowNoteModal] = useState(false)
   const [newNote, setNewNote] = useState({ date: new Date().toISOString().slice(0,10), heure:'', humeur:'😊', texte:'', tags:'', type_note:'principal', relais_debut:'', relais_fin:'' })
   const [noteLoading, setNoteLoading] = useState(false)
-  const [editNoteId, setEditNoteId] = useState(null) // ID note en cours d'édition
+  const [editNoteId, setEditNoteId] = useState(null)
+  const [showRapportModal, setShowRapportModal] = useState(false)
+  const [rapportPeriode, setRapportPeriode] = useState({ debut: '', fin: '' })
+  const [rapportTexte, setRapportTexte] = useState('')
+  const [rapportLoading, setRapportLoading] = useState(false)
   const [documents, setDocuments] = useState([])
   const [uploadingDoc, setUploadingDoc] = useState(null)
   const [showFratrieModal, setShowFratrieModal] = useState(false)
@@ -578,6 +582,54 @@ export default function DossierEnfant({ profile }) {
 
   // ── Journal ─────────────────────────────────────────────────────────────────
 
+
+  async function generateRapport() {
+    if (!rapportPeriode.debut || !rapportPeriode.fin) { showToast('⚠️ Choisissez une période'); return }
+    setRapportLoading(true)
+
+    // Filtrer les notes de la période
+    const notesPeriode = journalNotes.filter(n => n.date >= rapportPeriode.debut && n.date <= rapportPeriode.fin)
+    if (notesPeriode.length === 0) { showToast('⚠️ Aucune note sur cette période'); setRapportLoading(false); return }
+
+    // Construire le contexte pour Claude
+    const notesTexte = notesPeriode.map(n => {
+      const d = fmtDate(n.date)
+      const type = n.type_note === 'relais' ? 'AF Relais' : 'AF Principal'
+      const humeur = n.humeur || ''
+      const tags = n.tags?.length ? `[${n.tags.join(', ')}]` : ''
+      return `${d} (${type}) ${humeur} ${tags}\n${n.texte}`
+    }).join('\n\n---\n\n')
+
+    const prompt = `Tu es un travailleur social rédigeant un rapport de synthèse pour l'ASE (Aide Sociale à l'Enfance) du Tarn.
+
+Voici les notes du journal de l'enfant ${enfant.prenom} ${enfant.nom} (${calcAge(enfant.date_naissance)}) 
+pour la période du ${fmtDate(rapportPeriode.debut)} au ${fmtDate(rapportPeriode.fin)} :
+
+${notesTexte}
+
+Rédige une synthèse professionnelle structurée en paragraphes thématiques (comportement général, scolarité, santé, relations familiales, points d'attention...). 
+Utilise un style professionnel adapté aux rapports ASE. 
+Sois factuel, bienveillant et objectif. 
+Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
+
+    try {
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5',
+          max_tokens: 1500,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      })
+      const data = await resp.json()
+      const texte = data.content?.[0]?.text || ''
+      setRapportTexte(texte)
+    } catch(e) {
+      showToast('❌ Erreur génération : ' + e.message)
+    }
+    setRapportLoading(false)
+  }
 
   async function deleteNote(noteId) {
     if (!window.confirm('Supprimer cette note ?')) return
@@ -1527,7 +1579,7 @@ export default function DossierEnfant({ profile }) {
                       <button key={m} style={{ fontSize:16, padding:'5px 9px', borderRadius:8, border:'1px solid #dde3f0', background:'#fff', cursor:'pointer' }}>{m}</button>
                     ))}
                   </div>
-                  <button onClick={() => showToast('📄 Rapport synthétique ASE...')}
+                  <button onClick={() => { setRapportTexte(''); setShowRapportModal(true) }}
                     style={{ marginLeft:'auto', padding:'8px 14px', borderRadius:8, border:'none', background:'#2e8b4a', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Sora,sans-serif' }}>
                     📄 Rapport synthétique ASE
                   </button>
@@ -2054,6 +2106,70 @@ export default function DossierEnfant({ profile }) {
                   </button>
                 </div>
               </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Rapport synthétique ── */}
+      {showRapportModal && (
+        <div className="modal-overlay" onClick={() => setShowRapportModal(false)}>
+          <div className="modal-box" style={{ maxWidth:680 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-title">📄 Rapport synthétique ASE — {enfant.prenom} {enfant.nom}</div>
+
+            {/* Période */}
+            <div className="form-grid-2" style={{ marginBottom:16 }}>
+              <div className="form-group">
+                <label className="form-label">📅 Période — Du</label>
+                <input type="date" className="form-control" value={rapportPeriode.debut}
+                  onChange={e => setRapportPeriode(p => ({...p, debut: e.target.value}))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">📅 Au</label>
+                <input type="date" className="form-control" value={rapportPeriode.fin}
+                  onChange={e => setRapportPeriode(p => ({...p, fin: e.target.value}))} />
+              </div>
+            </div>
+
+            <button onClick={generateRapport} disabled={rapportLoading}
+              className="btn btn-primary" style={{ marginBottom:16 }}>
+              {rapportLoading ? '⏳ Génération en cours...' : '✨ Générer la synthèse'}
+            </button>
+
+            {/* Zone texte modifiable */}
+            {rapportTexte && (
+              <>
+                <div style={{ fontSize:11, color:'#9aa3b8', marginBottom:6 }}>
+                  ✏️ Le texte est modifiable avant impression
+                </div>
+                <textarea
+                  value={rapportTexte}
+                  onChange={e => setRapportTexte(e.target.value)}
+                  style={{ width:'100%', minHeight:320, padding:'14px', border:'1.5px solid #dde3f0', borderRadius:8, fontFamily:'Sora,sans-serif', fontSize:13, lineHeight:1.8, resize:'vertical', outline:'none', background:'#fafbff' }}
+                />
+                <div className="modal-footer" style={{ marginTop:12 }}>
+                  <button className="btn btn-secondary" onClick={() => setShowRapportModal(false)}>Fermer</button>
+                  <button className="btn btn-secondary" onClick={() => {
+                    navigator.clipboard.writeText(rapportTexte)
+                    showToast('📋 Copié dans le presse-papiers !')
+                  }}>📋 Copier</button>
+                  <button className="btn btn-primary" onClick={() => {
+                    const w = window.open('', '_blank')
+                    w.document.write(`<html><head><title>Rapport - ${enfant.prenom} ${enfant.nom}</title>
+                      <style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;line-height:1.8;font-size:14px;}
+                      h1{font-size:18px;border-bottom:2px solid #1a4b8f;padding-bottom:8px;color:#1a4b8f;}
+                      .header{display:flex;justify-content:space-between;margin-bottom:20px;font-size:12px;color:#666;}
+                      </style></head><body>
+                      <div class="header"><span>Passerelle — Département du Tarn (81)</span><span>Période : ${fmtDate(rapportPeriode.debut)} au ${fmtDate(rapportPeriode.fin)}</span></div>
+                      <h1>Rapport de synthèse — ${enfant.prenom} ${enfant.nom}</h1>
+                      <p>${rapportTexte.replace(/
+/g, '</p><p>')}</p>
+                      </body></html>`)
+                    w.document.close()
+                    w.print()
+                  }}>🖨️ Imprimer</button>
+                </div>
+              </>
             )}
           </div>
         </div>
