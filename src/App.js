@@ -7,6 +7,7 @@ import ListeEnfants from './pages/ListeEnfants'
 import DossierEnfant from './pages/DossierEnfant'
 import Agenda from './pages/Agenda'
 import FichePresence from './pages/FichePresence'
+import Rapports from './pages/Rapports'
 import './App.css'
 
 export default function App() {
@@ -54,6 +55,7 @@ export default function App() {
         <Route path="/enfant/:id" element={session ? <DossierEnfant profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/agenda" element={session ? <Agenda profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/fiche-presence" element={session ? <FichePresence profile={profile} /> : <Navigate to="/login" />} />
+        <Route path="/rapports" element={session ? <Rapports profile={profile} /> : <Navigate to="/login" />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
