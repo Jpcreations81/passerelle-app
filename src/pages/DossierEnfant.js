@@ -2194,6 +2194,7 @@ Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
                     w.print()
                   }}>🖨️ Imprimer</button>
                 </div>
+              </>
             )}
           </div>
         </div>
