@@ -422,11 +422,6 @@ export default function DossierAssfam({ profile }) {
                   <div style={{ height:8, background:'#eef1f8', borderRadius:10, overflow:'hidden', marginBottom:8 }}>
                     <div style={{ height:'100%', width:`${Math.min(100, (placesOccupees/Math.max(placesContratTarn,1))*100)}%`, background: placesOccupees >= placesContratTarn ? '#c0392b' : '#2e8b4a', borderRadius:10 }} />
                   </div>
-                  {placesAutreEmployeur > 0 && (
-                    <div style={{ fontSize:11, color:'#9aa3b8', padding:'6px 10px', background:'#f4f6fb', borderRadius:7, border:'1px solid #dde3f0' }}>
-                      💼 {placesAutreEmployeur} place{placesAutreEmployeur > 1 ? 's' : ''} contractée{placesAutreEmployeur > 1 ? 's' : ''} avec autre employeur
-                    </div>
-                  )}
                 </div>
                 <div style={{ marginTop:14 }}>
                   <label style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 12px', border:'1px dashed #c4d4f5', borderRadius:8, background:'#f0f9ff', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontFamily:'Sora,sans-serif' }}>
@@ -574,86 +569,69 @@ export default function DossierAssfam({ profile }) {
               </SectionCard>
 
               <SectionCard icon="👤" title="Profil d'accueil souhaité">
-                <FG cols={3}>
-                  <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px' }}>Tranche d'âge souhaitée</label>
-                    {editMode ? (
-                      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-                        {['0-3 ans','3-6 ans','6-10 ans','10-15 ans','15-18 ans','Indifférent'].map(a => (
-                          <button key={a} type="button" onClick={() => F('profil_age')(a)}
-                            style={{ padding:'5px 10px', borderRadius:20, border:`1.5px solid ${v('profil_age')===a ? '#1a4b8f' : '#dde3f0'}`, background: v('profil_age')===a ? '#e8eef8' : '#fff', color: v('profil_age')===a ? '#1a4b8f' : '#5a6478', fontSize:11, fontWeight: v('profil_age')===a ? 700 : 500, cursor:'pointer' }}>
-                            {a}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{ padding:'8px 12px', background:'#eef1f8', borderRadius:8, fontSize:13 }}>{v('profil_age') || '—'}</div>
-                    )}
-                  </div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px' }}>Sexe préféré</label>
-                    {editMode ? (
-                      <div style={{ display:'flex', gap:6 }}>
-                        {['Indifférent','Fille','Garçon'].map(s => (
-                          <button key={s} type="button" onClick={() => F('profil_sexe')(s)}
-                            style={{ flex:1, padding:'7px', borderRadius:8, border:`1.5px solid ${v('profil_sexe')===s ? '#1a4b8f' : '#dde3f0'}`, background: v('profil_sexe')===s ? '#e8eef8' : '#fff', color: v('profil_sexe')===s ? '#1a4b8f' : '#5a6478', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{ padding:'8px 12px', background:'#eef1f8', borderRadius:8, fontSize:13 }}>{v('profil_sexe') || '—'}</div>
-                    )}
-                  </div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px' }}>Durée accueil préférée</label>
-                    {editMode ? (
-                      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-                        {['Indifférent','Court terme','Long terme','Urgence'].map(d => (
-                          <button key={d} type="button" onClick={() => F('profil_duree')(d)}
-                            style={{ padding:'5px 10px', borderRadius:20, border:`1.5px solid ${v('profil_duree')===d ? '#1a4b8f' : '#dde3f0'}`, background: v('profil_duree')===d ? '#e8eef8' : '#fff', color: v('profil_duree')===d ? '#1a4b8f' : '#5a6478', fontSize:11, fontWeight: v('profil_duree')===d ? 700 : 500, cursor:'pointer' }}>
-                            {d}
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div style={{ padding:'8px 12px', background:'#eef1f8', borderRadius:8, fontSize:13 }}>{v('profil_duree') || '—'}</div>
-                    )}
-                  </div>
-                </FG>
-                <div style={{ marginTop:14 }}>
-                  <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:8 }}>Capacités particulières</label>
-                  {editMode ? (
-                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                      {[
-                        { key:'cap_troubles_comportement', label:'Enfants avec troubles du comportement légers' },
-                        { key:'cap_handicap',              label:'Enfants porteurs de handicap' },
-                        { key:'cap_fratrie',               label:'Fratries (accueil simultané)' },
-                        { key:'cap_urgence',               label:"Accueil d'urgence (moins de 48h)" },
-                        { key:'cap_bas_age',               label:'Enfants en bas âge (0-3 ans)' },
-                      ].map(cap => (
-                        <label key={cap.key} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background: v(cap.key) ? '#e8eef8' : '#f4f6fb', borderRadius:8, cursor:'pointer', border:`1px solid ${v(cap.key) ? '#1a4b8f' : '#dde3f0'}` }}>
-                          <input type="checkbox" checked={!!v(cap.key)} onChange={e => F(cap.key)(e.target.checked)} style={{ width:16, height:16, cursor:'pointer' }} />
-                          <span style={{ fontSize:12, color: v(cap.key) ? '#1a4b8f' : '#5a6478', fontWeight: v(cap.key) ? 600 : 400 }}>{cap.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  ) : (
+                {/* Ligne 1 : Age, Sexe, Durée */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:16, marginBottom:16 }}>
+
+                  {/* Tranche d age */}
+                  <div>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:8 }}>Tranche d'âge souhaitée</label>
                     <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
-                      {[
-                        { key:'cap_troubles_comportement', label:'Troubles du comportement' },
-                        { key:'cap_handicap',              label:'Porteurs de handicap' },
-                        { key:'cap_fratrie',               label:'Fratries' },
-                        { key:'cap_urgence',               label:'Urgence -48h' },
-                        { key:'cap_bas_age',               label:'Bas âge (0-3 ans)' },
-                      ].filter(cap => v(cap.key)).map(cap => (
-                        <span key={cap.key} style={{ padding:'4px 12px', borderRadius:15, background:'#e8eef8', color:'#1a4b8f', fontSize:12, fontWeight:600 }}>✅ {cap.label}</span>
+                      {['0-3 ans','3-6 ans','6-10 ans','10-15 ans','15-18 ans','Indifférent'].map(a => (
+                        <button key={a} type="button" onClick={() => editMode && F('profil_age')(a)}
+                          style={{ padding:'5px 10px', borderRadius:20, border:`1.5px solid ${v('profil_age')===a ? '#1a4b8f' : '#dde3f0'}`, background: v('profil_age')===a ? '#e8eef8' : '#fff', color: v('profil_age')===a ? '#1a4b8f' : '#5a6478', fontSize:11, fontWeight: v('profil_age')===a ? 700 : 500, cursor: editMode ? 'pointer' : 'default' }}>
+                          {a}
+                        </button>
                       ))}
-                      {!['cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age'].some(k => v(k)) && (
-                        <span style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Aucune capacité particulière renseignée</span>
-                      )}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Sexe */}
+                  <div>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:8 }}>Sexe préféré</label>
+                    <div style={{ display:'flex', gap:6 }}>
+                      {['Indifférent','Fille','Garçon'].map(s => (
+                        <button key={s} type="button" onClick={() => editMode && F('profil_sexe')(s)}
+                          style={{ flex:1, padding:'8px', borderRadius:8, border:`1.5px solid ${v('profil_sexe')===s ? '#1a4b8f' : '#dde3f0'}`, background: v('profil_sexe')===s ? '#e8eef8' : '#fff', color: v('profil_sexe')===s ? '#1a4b8f' : '#5a6478', fontSize:12, fontWeight: v('profil_sexe')===s ? 700 : 500, cursor: editMode ? 'pointer' : 'default' }}>
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Durée */}
+                  <div>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:8 }}>Durée accueil préférée</label>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {['Indifférent','Court terme','Long terme','Urgence'].map(d => (
+                        <button key={d} type="button" onClick={() => editMode && F('profil_duree')(d)}
+                          style={{ padding:'6px 10px', borderRadius:20, border:`1.5px solid ${v('profil_duree')===d ? '#1a4b8f' : '#dde3f0'}`, background: v('profil_duree')===d ? '#e8eef8' : '#fff', color: v('profil_duree')===d ? '#1a4b8f' : '#5a6478', fontSize:11, fontWeight: v('profil_duree')===d ? 700 : 500, cursor: editMode ? 'pointer' : 'default' }}>
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Capacités particulières */}
+                <div>
+                  <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:10 }}>Capacités particulières</label>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                    {[
+                      { key:'cap_troubles_comportement', label:'Enfants avec troubles du comportement légers', icon:'🧠' },
+                      { key:'cap_handicap',              label:'Enfants porteurs de handicap',               icon:'♿' },
+                      { key:'cap_fratrie',               label:'Fratries (accueil simultané)',               icon:'👧👦' },
+                      { key:'cap_urgence',               label:"Accueil d'urgence (moins de 48h)",          icon:'🚨' },
+                      { key:'cap_bas_age',               label:'Enfants en bas âge (0-3 ans)',               icon:'🍼' },
+                    ].map(cap => (
+                      <label key={cap.key}
+                        style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background: v(cap.key) ? '#e8eef8' : '#f4f6fb', borderRadius:8, cursor: editMode ? 'pointer' : 'default', border:`1px solid ${v(cap.key) ? '#1a4b8f' : '#dde3f0'}`, transition:'all .15s' }}>
+                        <input type="checkbox" checked={!!v(cap.key)} onChange={e => editMode && F(cap.key)(e.target.checked)}
+                          style={{ width:16, height:16, cursor: editMode ? 'pointer' : 'default', accentColor:'#1a4b8f' }} />
+                        <span style={{ fontSize:16 }}>{cap.icon}</span>
+                        <span style={{ fontSize:12, color: v(cap.key) ? '#1a4b8f' : '#5a6478', fontWeight: v(cap.key) ? 600 : 400 }}>{cap.label}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </SectionCard>
 
