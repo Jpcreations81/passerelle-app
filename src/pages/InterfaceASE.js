@@ -67,9 +67,8 @@ export default function InterfaceASE({ profile }) {
   function rechercherAF() {
     let resultats = afs.filter(af => {
       const enfantsActifs = af.enfants_accueillis?.filter(e => e.type_placement !== 'non_place') || []
-      const placesTotal = af.places_agreees || 3
-      const placesLibres = placesTotal - enfantsActifs.length
-      // Inclure aussi les AF complets avec accord urgence
+      const placesContrat = af.places_contrat_tarn || af.places_agreees || 3
+      const placesLibres = placesContrat - enfantsActifs.length
       return placesLibres > 0 || af.accord_urgence
     })
 
@@ -84,8 +83,8 @@ export default function InterfaceASE({ profile }) {
       const bUrgence = b.accord_urgence ? 1 : 0
       if (aUrgence !== bUrgence) return bUrgence - aUrgence
 
-      const aPlaces = (a.places_agreees || 3) - (a.enfants_accueillis?.length || 0)
-      const bPlaces = (b.places_agreees || 3) - (b.enfants_accueillis?.length || 0)
+      const aPlaces = (a.places_contrat_tarn || a.places_agreees || 3) - (a.enfants_accueillis?.filter(e => e.type_placement !== 'non_place').length || 0)
+      const bPlaces = (b.places_contrat_tarn || b.places_agreees || 3) - (b.enfants_accueillis?.filter(e => e.type_placement !== 'non_place').length || 0)
       return bPlaces - aPlaces
     })
 
@@ -331,7 +330,8 @@ export default function InterfaceASE({ profile }) {
                     </div>
                   ) : afsDisponibles.map((af, idx) => {
                     const enfantsActifs = af.enfants_accueillis?.filter(e => e.type_placement !== 'non_place') || []
-                    const placesLibresAF = (af.places_agreees || 3) - enfantsActifs.length
+                    const placesContratTarn = af.places_contrat_tarn || af.places_agreees || 3
+                    const placesLibresAF = placesContratTarn - enfantsActifs.length
                     const agrExp = af.date_expiration_agrement ? new Date(af.date_expiration_agrement) : null
                     const joursAgr = agrExp ? Math.ceil((agrExp - new Date()) / (1000*60*60*24)) : null
                     const agrOk = joursAgr === null || joursAgr > 30
