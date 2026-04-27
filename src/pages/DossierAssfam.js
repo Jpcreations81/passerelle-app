@@ -407,11 +407,6 @@ export default function DossierAssfam({ profile }) {
                   <Field label="Places contractées Tarn" type="number" value={v('places_contrat_tarn')} onChange={F('places_contrat_tarn')} readOnly={!editMode} />
                   <Field label="Dont places relais" type="number" value={v('places_relais')} onChange={F('places_relais')} readOnly={!editMode} />
                 </FG>
-                {v('places_contrat_tarn') && v('places_agreees') && parseInt(v('places_agreees')) > parseInt(v('places_contrat_tarn')) && (
-                  <div style={{ marginTop:8, padding:'8px 12px', background:'#e8eef8', borderRadius:8, fontSize:12, color:'#1a4b8f' }}>
-                    💡 {parseInt(v('places_agreees')) - parseInt(v('places_contrat_tarn'))} place(s) contractée(s) avec un autre employeur
-                  </div>
-                )}
                 <div style={{ marginTop:14 }}>
                   <div style={{ fontSize:12, color:'#5a6478', marginBottom:4 }}>
                     <strong>Contrat Tarn :</strong> {placesOccupees}/{placesContratTarn} occupée{placesOccupees > 1 ? 's' : ''}
