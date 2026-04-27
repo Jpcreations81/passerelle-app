@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -394,14 +393,22 @@ export default function DossierAssfam({ profile }) {
                     ⚠️ <strong>Renouvellement dans {joursAgrExp} jours</strong> — Expire le {fmtDate(af.date_expiration_agrement)}
                   </div>
                 )}
-                <FG>
+                <FG cols={4}>
                   <Field label="N° Agrément" value={v('numero_agrement')} onChange={F('numero_agrement')} readOnly={!editMode} />
                   <Field label="Délivré par" value="Conseil Départemental du Tarn (81)" readOnly />
                   <Field label="Date de délivrance" type="date" value={v('date_agrement')} onChange={F('date_agrement')} readOnly={!editMode} />
                   <Field label="Date d'expiration" type="date" value={v('date_expiration_agrement')} onChange={F('date_expiration_agrement')} readOnly={!editMode} />
-                  <Field label="Places agréées" type="number" value={v('places_agreees')} onChange={F('places_agreees')} readOnly={!editMode} />
+                </FG>
+                <FG cols={3} style={{ marginTop:12 }}>
+                  <Field label="Places agréées (total)" type="number" value={v('places_agreees')} onChange={F('places_agreees')} readOnly={!editMode} />
+                  <Field label="Places contractées Tarn" type="number" value={v('places_contrat_tarn')} onChange={F('places_contrat_tarn')} readOnly={!editMode} />
                   <Field label="Dont places relais" type="number" value={v('places_relais')} onChange={F('places_relais')} readOnly={!editMode} />
                 </FG>
+                {v('places_contrat_tarn') && v('places_agreees') && parseInt(v('places_agreees')) > parseInt(v('places_contrat_tarn')) && (
+                  <div style={{ marginTop:8, padding:'8px 12px', background:'#e8eef8', borderRadius:8, fontSize:12, color:'#1a4b8f' }}>
+                    💡 {parseInt(v('places_agreees')) - parseInt(v('places_contrat_tarn'))} place(s) contractée(s) avec un autre employeur
+                  </div>
+                )}
                 <div style={{ marginTop:14 }}>
                   <div style={{ fontSize:12, color:'#5a6478', marginBottom:6 }}>
                     {placesOccupees} place{placesOccupees > 1 ? 's' : ''} occupée{placesOccupees > 1 ? 's' : ''} sur {placesTotal}
@@ -556,6 +563,90 @@ export default function DossierAssfam({ profile }) {
                     <span>✅</span><span><strong>{placesDisponibles} place{placesDisponibles > 1 ? 's' : ''} disponible{placesDisponibles > 1 ? 's' : ''}</strong> sur {placesTotal} agréées</span>
                   </div>
                 )}
+              </SectionCard>
+
+              <SectionCard icon="👤" title="Profil d'accueil souhaité">
+                <FG cols={3}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px' }}>Tranche d'âge souhaitée</label>
+                    {editMode ? (
+                      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                        {['0-3 ans','3-6 ans','6-10 ans','10-15 ans','15-18 ans','Indifférent'].map(a => (
+                          <button key={a} type="button" onClick={() => F('profil_age')(a)}
+                            style={{ padding:'5px 10px', borderRadius:20, border:, background: v('profil_age')===a ? '#e8eef8' : '#fff', color: v('profil_age')===a ? '#1a4b8f' : '#5a6478', fontSize:11, fontWeight: v('profil_age')===a ? 700 : 500, cursor:'pointer' }}>
+                            {a}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ padding:'8px 12px', background:'#eef1f8', borderRadius:8, fontSize:13 }}>{v('profil_age') || '—'}</div>
+                    )}
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px' }}>Sexe préféré</label>
+                    {editMode ? (
+                      <div style={{ display:'flex', gap:6 }}>
+                        {['Indifférent','Fille','Garçon'].map(s => (
+                          <button key={s} type="button" onClick={() => F('profil_sexe')(s)}
+                            style={{ flex:1, padding:'7px', borderRadius:8, border:, background: v('profil_sexe')===s ? '#e8eef8' : '#fff', color: v('profil_sexe')===s ? '#1a4b8f' : '#5a6478', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ padding:'8px 12px', background:'#eef1f8', borderRadius:8, fontSize:13 }}>{v('profil_sexe') || '—'}</div>
+                    )}
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px' }}>Durée accueil préférée</label>
+                    {editMode ? (
+                      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                        {['Indifférent','Court terme','Long terme','Urgence'].map(d => (
+                          <button key={d} type="button" onClick={() => F('profil_duree')(d)}
+                            style={{ padding:'5px 10px', borderRadius:20, border:, background: v('profil_duree')===d ? '#e8eef8' : '#fff', color: v('profil_duree')===d ? '#1a4b8f' : '#5a6478', fontSize:11, fontWeight: v('profil_duree')===d ? 700 : 500, cursor:'pointer' }}>
+                            {d}
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ padding:'8px 12px', background:'#eef1f8', borderRadius:8, fontSize:13 }}>{v('profil_duree') || '—'}</div>
+                    )}
+                  </div>
+                </FG>
+                <div style={{ marginTop:14 }}>
+                  <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:8 }}>Capacités particulières</label>
+                  {editMode ? (
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+                      {[
+                        { key:'cap_troubles_comportement', label:'Enfants avec troubles du comportement légers' },
+                        { key:'cap_handicap',              label:'Enfants porteurs de handicap' },
+                        { key:'cap_fratrie',               label:'Fratries (accueil simultané)' },
+                        { key:'cap_urgence',               label:'Accueil d'urgence (moins de 48h)' },
+                        { key:'cap_bas_age',               label:'Enfants en bas âge (0-3 ans)' },
+                      ].map(cap => (
+                        <label key={cap.key} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background: v(cap.key) ? '#e8eef8' : '#f4f6fb', borderRadius:8, cursor:'pointer', border: }}>
+                          <input type="checkbox" checked={!!v(cap.key)} onChange={e => F(cap.key)(e.target.checked)} style={{ width:16, height:16, cursor:'pointer' }} />
+                          <span style={{ fontSize:12, color: v(cap.key) ? '#1a4b8f' : '#5a6478', fontWeight: v(cap.key) ? 600 : 400 }}>{cap.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {[
+                        { key:'cap_troubles_comportement', label:'Troubles du comportement' },
+                        { key:'cap_handicap',              label:'Porteurs de handicap' },
+                        { key:'cap_fratrie',               label:'Fratries' },
+                        { key:'cap_urgence',               label:'Urgence -48h' },
+                        { key:'cap_bas_age',               label:'Bas âge (0-3 ans)' },
+                      ].filter(cap => v(cap.key)).map(cap => (
+                        <span key={cap.key} style={{ padding:'4px 12px', borderRadius:15, background:'#e8eef8', color:'#1a4b8f', fontSize:12, fontWeight:600 }}>✅ {cap.label}</span>
+                      ))}
+                      {!['cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age'].some(k => v(k)) && (
+                        <span style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Aucune capacité particulière renseignée</span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </SectionCard>
 
               <SectionCard icon="🚗" title="Calcul frais de déplacement">
