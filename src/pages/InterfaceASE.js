@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -46,7 +45,7 @@ export default function InterfaceASE({ profile }) {
 
   const fetchAfs = useCallback(async () => {
     const { data } = await supabase.from('profiles')
-      .select('*, enfants_accueillis:enfants(id, prenom, nom)')
+      .select('*, enfants_accueillis:enfants!enfants_af_principal_id_fkey(id, prenom, nom, type_placement)')
       .eq('role', 'af')
       .order('nom')
     if (data) setAfs(data)
@@ -67,10 +66,11 @@ export default function InterfaceASE({ profile }) {
 
   function rechercherAF() {
     let resultats = afs.filter(af => {
-      const placesOccupees = af.enfants_accueillis?.length || 0
+      const enfantsActifs = af.enfants_accueillis?.filter(e => e.type_placement !== 'non_place') || []
       const placesTotal = af.places_agreees || 3
-      const placesLibres = placesTotal - placesOccupees
-      return placesLibres > 0
+      const placesLibres = placesTotal - enfantsActifs.length
+      // Inclure aussi les AF complets avec accord urgence
+      return placesLibres > 0 || af.accord_urgence
     })
 
     // Filtrer par secteur
@@ -330,7 +330,8 @@ export default function InterfaceASE({ profile }) {
                       <div style={{ fontSize:12, marginTop:4 }}>Essayez d'élargir le secteur ou le type d'accueil</div>
                     </div>
                   ) : afsDisponibles.map((af, idx) => {
-                    const placesLibresAF = (af.places_agreees || 3) - (af.enfants_accueillis?.length || 0)
+                    const enfantsActifs = af.enfants_accueillis?.filter(e => e.type_placement !== 'non_place') || []
+                    const placesLibresAF = (af.places_agreees || 3) - enfantsActifs.length
                     const agrExp = af.date_expiration_agrement ? new Date(af.date_expiration_agrement) : null
                     const joursAgr = agrExp ? Math.ceil((agrExp - new Date()) / (1000*60*60*24)) : null
                     const agrOk = joursAgr === null || joursAgr > 30
