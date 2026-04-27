@@ -110,7 +110,7 @@ export default function DossierAssfam({ profile }) {
 
   const fetchAf = useCallback(async () => {
     const { data } = await supabase.from('profiles').select('*').eq('id', id).single()
-    if (data) { setAf(data); setForm(data) }
+    if (data) { console.log('AF chargé:', data.accord_urgence, data.cap_urgence, data.cap_troubles_comportement); setAf(data); setForm(data) }
     setLoading(false)
   }, [id])
 
@@ -162,7 +162,7 @@ export default function DossierAssfam({ profile }) {
     )
     const { error } = await supabase.from('profiles').update(formData).eq('id', id)
     if (!error) { showToast('✅ Enregistré !'); setAf(form); setEditMode(false) }
-    else showToast('❌ ' + error.message)
+    else { console.error('Erreur save:', error); showToast('❌ ' + error.message + ' | ' + JSON.stringify(error)) }
     setSaving(false)
   }
 
