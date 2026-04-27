@@ -9,6 +9,7 @@ const navItems = [
   { icon: '📅', label: 'Agenda', path: '/agenda' },
   { icon: '📂', label: 'Docs', path: '/documents' },
   { icon: '📄', label: 'Rapports', path: '/rapports' },
+  { icon: '🏛️', label: 'ASE', path: '/ase' },
 ]
 
 export default function Sidebar({ profile }) {
