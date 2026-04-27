@@ -219,8 +219,11 @@ export default function DossierAssfam({ profile }) {
   }
 
   const placesOccupees = enfantsAccueillis.length
+  const placesContratTarn = af?.places_contrat_tarn || af?.places_agreees || 3
   const placesTotal = af?.places_agreees || 3
-  const placesDisponibles = Math.max(0, placesTotal - placesOccupees)
+  const placesDisponiblesTarn = Math.max(0, placesContratTarn - placesOccupees)
+  const placesDisponibles = placesDisponiblesTarn
+  const placesAutreEmployeur = Math.max(0, placesTotal - placesContratTarn)
   const congesPris = conges.filter(c => c.statut === 'valide').reduce((s, c) => s + (c.nb_jours || 0), 0)
   const congesTotal = 30
   const congesRestants = congesTotal - congesPris
@@ -410,15 +413,20 @@ export default function DossierAssfam({ profile }) {
                   </div>
                 )}
                 <div style={{ marginTop:14 }}>
-                  <div style={{ fontSize:12, color:'#5a6478', marginBottom:6 }}>
-                    {placesOccupees} place{placesOccupees > 1 ? 's' : ''} occupée{placesOccupees > 1 ? 's' : ''} sur {placesTotal}
+                  <div style={{ fontSize:12, color:'#5a6478', marginBottom:4 }}>
+                    <strong>Contrat Tarn :</strong> {placesOccupees}/{placesContratTarn} occupée{placesOccupees > 1 ? 's' : ''}
                     <span style={{ float:'right', fontWeight:600, color: placesDisponibles > 0 ? '#2e8b4a' : '#c0392b' }}>
-                      {placesDisponibles > 0 ? `${placesDisponibles} disponible${placesDisponibles > 1 ? 's' : ''}` : 'Complet'}
+                      {placesDisponibles > 0 ? `${placesDisponibles} dispo${placesDisponibles > 1 ? 's' : ''}` : 'Complet Tarn'}
                     </span>
                   </div>
-                  <div style={{ height:8, background:'#eef1f8', borderRadius:10, overflow:'hidden' }}>
-                    <div style={{ height:'100%', width:`${Math.min(100, (placesOccupees/placesTotal)*100)}%`, background: placesOccupees >= placesTotal ? '#c0392b' : '#2e8b4a', borderRadius:10, transition:'width .3s' }} />
+                  <div style={{ height:8, background:'#eef1f8', borderRadius:10, overflow:'hidden', marginBottom:8 }}>
+                    <div style={{ height:'100%', width:`${Math.min(100, (placesOccupees/Math.max(placesContratTarn,1))*100)}%`, background: placesOccupees >= placesContratTarn ? '#c0392b' : '#2e8b4a', borderRadius:10 }} />
                   </div>
+                  {placesAutreEmployeur > 0 && (
+                    <div style={{ fontSize:11, color:'#9aa3b8', padding:'6px 10px', background:'#f4f6fb', borderRadius:7, border:'1px solid #dde3f0' }}>
+                      💼 {placesAutreEmployeur} place{placesAutreEmployeur > 1 ? 's' : ''} contractée{placesAutreEmployeur > 1 ? 's' : ''} avec autre employeur
+                    </div>
+                  )}
                 </div>
                 <div style={{ marginTop:14 }}>
                   <label style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 12px', border:'1px dashed #c4d4f5', borderRadius:8, background:'#f0f9ff', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontFamily:'Sora,sans-serif' }}>
