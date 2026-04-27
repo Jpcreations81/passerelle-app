@@ -621,10 +621,10 @@ export default function DossierAssfam({ profile }) {
                         { key:'cap_troubles_comportement', label:'Enfants avec troubles du comportement légers' },
                         { key:'cap_handicap',              label:'Enfants porteurs de handicap' },
                         { key:'cap_fratrie',               label:'Fratries (accueil simultané)' },
-                        { key:'cap_urgence',               label:'Accueil d'urgence (moins de 48h)' },
+                        { key:'cap_urgence',               label:"Accueil d'urgence (moins de 48h)" },
                         { key:'cap_bas_age',               label:'Enfants en bas âge (0-3 ans)' },
                       ].map(cap => (
-                        <label key={cap.key} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background: v(cap.key) ? '#e8eef8' : '#f4f6fb', borderRadius:8, cursor:'pointer', border: }}>
+                        <label key={cap.key} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background: v(cap.key) ? '#e8eef8' : '#f4f6fb', borderRadius:8, cursor:'pointer', border:`1px solid ${v(cap.key) ? '#1a4b8f' : '#dde3f0'}` }}>
                           <input type="checkbox" checked={!!v(cap.key)} onChange={e => F(cap.key)(e.target.checked)} style={{ width:16, height:16, cursor:'pointer' }} />
                           <span style={{ fontSize:12, color: v(cap.key) ? '#1a4b8f' : '#5a6478', fontWeight: v(cap.key) ? 600 : 400 }}>{cap.label}</span>
                         </label>
