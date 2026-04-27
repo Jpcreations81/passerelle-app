@@ -151,7 +151,16 @@ export default function DossierAssfam({ profile }) {
 
   async function saveForm() {
     setSaving(true)
-    const { error } = await supabase.from('profiles').update(form).eq('id', id)
+    // Exclure les champs non-colonnes et relations
+    const champsExclus = ['id', 'created_at', 'updated_at', 'enfants_accueillis', 'email']
+    const formData = Object.fromEntries(
+      Object.entries(form).filter(([k, v]) => {
+        if (champsExclus.includes(k)) return false
+        if (v !== null && v !== undefined && typeof v === 'object' && !Array.isArray(v)) return false
+        return true
+      })
+    )
+    const { error } = await supabase.from('profiles').update(formData).eq('id', id)
     if (!error) { showToast('✅ Enregistré !'); setAf(form); setEditMode(false) }
     else showToast('❌ ' + error.message)
     setSaving(false)
