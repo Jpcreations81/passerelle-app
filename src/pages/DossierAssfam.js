@@ -400,7 +400,7 @@ export default function DossierAssfam({ profile }) {
                   <Field label="Date d'expiration" type="date" value={v('date_expiration_agrement')} onChange={F('date_expiration_agrement')} readOnly={!editMode} />
                 </FG>
                 <FG cols={3} style={{ marginTop:12 }}>
-                  <Field label="Places agréées (total)" type="number" value={v('places_agreees')} onChange={F('places_agreees')} readOnly={!editMode} />
+                  <div style={{ display:'flex', flexDirection:'column', gap:5 }}><label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px' }}>Places agréées (total)</label>{editMode ? (<input type='number' min='1' max='3' value={v('places_agreees') || ''} onChange={e => F('places_agreees')(Math.min(parseInt(e.target.value) || 1, 3))} style={{ padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontFamily:'Sora,sans-serif', fontSize:13, background:'#f4f6fb', outline:'none' }} />) : (<div style={{ padding:'10px 12px', background:'#eef1f8', borderRadius:8, fontSize:13 }}>{v('places_agreees') || <span style={{ color:'#9aa3b8', fontStyle:'italic' }}>—</span>}</div>)}<div style={{ fontSize:10, color:'#9aa3b8', marginTop:2 }}>'Max 3 places (agrément individuel)'</div></div>
                   <Field label="Places contractées Tarn" type="number" value={v('places_contrat_tarn')} onChange={F('places_contrat_tarn')} readOnly={!editMode} />
                   <Field label="Dont places relais" type="number" value={v('places_relais')} onChange={F('places_relais')} readOnly={!editMode} />
                 </FG>
@@ -573,7 +573,7 @@ export default function DossierAssfam({ profile }) {
                       <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
                         {['0-3 ans','3-6 ans','6-10 ans','10-15 ans','15-18 ans','Indifférent'].map(a => (
                           <button key={a} type="button" onClick={() => F('profil_age')(a)}
-                            style={{ padding:'5px 10px', borderRadius:20, border:, background: v('profil_age')===a ? '#e8eef8' : '#fff', color: v('profil_age')===a ? '#1a4b8f' : '#5a6478', fontSize:11, fontWeight: v('profil_age')===a ? 700 : 500, cursor:'pointer' }}>
+                            style={{ padding:'5px 10px', borderRadius:20, border:`1.5px solid ${v('profil_age')===a ? '#1a4b8f' : '#dde3f0'}`, background: v('profil_age')===a ? '#e8eef8' : '#fff', color: v('profil_age')===a ? '#1a4b8f' : '#5a6478', fontSize:11, fontWeight: v('profil_age')===a ? 700 : 500, cursor:'pointer' }}>
                             {a}
                           </button>
                         ))}
@@ -588,7 +588,7 @@ export default function DossierAssfam({ profile }) {
                       <div style={{ display:'flex', gap:6 }}>
                         {['Indifférent','Fille','Garçon'].map(s => (
                           <button key={s} type="button" onClick={() => F('profil_sexe')(s)}
-                            style={{ flex:1, padding:'7px', borderRadius:8, border:, background: v('profil_sexe')===s ? '#e8eef8' : '#fff', color: v('profil_sexe')===s ? '#1a4b8f' : '#5a6478', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                            style={{ flex:1, padding:'7px', borderRadius:8, border:`1.5px solid ${v('profil_sexe')===s ? '#1a4b8f' : '#dde3f0'}`, background: v('profil_sexe')===s ? '#e8eef8' : '#fff', color: v('profil_sexe')===s ? '#1a4b8f' : '#5a6478', fontSize:12, fontWeight:600, cursor:'pointer' }}>
                             {s}
                           </button>
                         ))}
@@ -603,7 +603,7 @@ export default function DossierAssfam({ profile }) {
                       <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
                         {['Indifférent','Court terme','Long terme','Urgence'].map(d => (
                           <button key={d} type="button" onClick={() => F('profil_duree')(d)}
-                            style={{ padding:'5px 10px', borderRadius:20, border:, background: v('profil_duree')===d ? '#e8eef8' : '#fff', color: v('profil_duree')===d ? '#1a4b8f' : '#5a6478', fontSize:11, fontWeight: v('profil_duree')===d ? 700 : 500, cursor:'pointer' }}>
+                            style={{ padding:'5px 10px', borderRadius:20, border:`1.5px solid ${v('profil_duree')===d ? '#1a4b8f' : '#dde3f0'}`, background: v('profil_duree')===d ? '#e8eef8' : '#fff', color: v('profil_duree')===d ? '#1a4b8f' : '#5a6478', fontSize:11, fontWeight: v('profil_duree')===d ? 700 : 500, cursor:'pointer' }}>
                             {d}
                           </button>
                         ))}
