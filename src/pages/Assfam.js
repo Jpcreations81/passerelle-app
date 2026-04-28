@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -15,7 +14,10 @@ export default function Assfam({ profile }) {
 
   const fetchAfs = useCallback(async () => {
     let q = supabase.from('profiles').select('*').eq('role', 'af')
-    if (profile?.role === 'referent' || profile?.role === 'encadrant') {
+    // Un AF ne voit que son propre profil
+    if (profile?.role === 'af') {
+      q = q.eq('id', profile.id)
+    } else if (profile?.role === 'referent' || profile?.role === 'encadrant') {
       q = q.eq('territoire', profile.territoire)
     }
     const { data } = await q.order('nom')
