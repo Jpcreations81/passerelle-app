@@ -177,7 +177,7 @@ export default function DossierAssfam({ profile }) {
   const agrExp=af?.date_expiration_agrement?new Date(af.date_expiration_agrement):null, joursAgrExp=agrExp?Math.ceil((agrExp-new Date())/(1000*60*60*24)):null, agrAlerte=joursAgrExp!==null&&joursAgrExp<=90
   const initiales=`${af?.prenom?.[0]||''}${af?.nom?.[0]||''}`
 
-  const ONGLETS=[{id:'identite',icon:'🪪',label:'Identité'},{id:'agrement',icon:'📜',label:'Agrément'},{id:'foyer',icon:'🏠',label:'Foyer'},{id:'enfants',icon:'👶',label:'Enfants accueillis'},{id:'conges',icon:'🏖️',label:'Congés'},{id:'formations',icon:'🎓',label:'Formations'},{id:'safa',icon:'🏛️',label:'SAFA & Contrat'}]
+  const ONGLETS=[{id:'identite',icon:'🪪',label:'Identité'},{id:'agrement',icon:'📜',label:'Agrément'},{id:'foyer',icon:'🏠',label:'Foyer'},{id:'enfants',icon:'👶',label:'Enfants & Frais'},{id:'conges',icon:'🏖️',label:'Congés'},{id:'formations',icon:'🎓',label:'Formations'},{id:'safa',icon:'🏛️',label:'SAFA & Contrat'}]
 
   if (loading) return <div className="app-layout"><Sidebar profile={profile} /><div className="main-content" style={{display:'flex',alignItems:'center',justifyContent:'center'}}><div style={{textAlign:'center',color:'#9aa3b8'}}><div style={{fontSize:36}}>👨‍👩‍👧</div><div>Chargement...</div></div></div></div>
   if (!af) return <div className="app-layout"><Sidebar profile={profile} /><div className="main-content" style={{padding:32}}><div style={{color:'#c0392b'}}>❌ Profil introuvable</div></div></div>
@@ -655,7 +655,7 @@ export default function DossierAssfam({ profile }) {
             <>
               <SectionCard icon="👥" title="Équipe SAFA référente">
                 <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
-                  {collegues.filter(c=>['encadrant','rtase','admin'].includes(c.role)).map(c=>(
+                  {collegues.filter(c=>['encadrant','admin'].includes(c.role)).map(c=>(
                     <div key={c.id} style={{background:'#f4f6fb',borderRadius:10,padding:16,border:'1px solid #dde3f0'}}>
                       <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:8}}>{c.role==='encadrant'?'👨‍💼 Encadrant Technique':c.role==='rtase'?'🎖️ RTASE':'👤 Admin'}</div>
                       <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{c.prenom} {c.nom}</div>
