@@ -163,7 +163,7 @@ export default function DossierAssfam({ profile }) {
       'conjoint_nom','conjoint_profession','conjoint_telephone',
       'km_cumules_annee',
       'profil_age','profil_sexe','profil_duree',
-      'cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age','cap_relais',
+      'cap_troubles_comportement_legers','cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age','cap_relais',
     ]
     const formData = Object.fromEntries(
       colonnes.filter(k => form[k] !== undefined).map(k => [k, form[k]])
@@ -629,6 +629,7 @@ export default function DossierAssfam({ profile }) {
                   <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:10 }}>Capacités particulières</label>
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
                     {[
+                      { key:'cap_troubles_comportement_legers', label:'Enfants avec troubles du comportement légers', icon:'🧠' },
                       { key:'cap_troubles_comportement', label:'Enfants avec troubles du comportement lourds', icon:'🧠' },
                       { key:'cap_handicap',              label:'Enfants porteurs de handicap',               icon:'♿' },
                       { key:'cap_fratrie',               label:'Fratries (accueil simultané)',               icon:'👧👦' },
