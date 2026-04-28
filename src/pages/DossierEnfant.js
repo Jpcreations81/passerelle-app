@@ -110,6 +110,7 @@ export default function DossierEnfant({ profile }) {
   const [rapportLoading, setRapportLoading] = useState(false)
   const [documents, setDocuments] = useState([])
   const [uploadingDoc, setUploadingDoc] = useState(null)
+  const [photoUrl, setPhotoUrl] = useState(null)
   const [showFratrieModal, setShowFratrieModal] = useState(false)
   const [pere, setPere] = useState(null)
   const [mere, setMere] = useState(null)
@@ -132,6 +133,14 @@ export default function DossierEnfant({ profile }) {
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2800) }
 
   // ── Chargement ──────────────────────────────────────────────────────────────
+  const fetchPhoto = useCallback(async () => {
+    const { data } = await supabase.storage.from('documents-enfants').list(`enfants/${id}/photos`)
+    if (data && data.length > 0) {
+      const { data: url } = await supabase.storage.from('documents-enfants').createSignedUrl(`enfants/${id}/photos/${data[0].name}`, 3600)
+      if (url?.signedUrl) setPhotoUrl(url.signedUrl)
+    }
+  }, [id])
+
   const fetchEnfant = useCallback(async () => {
     if (!id) return
     const { data, error } = await supabase
@@ -511,7 +520,7 @@ export default function DossierEnfant({ profile }) {
 
   // Charger les docs des parents au chargement
   useEffect(() => {
-    fetchEnfant()
+    fetchEnfant(); fetchPhoto()
     fetchCollegues()
     fetchJournal()
     fetchDocuments()
@@ -610,8 +619,7 @@ ${notesTexte}
 Rédige une synthèse professionnelle structurée en paragraphes thématiques (comportement général, scolarité, santé, relations familiales, points d'attention...). 
 Utilise un style professionnel adapté aux rapports ASE. 
 Sois factuel, bienveillant et objectif. 
-Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
-
+Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête, AUCUN hashtag (#), AUCUNE ligne de séparation. Commence directement par le premier paragraphe.`
     try {
       const resp = await fetch('/api/generate-rapport', {
         method: 'POST',
@@ -743,8 +751,8 @@ Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
 
           {/* Avatar + nom enfant */}
           <div style={{ display:'flex', alignItems:'center', gap:12, flex:1 }}>
-            <div style={{ width:36, height:36, borderRadius:'50%', background:'linear-gradient(135deg, #1a4b8f, #2e8b4a)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:14, fontWeight:700, color:'#fff', flexShrink:0 }}>
-              {initiales}
+            <div style={{ width:40, height:40, borderRadius:'50%', overflow:'hidden', flexShrink:0, background:'linear-gradient(135deg,#1a4b8f,#2e8b4a)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              {photoUrl ? <img src={photoUrl} alt="photo" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontSize:14, fontWeight:700, color:'#fff' }}>{initiales}</span>}
             </div>
             <div>
               <div className="page-title">{enfant.prenom} {enfant.nom}</div>
@@ -804,7 +812,28 @@ Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
             {onglet === 'identite' && (
               <>
                 <SectionCard icon="👤" title="État civil">
-                  <FormGrid cols={3}>
+                  <div style={{ display:'grid', gridTemplateColumns:'120px 1fr', gap:20, marginBottom:20 }}>
+                    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>
+                      <div style={{ width:100, height:120, borderRadius:10, overflow:'hidden', background:'#eef1f8', border:'2px solid #dde3f0', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        {photoUrl ? <img src={photoUrl} alt="photo enfant" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <div style={{ textAlign:'center', color:'#9aa3b8' }}><div style={{ fontSize:32 }}>👶</div><div style={{ fontSize:10 }}>Photo</div></div>}
+                      </div>
+                      {editMode && (
+                        <label style={{ padding:'4px 10px', border:'1px dashed #c4d4f5', borderRadius:7, background:'#e8eef8', color:'#1a4b8f', fontSize:11, cursor:'pointer', textAlign:'center' }}>
+                          {uploadingDoc === 'photo_enfant' ? '⏳...' : '📷 Changer'}
+                          <input type="file" accept="image/*" style={{ display:'none' }} onChange={async e => {
+                            if (!e.target.files[0]) return
+                            const file = e.target.files[0], ext = file.name.split('.').pop()
+                            const path = `enfants/${id}/photos/photo.${ext}`
+                            setUploadingDoc('photo_enfant')
+                            await supabase.storage.from('documents-enfants').upload(path, file, { contentType: file.type, upsert: true })
+                            const { data: url } = await supabase.storage.from('documents-enfants').createSignedUrl(path, 3600)
+                            if (url?.signedUrl) setPhotoUrl(url.signedUrl)
+                            setUploadingDoc(null)
+                          }} />
+                        </label>
+                      )}
+                    </div>
+                    <FormGrid cols={3}>
                     <Field label="Nom de famille" value={v('nom')} onChange={F('nom')} readOnly={!editMode} />
                     <Field label="Prénom" value={v('prenom')} onChange={F('prenom')} readOnly={!editMode} />
                     <Field label="Date de naissance" type="date" value={v('date_naissance')} onChange={F('date_naissance')} readOnly={!editMode} />
@@ -842,7 +871,8 @@ Ne commence pas par "Voici" ou similaire. Commence directement par le contenu.`
                     <Field label="N° dossier CD81" value={v('numero_dossier')} onChange={F('numero_dossier')} readOnly={!editMode} span={2} />
                     <Field label="Groupe sanguin" value={v('groupe_sanguin')} onChange={F('groupe_sanguin')} readOnly={!editMode}
                       options={['A+','A-','B+','B-','AB+','AB-','O+','O-']} />
-                  </FormGrid>
+                    </FormGrid>
+                  </div>
                 </SectionCard>
 
                 <SectionCard icon="📄" title="Documents d'identité">
