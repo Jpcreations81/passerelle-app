@@ -151,18 +151,26 @@ export default function DossierAssfam({ profile }) {
 
   async function saveForm() {
     setSaving(true)
-    // Exclure les champs non-colonnes et relations
-    const champsExclus = ['id', 'created_at', 'updated_at', 'enfants_accueillis', 'email']
+    // Colonnes explicites à sauvegarder
+    const colonnes = [
+      'nom','prenom','date_naissance','situation_familiale','telephone','telephone2',
+      'email','numero_secu','adresse','code_postal','ville','territoire','matricule',
+      'numero_agrement','date_agrement','date_expiration_agrement',
+      'places_agreees','places_relais','places_contrat_tarn',
+      'deaf_obtenu','deaf_date','deaf_centre',
+      'accord_urgence',
+      'vehicule_marque','vehicule_immat','vehicule_cv','vehicule_assurance_exp','vehicule_ct_exp',
+      'conjoint_nom','conjoint_profession','conjoint_telephone',
+      'km_cumules_annee',
+      'profil_age','profil_sexe','profil_duree',
+      'cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age',
+    ]
     const formData = Object.fromEntries(
-      Object.entries(form).filter(([k, v]) => {
-        if (champsExclus.includes(k)) return false
-        if (v !== null && v !== undefined && typeof v === 'object' && !Array.isArray(v)) return false
-        return true
-      })
+      colonnes.filter(k => form[k] !== undefined).map(k => [k, form[k]])
     )
     const { error } = await supabase.from('profiles').update(formData).eq('id', id)
-    if (!error) { showToast('✅ Enregistré !'); setAf(form); setEditMode(false) }
-    else { console.error('Erreur save:', error); showToast('❌ ' + error.message + ' | ' + JSON.stringify(error)) }
+    if (!error) { showToast('✅ Enregistré !'); setAf({...af, ...formData}); setEditMode(false) }
+    else { console.error('Erreur save:', error); showToast('❌ ' + error.message) }
     setSaving(false)
   }
 
