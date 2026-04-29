@@ -36,7 +36,7 @@ export default function Assfam({ profile }) {
   }
 
   const afsFiltres = afs.filter(a =>
-    `${a.prenom} ${a.nom}`.toLowerCase().includes(search.toLowerCase()) ||
+    `${a.nom} ${a.prenom}`.toLowerCase().includes(search.toLowerCase()) ||
     (a.territoire || '').toLowerCase().includes(search.toLowerCase())
   )
 
@@ -82,7 +82,7 @@ export default function Assfam({ profile }) {
                         {initiales}
                       </div>
                       <div style={{ flex:1 }}>
-                        <div style={{ fontSize:15, fontWeight:700 }}>{af.prenom} {af.nom}</div>
+                        <div style={{ fontSize:15, fontWeight:700 }}>{af.nom} {af.prenom}</div>
                         <div style={{ fontSize:12, color:'#9aa3b8' }}>
                           {af.date_naissance && calcAge(af.date_naissance)}
                           {af.ville && ` · ${af.ville}`}
