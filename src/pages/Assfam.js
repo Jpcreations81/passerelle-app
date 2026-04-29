@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback }, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
 
