@@ -161,13 +161,13 @@ export default function Assfam({ profile }) {
       </div>
     </div>
 
-    {/* Modal créer AF */}
+
     {showCreateModal && (
       <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
         <div className="modal-box" style={{ maxWidth:480 }} onClick={e => e.stopPropagation()}>
           <div className="modal-title">👨‍👩‍👧 Créer un dossier AF</div>
           <div style={{ background:'#e8eef8', border:'1px solid #c4d4f5', borderRadius:9, padding:'10px 14px', marginBottom:16, fontSize:12, color:'#1a4b8f' }}>
-            💡 Un compte sera créé avec ces informations. Le mot de passe provisoire est <strong>Passerelle2026!</strong> — l'AF devra le changer à sa première connexion.
+            💡 Mot de passe provisoire : <strong>Passerelle2026!</strong>
           </div>
           <div className="form-grid-2">
             <div className="form-group">
@@ -188,7 +188,7 @@ export default function Assfam({ profile }) {
             </div>
             <div className="form-group">
               <label className="form-label">Territoire</label>
-              <input className="form-control" value={newAF.territoire || profile?.territoire || ''} onChange={e => setNewAF(n => ({...n, territoire: e.target.value}))} placeholder="MD Gaillac-Graulhet" />
+              <input className="form-control" value={newAF.territoire || profile?.territoire || ''} onChange={e => setNewAF(n => ({...n, territoire: e.target.value}))} />
             </div>
           </div>
           <div className="modal-footer">
