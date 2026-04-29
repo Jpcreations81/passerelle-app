@@ -219,8 +219,28 @@ export default function Assfam({ profile }) {
                 <input className="form-control" type="tel" value={newAF.telephone} onChange={e => setNewAF(n => ({...n, telephone: e.target.value}))} placeholder="06 XX XX XX XX" />
               </div>
               <div className="form-group">
-                <label className="form-label">Territoire</label>
-                <input className="form-control" value={newAF.territoire || profile?.territoire || ''} onChange={e => setNewAF(n => ({...n, territoire: e.target.value}))} placeholder="MD Gaillac-Graulhet" />
+                <label className="form-label">Secteur / Territoire</label>
+                <select className="form-control" value={newAF.territoire || ''} onChange={e => setNewAF(n => ({...n, territoire: e.target.value}))}>
+                  <option value="">— Choisir un secteur —</option>
+                  <optgroup label="🌿 Territoire Ouest">
+                    <option value="MD Graulhet">MD Graulhet</option>
+                    <option value="MD Gaillac">MD Gaillac</option>
+                    <option value="MD Lavaur">MD Lavaur</option>
+                    <option value="MD Puylaurens">MD Puylaurens</option>
+                  </optgroup>
+                  <optgroup label="🔵 Territoire Nord">
+                    <option value="MD Albi Ch. Portal 1">MD Albi Ch. Portal 1</option>
+                    <option value="MD Albi Cantepau">MD Albi Cantepau</option>
+                    <option value="MD Albi Ch. Portal 3">MD Albi Ch. Portal 3</option>
+                    <option value="MD Carmaux">MD Carmaux</option>
+                  </optgroup>
+                  <optgroup label="🟤 Territoire Sud">
+                    <option value="MD Castres 1er Mai">MD Castres 1er Mai</option>
+                    <option value="MD Brassac">MD Brassac</option>
+                    <option value="MD Castres Malroux">MD Castres Malroux</option>
+                    <option value="MD Mazamet">MD Mazamet</option>
+                  </optgroup>
+                </select>
               </div>
             </div>
             <div className="modal-footer">
