@@ -131,7 +131,7 @@ export default function InterfaceASE({ profile }) {
   // Filtres AF
   const afsFiltres = afs.filter(af => {
     const search = searchAF.toLowerCase()
-    const matchSearch = !search || `${af.prenom} ${af.nom}`.toLowerCase().includes(search) || (af.territoire || '').toLowerCase().includes(search)
+    const matchSearch = !search || `${af.nom} ${af.prenom}`.toLowerCase().includes(search) || (af.territoire || '').toLowerCase().includes(search)
     if (!matchSearch) return false
     if (filtreAF === 'disponible') return (af.places_agreees || 3) - (af.enfants_accueillis?.length || 0) > 0
     if (filtreAF === 'complet') return (af.places_agreees || 3) - (af.enfants_accueillis?.length || 0) <= 0
@@ -142,7 +142,7 @@ export default function InterfaceASE({ profile }) {
   // Filtres enfants
   const enfantsFiltres = enfants.filter(e => {
     const search = searchEnfant.toLowerCase()
-    const matchSearch = !search || `${e.prenom} ${e.nom}`.toLowerCase().includes(search) || (e.af_principal ? `${e.af_principal.prenom} ${e.af_principal.nom}`.toLowerCase().includes(search) : false)
+    const matchSearch = !search || `${e.nom} ${e.prenom}`.toLowerCase().includes(search) || (e.af_principal ? `${e.af_principal.nom} ${e.af_principal.prenom}`.toLowerCase().includes(search) : false)
     if (!matchSearch) return false
     if (filtreEnfant === 'urgence') return e.type_placement === 'urgence'
     if (filtreEnfant === 'judiciaire') return e.type_placement === 'judiciaire'
@@ -177,7 +177,7 @@ export default function InterfaceASE({ profile }) {
           <div className="header-sep" />
           <div style={{ flex:1 }}>
             <div className="page-title">Interface ASE — {profile?.territoire || 'Tarn (81)'}</div>
-            <div className="page-subtitle">{profile?.prenom} {profile?.nom} · {profile?.role}</div>
+            <div className="page-subtitle">{profile?.nom} {profile?.prenom} · {profile?.role}</div>
           </div>
           <div className="header-actions">
             <button onClick={() => { setOnglet('urgence') }}
@@ -356,7 +356,7 @@ export default function InterfaceASE({ profile }) {
 
                         {/* Infos */}
                         <div style={{ flex:1 }}>
-                          <div style={{ fontSize:14, fontWeight:700 }}>{af.prenom} {af.nom}</div>
+                          <div style={{ fontSize:14, fontWeight:700 }}>{af.nom} {af.prenom}</div>
                           <div style={{ fontSize:11, color:'#9aa3b8', marginTop:2 }}>
                             {[af.adresse, af.ville].filter(Boolean).join(', ')} · {af.territoire}
                             {af.telephone && ` · ${af.telephone}`}
@@ -455,7 +455,7 @@ export default function InterfaceASE({ profile }) {
                                 {af.prenom?.[0]}{af.nom?.[0]}
                               </div>
                               <div>
-                                <div style={{ fontWeight:600 }}>{af.prenom} {af.nom}</div>
+                                <div style={{ fontWeight:600 }}>{af.nom} {af.prenom}</div>
                                 <div style={{ fontSize:10, color:'#9aa3b8' }}>{af.ville}</div>
                               </div>
                             </div>
@@ -548,7 +548,7 @@ export default function InterfaceASE({ profile }) {
                                 {e.prenom?.[0]}{e.nom?.[0]}
                               </div>
                               <div>
-                                <div style={{ fontWeight:600 }}>{e.prenom} {e.nom}</div>
+                                <div style={{ fontWeight:600 }}>{e.nom} {e.prenom}</div>
                                 <div style={{ fontSize:10, color:'#9aa3b8' }}>{e.numero_dossier}</div>
                               </div>
                             </div>
@@ -629,7 +629,7 @@ export default function InterfaceASE({ profile }) {
                     return j <= 30
                   }).map(af => (
                     <div key={af.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background:'#fdf0ee', borderRadius:8, fontSize:11, color:'#c0392b' }}>
-                      <span>🔴</span><div><div style={{ fontWeight:600 }}>{af.prenom} {af.nom} — Agrément expirant</div><div>Expire le {fmtDate(af.date_expiration_agrement)}</div></div>
+                      <span>🔴</span><div><div style={{ fontWeight:600 }}>{af.nom} {af.prenom} — Agrément expirant</div><div>Expire le {fmtDate(af.date_expiration_agrement)}</div></div>
                     </div>
                   ))}
                   {afs.filter(af => {
@@ -638,7 +638,7 @@ export default function InterfaceASE({ profile }) {
                     return j > 30 && j <= 90
                   }).map(af => (
                     <div key={af.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background:'#fef3e2', borderRadius:8, fontSize:11, color:'#d97706' }}>
-                      <span>⚠️</span><div><div style={{ fontWeight:600 }}>{af.prenom} {af.nom} — Renouvellement à venir</div><div>Expire le {fmtDate(af.date_expiration_agrement)}</div></div>
+                      <span>⚠️</span><div><div style={{ fontWeight:600 }}>{af.nom} {af.prenom} — Renouvellement à venir</div><div>Expire le {fmtDate(af.date_expiration_agrement)}</div></div>
                     </div>
                   ))}
                   {agrementsAlerte === 0 && urgences === 0 && (
