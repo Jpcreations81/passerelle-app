@@ -55,34 +55,28 @@ export default function Assfam({ profile }) {
     }
     setCreating(true)
     try {
-      const session = JSON.parse(localStorage.getItem('sb-ebvwiwdefecaxfmnfppz-auth-token'))
-      const token = session?.access_token
-      const resp = await fetch('https://ebvwiwdefecaxfmnfppz.supabase.co/auth/v1/admin/users', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVidndpd2RlZmVjYXhmbW5mcHB6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMwMjkzNDIsImV4cCI6MjA1ODYwNTM0Mn0.wMqjRGHuuJT-B-xX4cdwFI1iaTRo8AcnKJWOc8aGvfs',
-          'Authorization': 'Bearer ' + token,
-        },
-        body: JSON.stringify({ email: newAF.email, password: 'Passerelle2026!', email_confirm: true })
+      // Créer le compte via signUp puis mettre à jour le profil
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newAF.email,
+        password: 'Passerelle2026!',
+        options: { data: { nom: newAF.nom, prenom: newAF.prenom } }
       })
-      const data = await resp.json()
-      if (!data.id) {
-        alert('Erreur: ' + JSON.stringify(data))
-        setCreating(false)
-        return
-      }
+      if (authError) { alert('Erreur: ' + authError.message); setCreating(false); return }
+      if (!authData?.user?.id) { alert('Erreur création compte'); setCreating(false); return }
+      const userId = authData.user.id
+      // Attendre que le trigger crée le profil
+      await new Promise(r => setTimeout(r, 1000))
       await supabase.from('profiles').update({
         nom: newAF.nom,
         prenom: newAF.prenom,
         role: 'af',
         telephone: newAF.telephone,
         territoire: newAF.territoire || profile?.territoire,
-      }).eq('id', data.id)
+      }).eq('id', userId)
       setShowCreateModal(false)
       setNewAF({ email:'', nom:'', prenom:'', telephone:'', territoire:'' })
       await fetchAfs()
-      navigate('/assfam/' + data.id)
+      navigate('/assfam/' + userId)
     } catch(e) {
       alert('Erreur: ' + e.message)
     }
@@ -223,22 +217,22 @@ export default function Assfam({ profile }) {
                 <select className="form-control" value={newAF.territoire || ''} onChange={e => setNewAF(n => ({...n, territoire: e.target.value}))}>
                   <option value="">— Choisir un secteur —</option>
                   <optgroup label="🌿 Territoire Ouest">
-                    <option value="MD Graulhet">MD Graulhet</option>
-                    <option value="MD Gaillac">MD Gaillac</option>
-                    <option value="MD Lavaur">MD Lavaur</option>
-                    <option value="MD Puylaurens">MD Puylaurens</option>
+                    <option value="Graulhet">Graulhet</option>
+                    <option value="Gaillac">Gaillac</option>
+                    <option value="Lavaur">Lavaur</option>
+                    <option value="Puylaurens">Puylaurens</option>
                   </optgroup>
                   <optgroup label="🔵 Territoire Nord">
-                    <option value="MD Albi Ch. Portal 1">MD Albi Ch. Portal 1</option>
-                    <option value="MD Albi Cantepau">MD Albi Cantepau</option>
-                    <option value="MD Albi Ch. Portal 3">MD Albi Ch. Portal 3</option>
-                    <option value="MD Carmaux">MD Carmaux</option>
+                    <option value="Albi Ch. Portal 1">Albi Ch. Portal 1</option>
+                    <option value="Albi Cantepau">Albi Cantepau</option>
+                    <option value="Albi Ch. Portal 3">Albi Ch. Portal 3</option>
+                    <option value="Carmaux">Carmaux</option>
                   </optgroup>
                   <optgroup label="🟤 Territoire Sud">
-                    <option value="MD Castres 1er Mai">MD Castres 1er Mai</option>
-                    <option value="MD Brassac">MD Brassac</option>
-                    <option value="MD Castres Malroux">MD Castres Malroux</option>
-                    <option value="MD Mazamet">MD Mazamet</option>
+                    <option value="Castres 1er Mai">Castres 1er Mai</option>
+                    <option value="Brassac">Brassac</option>
+                    <option value="Castres Malroux">Castres Malroux</option>
+                    <option value="Mazamet">Mazamet</option>
                   </optgroup>
                 </select>
               </div>
