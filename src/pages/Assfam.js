@@ -9,7 +9,6 @@ export default function Assfam({ profile }) {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [newAF, setNewAF] = useState({ email:'', nom:'', prenom:'', telephone:'', territoire:'', password:'Passerelle2026!' })
   const [creating, setCreating] = useState(false)
-  const navigate = useNavigate()
   const [afs, setAfs] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
