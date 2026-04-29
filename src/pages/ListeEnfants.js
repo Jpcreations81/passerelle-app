@@ -154,7 +154,7 @@ export default function ListeEnfants({ profile }) {
               {enfantsFiltres.map(e => {
                 const age = calcAge(e.date_naissance)
                 const placement = PLACEMENT_COLORS[e.type_placement] || PLACEMENT_COLORS.judiciaire
-                const initiales = `${e.prenom?.[0] || ''}${e.nom?.[0] || ''}`
+                const initiales = `${e.nom?.[0] || ''}${e.prenom?.[0] || ''}`
                 return (
                   <div key={e.id} onClick={() => navigate(`/enfants/${e.id}`)}
                     style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:14, padding:18, cursor:'pointer', boxShadow:'0 2px 12px rgba(26,75,143,.08)', transition:'all .15s' }}
@@ -165,7 +165,7 @@ export default function ListeEnfants({ profile }) {
                         {initiales}
                       </div>
                       <div style={{ flex:1 }}>
-                        <div style={{ fontSize:15, fontWeight:700 }}>{e.prenom} {e.nom}</div>
+                        <div style={{ fontSize:15, fontWeight:700 }}>{e.nom} {e.prenom}</div>
                         <div style={{ fontSize:12, color:'#9aa3b8' }}>
                           {age}{e.date_naissance && (() => { const [y,m,d] = e.date_naissance.split('-'); return ` · ${d}/${m}/${y}` })()}
                         </div>
@@ -181,8 +181,8 @@ export default function ListeEnfants({ profile }) {
                       )}
                     </div>
                     <div style={{ borderTop:'1px solid #f0f0f0', paddingTop:10, display:'flex', justifyContent:'space-between', fontSize:11, color:'#9aa3b8' }}>
-                      <span>👨‍👩‍👧 {e.af_principal ? `${e.af_principal.prenom} ${e.af_principal.nom}` : 'AF non assigné'}</span>
-                      <span>👩‍💼 {e.referent ? `${e.referent.prenom} ${e.referent.nom}` : '—'}</span>
+                      <span>👨‍👩‍👧 {e.af_principal ? `${e.af_principal.nom} ${e.af_principal.prenom}` : 'AF non assigné'}</span>
+                      <span>👩‍💼 {e.referent ? `${e.referent.nom} ${e.referent.prenom}` : '—'}</span>
                     </div>
                   </div>
                 )
@@ -310,7 +310,7 @@ export default function ListeEnfants({ profile }) {
                           onMouseOut={ev => ev.currentTarget.style.background='#fff'}>
                           <span style={{ fontSize:18 }}>{e.sexe === 'Féminin' ? '👧' : '👦'}</span>
                           <div>
-                            <div style={{ fontSize:13, fontWeight:600 }}>{e.prenom} {e.nom}</div>
+                            <div style={{ fontSize:13, fontWeight:600 }}>{e.nom} {e.prenom}</div>
                             <div style={{ fontSize:11, color:'#9aa3b8' }}>{calcAge(e.date_naissance)}</div>
                           </div>
                         </div>
