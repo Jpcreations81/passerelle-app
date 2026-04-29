@@ -72,7 +72,7 @@ function ContactCard({ icon, role, nom, prenom, tel, email, onEdit, bg }) {
         <div style={{ width:36, height:36, borderRadius:8, background: bg || '#e8eef8', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>{icon}</div>
         <div>
           <div style={{ fontSize:11, color:'#9aa3b8', fontWeight:600, textTransform:'uppercase', letterSpacing:'.3px' }}>{role}</div>
-          <div style={{ fontSize:13, fontWeight:600 }}>{prenom} {nom}</div>
+          <div style={{ fontSize:13, fontWeight:600 }}>{nom} {prenom}</div>
         </div>
       </div>
       {tel && <div style={{ fontSize:12, color:'#5a6478' }}>📞 <a href={`tel:${tel}`} style={{ color:'#1a4b8f' }}>{tel}</a></div>}
@@ -755,7 +755,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
               {photoUrl ? <img src={photoUrl} alt="photo" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontSize:14, fontWeight:700, color:'#fff' }}>{initiales}</span>}
             </div>
             <div>
-              <div className="page-title">{enfant.prenom} {enfant.nom}</div>
+              <div className="page-title">{enfant.nom} {enfant.prenom}</div>
               <div className="page-subtitle">
                 {age}{enfant.date_naissance && ` · Né(e) le ${fmtDate(enfant.date_naissance)}`}
                 {enfant.numero_dossier && ` · ${enfant.numero_dossier}`}
@@ -1236,7 +1236,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                               style={{ fontSize:12 }}>
                               <option value="">— Sélectionner —</option>
                               {collegues.filter(c => role === 'af' ? c.role === 'af' : ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
-                                <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
+                                <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
                               ))}
                             </select>
                           ) : profil ? (
@@ -1943,7 +1943,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                           {e.prenom?.[0]}{e.nom?.[0]}
                         </div>
                         <div>
-                          <div style={{ fontSize:13, fontWeight:600 }}>{e.prenom} {e.nom}</div>
+                          <div style={{ fontSize:13, fontWeight:600 }}>{e.nom} {e.prenom}</div>
                           <div style={{ fontSize:11, color:'#9aa3b8' }}>{e.date_naissance ? calcAge(e.date_naissance) : ''}</div>
                         </div>
                       </div>
@@ -2140,7 +2140,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
       {showRapportModal && (
         <div className="modal-overlay" onClick={() => setShowRapportModal(false)}>
           <div className="modal-box" style={{ maxWidth:680 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-title">📄 Rapport synthétique ASE — {enfant.prenom} {enfant.nom}</div>
+            <div className="modal-title">📄 Rapport synthétique ASE — {enfant.nom} {enfant.prenom}</div>
 
             {/* Période */}
             <div className="form-grid-2" style={{ marginBottom:16 }}>
