@@ -175,7 +175,7 @@ export default function DossierAssfam({ profile }) {
   const placesOccupees=enfantsAccueillis.length, placesContratTarn=af?.places_contrat_tarn||af?.places_agreees||3, placesTotal=af?.places_agreees||3, placesDisponibles=Math.max(0,placesContratTarn-placesOccupees)
   const congesPris=conges.filter(c=>c.statut==='valide').reduce((s,c)=>s+(c.nb_jours||0),0), congesRestants=30-congesPris, kmCumules=af?.km_cumules_annee||0, cv=af?.vehicule_cv||5
   const agrExp=af?.date_expiration_agrement?new Date(af.date_expiration_agrement):null, joursAgrExp=agrExp?Math.ceil((agrExp-new Date())/(1000*60*60*24)):null, agrAlerte=joursAgrExp!==null&&joursAgrExp<=90
-  const initiales=`${af?.prenom?.[0]||''}${af?.nom?.[0]||''}`
+  const initiales=`${af?.nom?.[0]||''}${af?.prenom?.[0]||''}`
 
   const ONGLETS=[{id:'identite',icon:'🪪',label:'Identité'},{id:'agrement',icon:'📜',label:'Agrément'},{id:'foyer',icon:'🏠',label:'Foyer'},{id:'enfants',icon:'👶',label:'Enfants & Frais'},{id:'conges',icon:'🏖️',label:'Congés'},{id:'formations',icon:'🎓',label:'Formations'},{id:'safa',icon:'🏛️',label:'SAFA & Contrat'}]
 
@@ -196,7 +196,7 @@ export default function DossierAssfam({ profile }) {
               {photoUrl ? <img src={photoUrl} alt="photo" style={{width:'100%',height:'100%',objectFit:'cover'}} /> : <span style={{fontSize:14,fontWeight:700,color:'#fff'}}>{initiales}</span>}
             </div>
             <div>
-              <div className="page-title">{af.prenom} {af.nom}</div>
+              <div className="page-title">{af.nom} {af.prenom}</div>
               <div className="page-subtitle">Assistante familiale agréée · {af.territoire||''}{af.numero_agrement&&` · Agrément N° ${af.numero_agrement}`}{agrAlerte&&<span style={{marginLeft:8,background:'#fef3e2',color:'#d97706',padding:'1px 8px',borderRadius:10,fontSize:10,fontWeight:700}}>⚠️ Renouvellement dans {joursAgrExp}j</span>}</div>
             </div>
           </div>
@@ -207,7 +207,7 @@ export default function DossierAssfam({ profile }) {
 
         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,padding:'16px 24px 0'}}>
           {[
-            {val:placesOccupees,lbl:'Enfants accueillis',sub:enfantsAccueillis.map(e=>`${e.prenom} ${e.nom[0]}.`).join(' · ')||'—',color:'#2e8b4a',bg:'#e6f5eb'},
+            {val:placesOccupees,lbl:'Enfants accueillis',sub:enfantsAccueillis.map(e=>`${e.nom} ${e.prenom[0]}.`).join(' · ')||'—',color:'#2e8b4a',bg:'#e6f5eb'},
             {val:placesDisponibles,lbl:`Place${placesDisponibles!==1?'s':''} disponible${placesDisponibles!==1?'s':''}`,sub:`Contrat Tarn : ${placesContratTarn} place${placesContratTarn!==1?'s':''}`,color:'#1a4b8f',bg:'#e8eef8'},
             {val:congesRestants,lbl:'Jours de congés',sub:'Solde restant '+new Date().getFullYear(),color:'#d97706',bg:'#fef3e2'},
             {val:kmCumules.toLocaleString('fr-FR'),lbl:'Km cumulés '+new Date().getFullYear(),sub:`Tranche ${kmCumules<=2000?'1 (≤2 000)':kmCumules<=10000?'2 (2 001–10 000)':'3 (>10 000)'}`,color:'#6d4c9e',bg:'#f0ebfb'},
@@ -432,7 +432,7 @@ export default function DossierAssfam({ profile }) {
                     return (
                       <div key={e.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:'#f4f6fb',borderRadius:8,marginBottom:8,border:'1px solid #dde3f0'}}>
                         <span style={{fontSize:20}}>{e.sexe==='F'?'👧':'👦'}</span>
-                        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{e.prenom} {e.nom}</div><div style={{fontSize:11,color:'#9aa3b8'}}>{e.date_naissance&&calcAge(e.date_naissance)} · {e.lien||'Enfant'}</div></div>
+                        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{e.nom} {e.prenom}</div><div style={{fontSize:11,color:'#9aa3b8'}}>{e.date_naissance&&calcAge(e.date_naissance)} · {e.lien||'Enfant'}</div></div>
                         {needsCasier&&<span style={{padding:'3px 8px',borderRadius:8,fontSize:10,fontWeight:600,background:hasCasier?'#e6f5eb':'#fdf0ee',color:hasCasier?'#2e8b4a':'#c0392b'}}>{hasCasier?'✅ Casier B3':'⚠️ Casier B3 requis'}</span>}
                         {needsCasier&&!hasCasier&&<label style={{padding:'3px 8px',border:'1px dashed #fde8e8',borderRadius:7,background:'#fdf0ee',color:'#c0392b',fontSize:10,cursor:'pointer'}}>📎 Ajouter B3<input type="file" accept="application/pdf,image/*" style={{display:'none'}} onChange={ev=>{if(ev.target.files[0]) uploadDoc(ev.target.files[0],`casier_foyer_${e.id}`)}} /></label>}
                       </div>
@@ -453,8 +453,8 @@ export default function DossierAssfam({ profile }) {
                 {enfantsAccueillis.length===0 ? <div style={{color:'#9aa3b8',fontStyle:'italic',fontSize:13}}>Aucun enfant accueilli actuellement</div>
                 : enfantsAccueillis.map(e=>(
                   <div key={e.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'#f4f6fb',borderRadius:10,marginBottom:8,border:'1px solid #dde3f0'}}>
-                    <div style={{width:38,height:38,borderRadius:'50%',background:'linear-gradient(135deg,#1a4b8f,#2e8b4a)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'#fff'}}>{e.prenom?.[0]}{e.nom?.[0]}</div>
-                    <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{e.prenom} {e.nom}</div><div style={{fontSize:11,color:'#9aa3b8'}}>{calcAge(e.date_naissance)} · Depuis {fmtDate(e.date_placement)} · {e.type_placement}</div></div>
+                    <div style={{width:38,height:38,borderRadius:'50%',background:'linear-gradient(135deg,#1a4b8f,#2e8b4a)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'#fff'}}>{e.nom?.[0]}{e.prenom?.[0]}</div>
+                    <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{e.nom} {e.prenom}</div><div style={{fontSize:11,color:'#9aa3b8'}}>{calcAge(e.date_naissance)} · Depuis {fmtDate(e.date_placement)} · {e.type_placement}</div></div>
                     <span style={{padding:'3px 10px',borderRadius:10,background:'#e8eef8',color:'#1a4b8f',fontSize:11,fontWeight:600}}>Principal</span>
                     <button onClick={()=>navigate(`/enfants/${e.id}`)} style={{padding:'5px 10px',borderRadius:7,border:'1px solid #c4d4f5',background:'#e8eef8',color:'#1a4b8f',fontSize:11,cursor:'pointer'}}>📁 Dossier</button>
                   </div>
@@ -517,7 +517,7 @@ export default function DossierAssfam({ profile }) {
                     <tbody>
                       {historique.map(e=>(
                         <tr key={e.id} style={{borderBottom:'1px solid #f0f0f0',cursor:'pointer'}} onClick={()=>navigate(`/enfants/${e.id}`)} onMouseOver={ev=>ev.currentTarget.style.background='#f4f6fb'} onMouseOut={ev=>ev.currentTarget.style.background='transparent'}>
-                          <td style={{padding:'10px 12px',fontWeight:600}}>{e.prenom} {e.nom}</td>
+                          <td style={{padding:'10px 12px',fontWeight:600}}>{e.nom} {e.prenom}</td>
                           <td style={{padding:'10px 12px',color:'#5a6478'}}>{fmtDate(e.date_placement)} → {e.date_fin_placement?fmtDate(e.date_fin_placement):'en cours'}</td>
                           <td style={{padding:'10px 12px'}}><span style={{padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,background:e.type_placement==='relais'?'#fef3e2':'#e8eef8',color:e.type_placement==='relais'?'#d97706':'#1a4b8f'}}>{e.type_placement==='relais'?'Relais':'Principal'}</span></td>
                           <td style={{padding:'10px 12px',color:'#5a6478'}}>{dureePlacement(e.date_placement,e.date_fin_placement)}</td>
@@ -563,7 +563,7 @@ export default function DossierAssfam({ profile }) {
                 </div>
                 {enfantsAccueillis.map(e=>(
                   <div key={e.id} style={{marginBottom:10}}>
-                    <label style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',display:'block',marginBottom:5}}>Famille relais pour {e.prenom} {e.nom}</label>
+                    <label style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',display:'block',marginBottom:5}}>Famille relais pour {e.nom} {e.prenom}</label>
                     <input className="form-control" placeholder="Nom de l'AF relais..." value={congeRelais[e.id]||''} onChange={ev=>setCongeRelais(r=>({...r,[e.id]:ev.target.value}))} />
                   </div>
                 ))}
@@ -658,7 +658,7 @@ export default function DossierAssfam({ profile }) {
                   {collegues.filter(c=>['encadrant','admin'].includes(c.role)).map(c=>(
                     <div key={c.id} style={{background:'#f4f6fb',borderRadius:10,padding:16,border:'1px solid #dde3f0'}}>
                       <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:8}}>{c.role==='encadrant'?'👨‍💼 Encadrant Technique':c.role==='rtase'?'🎖️ RTASE':'👤 Admin'}</div>
-                      <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{c.prenom} {c.nom}</div>
+                      <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{c.nom} {c.prenom}</div>
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                         {c.telephone&&<a href={`tel:${c.telephone}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {c.telephone}</a>}
                         {c.email&&<a href={`mailto:${c.email}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e6f5eb',color:'#2e8b4a',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>✉️ {c.email}</a>}
