@@ -119,17 +119,11 @@ export default function DossierAssfam({ profile }) {
   const fetchFormations = useCallback(async () => { const { data } = await supabase.from('formations').select('*').eq('af_id', id).order('date_debut',{ascending:false}); if(data) setFormations(data) }, [id])
   const fetchFoyerEnfants = useCallback(async () => { const { data } = await supabase.from('foyer_enfants').select('*').eq('af_id', id); if(data) setFoyerEnfants(data) }, [id])
   const fetchDocuments = useCallback(async () => { const { data } = await supabase.from('documents_parent').select('*').eq('parent_id', id).order('created_at',{ascending:false}); if(data) setDocuments(data) }, [id])
+  const fetchCollegues = useCallback(async () => { const { data } = await supabase.from('profiles').select('id,nom,prenom,role,telephone,email').eq('territoire', profile?.territoire); if(data) setCollegues(data) }, [profile])
   const fetchGestionnaires = useCallback(async () => {
     const { data } = await supabase.from('gestionnaires_paie').select('*').order('nom')
     if (data) setGestionnaires(data)
   }, [])
-
-  const fetchCollegues = useCallback(async () => { const { data } = await supabase.from('profiles').select('id,nom,prenom,role,telephone,email').eq('territoire', profile?.territoire); if(data) setCollegues(data) }, [profile])
-    const { data } = await supabase.from('gestionnaires_paie').select('*').order('nom')
-    if (data) setGestionnaires(data)
-  }, [])
-
-  const fetchPhoto = useCallback(async () => { const { data } = await supabase.storage.from('documents-enfants').list(`assfam/${id}/photos`); if(data&&data.length>0){ const { data:url } = await supabase.storage.from('documents-enfants').createSignedUrl(`assfam/${id}/photos/${data[0].name}`,3600); if(url?.signedUrl) setPhotoUrl(url.signedUrl) } }, [id])
 
   useEffect(() => { fetchAf(); fetchEnfants(); fetchConges(); fetchFormations(); fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto(); fetchGestionnaires() }, [fetchAf,fetchEnfants,fetchConges,fetchFormations,fetchFoyerEnfants,fetchDocuments,fetchCollegues,fetchPhoto,fetchGestionnaires])
 
