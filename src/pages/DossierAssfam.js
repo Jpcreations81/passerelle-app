@@ -113,7 +113,7 @@ export default function DossierAssfam({ profile }) {
 
   async function saveForm() {
     setSaving(true)
-    const cols = ['nom','prenom','date_naissance','situation_familiale','telephone','telephone2','email','numero_secu','adresse','code_postal','ville','territoire','matricule','numero_agrement','date_agrement','date_expiration_agrement','delivre_par','places_agreees','places_relais','places_contrat_tarn','deaf_obtenu','deaf_date','deaf_centre','deaf_numero','accord_urgence','vehicule_marque','vehicule_immat','vehicule_cv','vehicule_assurance_exp','vehicule_ct_exp','conjoint_nom','conjoint_profession','conjoint_telephone','km_cumules_annee','profil_age','profil_sexe','profil_duree','cap_troubles_comportement_legers','cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age','cap_relais','date_debut_contrat']
+    const cols = ['nom','prenom','situation_familiale','telephone','telephone2','email','numero_secu','adresse','code_postal','ville','territoire','matricule','numero_agrement','date_agrement','date_expiration_agrement','delivre_par','places_agreees','places_relais','places_contrat_tarn','deaf_obtenu','deaf_date','deaf_centre','deaf_numero','accord_urgence','vehicule_marque','vehicule_immat','vehicule_cv','vehicule_assurance_exp','vehicule_ct_exp','conjoint_nom','conjoint_profession','conjoint_telephone','km_cumules_annee','profil_age','profil_sexe','profil_duree','cap_troubles_comportement_legers','cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age','cap_relais','date_debut_contrat']
     const fd = Object.fromEntries(cols.filter(k=>form[k]!==undefined).map(k=>[k,form[k]]))
     const { error } = await supabase.from('profiles').update(fd).eq('id', id)
     if (!error) { showToast('✅ Enregistré !'); setAf({...af,...fd}); setEditMode(false) }
@@ -242,7 +242,7 @@ export default function DossierAssfam({ profile }) {
             </div>
             <div>
               <div className="page-title">{af.nom} {af.prenom}</div>
-              <div className="page-subtitle">Assistante familiale agréée · {af.territoire||''}{af.numero_agrement&&` · Agrément N° ${af.numero_agrement}`}{agrAlerte&&<span style={{marginLeft:8,background:'#fef3e2',color:'#d97706',padding:'1px 8px',borderRadius:10,fontSize:10,fontWeight:700}}>⚠️ Renouvellement dans {joursAgrExp}j</span>}</div>
+              <div className="page-subtitle">Assistante familiale agréée · {af.territoire||''}{af.numero_agrement&&` · Agrément N° ${af.numero_agrement}`}{agrAlerte&&<span style={{marginLeft:8,background:joursAgrExp<=0?'#fdf0ee':'#fef3e2',color:joursAgrExp<=0?'#c0392b':'#d97706',padding:'1px 8px',borderRadius:10,fontSize:10,fontWeight:700}}>{joursAgrExp<=0?'🔴 Agrément EXPIRÉ':`⚠️ Renouvellement dans ${joursAgrExp}j`}</span>}</div>
             </div>
           </div>
           <div className="header-actions">
