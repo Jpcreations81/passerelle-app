@@ -10,7 +10,7 @@ export default function Assfam({ profile }) {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [newAF, setNewAF] = useState({ email:'', nom:'', prenom:'', telephone:'', territoire:'' })
+  const [newAF, setNewAF] = useState({ email:'', nom:'', prenom:'', telephone:'', secteur:'', ville_rattachement:'' })
   const [creating, setCreating] = useState(false)
 
   function fmtDate(iso) {
@@ -32,9 +32,8 @@ export default function Assfam({ profile }) {
     let q = supabase.from('profiles').select('*').eq('role', 'af')
     if (profile?.role === 'af') {
       q = q.eq('id', profile.id)
-    } else if (profile?.role === 'referent' || profile?.role === 'encadrant') {
-      q = q.eq('territoire', profile.territoire)
     }
+    // referent et encadrant voient tous les AF (filtrage par secteur à affiner plus tard)
     q = q.order('nom')
     const { data } = await q
     if (data) setAfs(data)
@@ -71,10 +70,11 @@ export default function Assfam({ profile }) {
         prenom: newAF.prenom,
         role: 'af',
         telephone: newAF.telephone,
-        territoire: newAF.territoire || profile?.territoire,
+        secteur: newAF.secteur,
+        ville_rattachement: newAF.ville_rattachement,
       }).eq('id', userId)
       setShowCreateModal(false)
-      setNewAF({ email:'', nom:'', prenom:'', telephone:'', territoire:'' })
+      setNewAF({ email:'', nom:'', prenom:'', telephone:'', secteur:'', ville_rattachement:'' })
       await fetchAfs()
       navigate('/assfam/' + userId)
     } catch(e) {
@@ -213,28 +213,41 @@ export default function Assfam({ profile }) {
                 <input className="form-control" type="tel" value={newAF.telephone} onChange={e => setNewAF(n => ({...n, telephone: e.target.value}))} placeholder="06 XX XX XX XX" />
               </div>
               <div className="form-group">
-                <label className="form-label">Secteur / Territoire</label>
-                <select className="form-control" value={newAF.territoire || ''} onChange={e => setNewAF(n => ({...n, territoire: e.target.value}))}>
-                  <option value="">— Choisir un secteur —</option>
-                  <optgroup label="🌿 Territoire Ouest">
+                <label className="form-label">Secteur (ville de rattachement)</label>
+                <select className="form-control" value={newAF.ville_rattachement || ''} onChange={e => {
+                  const ville = e.target.value
+                  const secteurMap = {
+                    'Graulhet': 'Ouest', 'Gaillac': 'Ouest', 'Lavaur': 'Ouest', 'Puylaurens': 'Ouest',
+                    'Albi Ch. Portal 1': 'Nord', 'Albi Cantepau': 'Nord', 'Albi Ch. Portal 3': 'Nord', 'Carmaux': 'Nord',
+                    'Castres 1er Mai': 'Sud', 'Brassac': 'Sud', 'Castres Malroux': 'Sud', 'Mazamet': 'Sud',
+                  }
+                  setNewAF(n => ({...n, ville_rattachement: ville, secteur: secteurMap[ville] || ''}))
+                }}>
+                  <option value="">— Choisir —</option>
+                  <optgroup label="🌿 Secteur Ouest">
                     <option value="Graulhet">Graulhet</option>
                     <option value="Gaillac">Gaillac</option>
                     <option value="Lavaur">Lavaur</option>
                     <option value="Puylaurens">Puylaurens</option>
                   </optgroup>
-                  <optgroup label="🔵 Territoire Nord">
+                  <optgroup label="🔵 Secteur Nord">
                     <option value="Albi Ch. Portal 1">Albi Ch. Portal 1</option>
                     <option value="Albi Cantepau">Albi Cantepau</option>
                     <option value="Albi Ch. Portal 3">Albi Ch. Portal 3</option>
                     <option value="Carmaux">Carmaux</option>
                   </optgroup>
-                  <optgroup label="🟤 Territoire Sud">
+                  <optgroup label="🟤 Secteur Sud">
                     <option value="Castres 1er Mai">Castres 1er Mai</option>
                     <option value="Brassac">Brassac</option>
                     <option value="Castres Malroux">Castres Malroux</option>
                     <option value="Mazamet">Mazamet</option>
                   </optgroup>
                 </select>
+                {newAF.secteur && (
+                  <div style={{marginTop:4, fontSize:11, color:'#1a4b8f', fontWeight:600}}>
+                    → Secteur enregistré : {newAF.secteur}
+                  </div>
+                )}
               </div>
             </div>
             <div className="modal-footer">
