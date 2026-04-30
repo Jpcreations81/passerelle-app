@@ -48,10 +48,22 @@ function FG({ cols = 3, children, style: s }) {
 
 const BAREME_KM = {
   5: [{ max:2000, taux:0.32 }, { max:10000, taux:0.40 }, { max:Infinity, taux:0.23 }],
-  6: [{ max:2000, taux:0.38 }, { max:10000, taux:0.47 }, { max:Infinity, taux:0.27 }],
-  8: [{ max:2000, taux:0.41 }, { max:10000, taux:0.52 }, { max:Infinity, taux:0.30 }],
+  6: [{ max:2000, taux:0.41 }, { max:10000, taux:0.51 }, { max:Infinity, taux:0.30 }],
+  8: [{ max:2000, taux:0.45 }, { max:10000, taux:0.55 }, { max:Infinity, taux:0.32 }],
 }
-function calcTauxKm(cv, km) { const t = (BAREME_KM[cv]||BAREME_KM[5]).find(t => km <= t.max); return t ? t.taux : 0.23 }
+// Arrêté ministériel du 14 mars 2022 — en vigueur au 22/09/2023
+function calcTauxKm(cv, km) {
+  let cvKey = 5
+  if (typeof cv === 'string') {
+    if (cv.includes('8')) cvKey = 8
+    else if (cv.includes('6')) cvKey = 6
+    else cvKey = 5
+  } else {
+    cvKey = cv >= 8 ? 8 : cv >= 6 ? 6 : 5
+  }
+  const t = BAREME_KM[cvKey].find(t => km <= t.max)
+  return t ? t.taux : 0.23
+}
 
 export default function DossierAssfam({ profile }) {
   const { id } = useParams()
@@ -472,7 +484,7 @@ export default function DossierAssfam({ profile }) {
                 <FG>
                   <Field label="Marque / Modèle" value={v('vehicule_marque')} onChange={F('vehicule_marque')} readOnly={!editMode} />
                   <Field label="Immatriculation" value={v('vehicule_immat')} onChange={F('vehicule_immat')} readOnly={!editMode} />
-                  <Field label="Puissance fiscale (CV)" value={String(v('vehicule_cv')||'5')} onChange={val=>F('vehicule_cv')(parseInt(val))} readOnly={!editMode} options={['5','6','8']} />
+                  <Field label="Puissance fiscale (CV)" value={String(v('vehicule_cv')||'5')} onChange={val=>F('vehicule_cv')(parseInt(val))} readOnly={!editMode} options={['5 CV et moins','6-7 CV','8 CV et plus']} />
                   <Field label="Expiration assurance" type="date" value={v('vehicule_assurance_exp')} onChange={F('vehicule_assurance_exp')} readOnly={!editMode} />
                   <Field label="Contrôle technique" type="date" value={v('vehicule_ct_exp')} onChange={F('vehicule_ct_exp')} readOnly={!editMode} />
                 </FG>
