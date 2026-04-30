@@ -11,6 +11,7 @@ export default function Dashboard({ profile, session }) {
   const [mesRetours, setMesRetours] = useState([])            // réponses reçues sur mes demandes
   const [mesEnAttente, setMesEnAttente] = useState([])        // mes demandes envoyées, en attente
   const [relaisInconnus, setRelaisInconnus] = useState([])    // événements relais avec famille inconnue
+  const [alertesAgrement, setAlertesAgrement] = useState([])  // AF avec agrément expiré ou expirant
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -20,7 +21,23 @@ export default function Dashboard({ profile, session }) {
     fetchMesRetours()
     fetchMesEnAttente()
     fetchRelaisInconnus()
+    fetchAlertesAgrement()
   }, [profile])
+
+  async function fetchAlertesAgrement() {
+    if (!profile || profile.role === 'af') return
+    const { data } = await supabase.from('profiles')
+      .select('id, nom, prenom, date_expiration_agrement')
+      .eq('role', 'af')
+      .not('date_expiration_agrement', 'is', null)
+    if (data) {
+      const alertes = data.filter(af => {
+        const jours = Math.ceil((new Date(af.date_expiration_agrement) - new Date()) / (1000*60*60*24))
+        return jours <= 90
+      }).sort((a, b) => new Date(a.date_expiration_agrement) - new Date(b.date_expiration_agrement))
+      setAlertesAgrement(alertes)
+    }
+  }
 
   async function fetchEnfants() {
     if (!profile) return
@@ -241,7 +258,18 @@ export default function Dashboard({ profile, session }) {
               {['referent','encadrant','rtase','admin'].includes(profile?.role) && (
                 <>
                   <AlertItem icon="🚨" title="Relais non trouvé — Martin René" sub="Congés 15-30 mai · Hugo M. · Sara L. · J-33" type="danger" onClick={() => {}} />
-                  <AlertItem icon="⚠️" title="Agrément expirant — Martin René" sub="Expire le 15/04/2026 · Renouvellement urgent" type="warn" onClick={() => {}} />
+                  {alertesAgrement.map(af => {
+                    const jours = Math.ceil((new Date(af.date_expiration_agrement) - new Date()) / (1000*60*60*24))
+                    const expire = jours <= 0
+                    return (
+                      <AlertItem key={af.id}
+                        icon={expire ? '🔴' : '⚠️'}
+                        title={`${expire ? 'Agrément EXPIRÉ' : 'Agrément expirant'} — ${af.nom} ${af.prenom}`}
+                        sub={expire ? `Expiré le ${af.date_expiration_agrement?.slice(0,10).split('-').reverse().join('/')} · Renouvellement urgent` : `Expire dans ${jours} jours · ${af.date_expiration_agrement?.slice(0,10).split('-').reverse().join('/')}`}
+                        type={expire ? 'error' : 'warn'}
+                        onClick={() => navigate('/assfam/' + af.id)} />
+                    )
+                  })}
                 </>
               )}
 
