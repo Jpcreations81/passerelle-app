@@ -123,13 +123,16 @@ export default function DossierAssfam({ profile }) {
 
   async function uploadDoc(file, typeDoc) {
     if (!file) return; setUploadingDoc(typeDoc)
-    const ext=file.name.split('.').pop(), path=`assfam/${id}/${typeDoc}_${Date.now()}.${ext}`
-    const { error:sErr } = await supabase.storage.from('documents-enfants').upload(path, file, { contentType:file.type })
-    if (sErr) { showToast('❌ '+sErr.message); setUploadingDoc(null); return }
-    // Supprimer l'ancien document du même type avant d'insérer
+    const ext=file.name.split('.').pop()
+    // Utiliser un chemin fixe par type pour éviter les doublons storage
+    const path=`assfam/${id}/${typeDoc}.${ext}`
+    const { error:sErr } = await supabase.storage.from('documents-enfants').upload(path, file, { contentType:file.type, upsert:true })
+    if (sErr) { showToast('❌ Storage: '+sErr.message); setUploadingDoc(null); return }
+    // Supprimer l'ancien enregistrement du même type
     await supabase.from('documents_parent').delete().eq('parent_id', id).eq('type_doc', typeDoc)
-    await supabase.from('documents_parent').insert({ parent_id:id, type_doc:typeDoc, nom:file.name, storage_path:path, taille:file.size, mime_type:file.type, uploaded_by:profile.id })
-    showToast('✅ Uploadé !'); fetchDocuments(); setUploadingDoc(null)
+    const { error:dbErr } = await supabase.from('documents_parent').insert({ parent_id:id, type_doc:typeDoc, nom:file.name, storage_path:path, taille:file.size, mime_type:file.type, uploaded_by:profile.id })
+    if (dbErr) { showToast('❌ DB: '+dbErr.message); setUploadingDoc(null); return }
+    showToast('✅ Document uploadé !'); fetchDocuments(); setUploadingDoc(null)
   }
 
   async function uploadPhoto(file) {
