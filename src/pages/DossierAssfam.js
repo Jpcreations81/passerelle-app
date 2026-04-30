@@ -84,7 +84,9 @@ export default function DossierAssfam({ profile }) {
   const [uploadingDoc, setUploadingDoc] = useState(null)
   const [readingPdf, setReadingPdf] = useState(false)
   const [collegues, setCollegues] = useState([])
+  const [gestionnaires, setGestionnaires] = useState([])
   const [photoUrl, setPhotoUrl] = useState(null)
+  const [gestionnaires, setGestionnaires] = useState([])
   const [frDep, setFrDep] = useState('')
   const [frArr, setFrArr] = useState('')
   const [frKm, setFrKm] = useState('')
@@ -118,14 +120,24 @@ export default function DossierAssfam({ profile }) {
   const fetchFormations = useCallback(async () => { const { data } = await supabase.from('formations').select('*').eq('af_id', id).order('date_debut',{ascending:false}); if(data) setFormations(data) }, [id])
   const fetchFoyerEnfants = useCallback(async () => { const { data } = await supabase.from('foyer_enfants').select('*').eq('af_id', id); if(data) setFoyerEnfants(data) }, [id])
   const fetchDocuments = useCallback(async () => { const { data } = await supabase.from('documents_parent').select('*').eq('parent_id', id).order('created_at',{ascending:false}); if(data) setDocuments(data) }, [id])
+  const fetchGestionnaires = useCallback(async () => {
+    const { data } = await supabase.from('gestionnaires_paie').select('*').order('nom')
+    if (data) setGestionnaires(data)
+  }, [])
+
   const fetchCollegues = useCallback(async () => { const { data } = await supabase.from('profiles').select('id,nom,prenom,role,telephone,email').eq('territoire', profile?.territoire); if(data) setCollegues(data) }, [profile])
+  const fetchGestionnaires = useCallback(async () => {
+    const { data } = await supabase.from('gestionnaires_paie').select('*').order('nom')
+    if (data) setGestionnaires(data)
+  }, [])
+
   const fetchPhoto = useCallback(async () => { const { data } = await supabase.storage.from('documents-enfants').list(`assfam/${id}/photos`); if(data&&data.length>0){ const { data:url } = await supabase.storage.from('documents-enfants').createSignedUrl(`assfam/${id}/photos/${data[0].name}`,3600); if(url?.signedUrl) setPhotoUrl(url.signedUrl) } }, [id])
 
-  useEffect(() => { fetchAf(); fetchEnfants(); fetchConges(); fetchFormations(); fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto() }, [fetchAf,fetchEnfants,fetchConges,fetchFormations,fetchFoyerEnfants,fetchDocuments,fetchCollegues,fetchPhoto])
+  useEffect(() => { fetchAf(); fetchEnfants(); fetchConges(); fetchFormations(); fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto(); fetchGestionnaires() }, [fetchAf,fetchEnfants,fetchConges,fetchFormations,fetchFoyerEnfants,fetchDocuments,fetchCollegues,fetchPhoto,fetchGestionnaires])
 
   async function saveForm() {
     setSaving(true)
-    const cols = ['nom','prenom','date_naissance','situation_familiale','telephone','telephone2','email','numero_secu','adresse','code_postal','ville','territoire','matricule','numero_agrement','date_agrement','date_expiration_agrement','delivre_par','places_agreees','places_relais','places_contrat_tarn','deaf_obtenu','deaf_date','deaf_centre','deaf_numero','accord_urgence','vehicule_marque','vehicule_immat','vehicule_cv','vehicule_assurance_exp','vehicule_ct_exp','conjoint_nom','conjoint_profession','conjoint_telephone','km_cumules_annee','profil_age','profil_sexe','profil_duree','cap_troubles_comportement_legers','cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age','cap_relais','date_debut_contrat']
+    const cols = ['nom','prenom','date_naissance','situation_familiale','telephone','telephone2','email','numero_secu','adresse','code_postal','ville','territoire','matricule','numero_agrement','date_agrement','date_expiration_agrement','delivre_par','places_agreees','places_relais','places_contrat_tarn','deaf_obtenu','deaf_date','deaf_centre','deaf_numero','accord_urgence','vehicule_marque','vehicule_immat','vehicule_cv','vehicule_assurance_exp','vehicule_ct_exp','conjoint_nom','conjoint_profession','conjoint_telephone','km_cumules_annee','profil_age','profil_sexe','profil_duree','cap_troubles_comportement_legers','cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age','cap_relais','date_debut_contrat','gestionnaire_paie_id']
     const fd = Object.fromEntries(cols.filter(k=>form[k]!==undefined).map(k=>[k,form[k]]))
     const { error } = await supabase.from('profiles').update(fd).eq('id', id)
     if (!error) { showToast('✅ Enregistré !'); setAf({...af,...fd}); setEditMode(false) }
@@ -758,9 +770,26 @@ export default function DossierAssfam({ profile }) {
                     </div>
                   ))}
                   <div style={{background:'#f4f6fb',borderRadius:10,padding:16,border:'1px solid #dde3f0'}}>
-                    <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:8}}>💰 Gestionnaire Paie</div>
-                    <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>À renseigner</div>
-                    <div style={{fontSize:12,color:'#9aa3b8',fontStyle:'italic'}}>Informations à configurer dans les paramètres</div>
+                    <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:12}}>💰 Gestionnaire Paie</div>
+                    {editMode ? (
+                      <select className="form-control" style={{marginBottom:8}} value={v('gestionnaire_paie_id')||''} onChange={e=>F('gestionnaire_paie_id')(e.target.value||null)}>
+                        <option value="">— Choisir —</option>
+                        {gestionnaires.map(g=><option key={g.id} value={g.id}>{g.nom} {g.prenom}</option>)}
+                      </select>
+                    ) : null}
+                    {(() => {
+                      const g = gestionnaires.find(g=>g.id===v('gestionnaire_paie_id'))
+                      if (!g) return <div style={{fontSize:12,color:'#9aa3b8',fontStyle:'italic'}}>Non renseigné</div>
+                      return (
+                        <div>
+                          <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{g.nom} {g.prenom}</div>
+                          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                            <a href={`tel:${g.telephone}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none'}}>📞 {g.telephone}</a>
+                            <a href={`mailto:${g.email}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e6f5eb',color:'#2e8b4a',fontSize:12,textDecoration:'none'}}>✉️ {g.email}</a>
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               </SectionCard>
