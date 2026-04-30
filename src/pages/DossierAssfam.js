@@ -359,7 +359,7 @@ export default function DossierAssfam({ profile }) {
                 </div>
                 <div style={{marginTop:14}}>
                   <label style={{display:'flex',alignItems:'center',gap:8,padding:'9px 14px',border:'1px dashed #c4d4f5',borderRadius:8,background:'linear-gradient(135deg,#e8eef8,#f0f9ff)',color:'#1a4b8f',fontSize:12,cursor:'pointer',fontFamily:'Sora,sans-serif',fontWeight:600}}>
-                    {readingPdf ? '⏳ Lecture en cours...' : uploadingDoc==='agrement' ? '⏳ Upload...' : '🤖 Uploader et lire l'agrément PDF'}
+                    {readingPdf ? '⏳ Lecture en cours...' : uploadingDoc==='agrement' ? '⏳ Upload...' : '🤖 Uploader et lire l\'agrément PDF'}
                     <input type="file" accept="application/pdf" style={{display:'none'}} onChange={e=>{if(e.target.files[0]) readAgrementPdf(e.target.files[0])}} disabled={readingPdf} />
                   </label>
                   <div style={{fontSize:11,color:'#9aa3b8',marginTop:4,marginLeft:2}}>Le formulaire sera pré-rempli automatiquement à partir du PDF</div>
