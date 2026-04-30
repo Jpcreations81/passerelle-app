@@ -70,6 +70,7 @@ export default function DossierAssfam({ profile }) {
   const [foyerEnfants, setFoyerEnfants] = useState([])
   const [documents, setDocuments] = useState([])
   const [uploadingDoc, setUploadingDoc] = useState(null)
+  const [readingPdf, setReadingPdf] = useState(false)
   const [collegues, setCollegues] = useState([])
   const [photoUrl, setPhotoUrl] = useState(null)
   const [frDep, setFrDep] = useState('')
@@ -112,7 +113,7 @@ export default function DossierAssfam({ profile }) {
 
   async function saveForm() {
     setSaving(true)
-    const cols = ['nom','prenom','date_naissance','situation_familiale','telephone','telephone2','email','numero_secu','adresse','code_postal','ville','territoire','matricule','numero_agrement','date_agrement','date_expiration_agrement','places_agreees','places_relais','places_contrat_tarn','deaf_obtenu','deaf_date','deaf_centre','deaf_numero','accord_urgence','vehicule_marque','vehicule_immat','vehicule_cv','vehicule_assurance_exp','vehicule_ct_exp','conjoint_nom','conjoint_profession','conjoint_telephone','km_cumules_annee','profil_age','profil_sexe','profil_duree','cap_troubles_comportement_legers','cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age','cap_relais','date_debut_contrat']
+    const cols = ['nom','prenom','date_naissance','situation_familiale','telephone','telephone2','email','numero_secu','adresse','code_postal','ville','territoire','matricule','numero_agrement','date_agrement','date_expiration_agrement','delivre_par','places_agreees','places_relais','places_contrat_tarn','deaf_obtenu','deaf_date','deaf_centre','deaf_numero','accord_urgence','vehicule_marque','vehicule_immat','vehicule_cv','vehicule_assurance_exp','vehicule_ct_exp','conjoint_nom','conjoint_profession','conjoint_telephone','km_cumules_annee','profil_age','profil_sexe','profil_duree','cap_troubles_comportement_legers','cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age','cap_relais','date_debut_contrat']
     const fd = Object.fromEntries(cols.filter(k=>form[k]!==undefined).map(k=>[k,form[k]]))
     const { error } = await supabase.from('profiles').update(fd).eq('id', id)
     if (!error) { showToast('✅ Enregistré !'); setAf({...af,...fd}); setEditMode(false) }
@@ -136,6 +137,50 @@ export default function DossierAssfam({ profile }) {
     const { data:url } = await supabase.storage.from('documents-enfants').createSignedUrl(path, 3600)
     if (url?.signedUrl) setPhotoUrl(url.signedUrl)
     showToast('✅ Photo mise à jour !'); setUploadingDoc(null)
+  }
+
+  async function readAgrementPdf(file) {
+    if (!file) return
+    setReadingPdf(true)
+    try {
+      // Convertir en base64
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result.split(',')[1])
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+      // Uploader d'abord le PDF
+      await uploadDoc(file, 'agrement')
+      // Appeler l'API de lecture
+      const resp = await fetch('/api/read-agrement', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pdfBase64: base64 })
+      })
+      const result = await resp.json()
+      if (!result.success) throw new Error(result.error)
+      // Pré-remplir le formulaire avec les données extraites
+      const d = result.data
+      setForm(f => ({
+        ...f,
+        ...(d.numero_agrement && { numero_agrement: d.numero_agrement }),
+        ...(d.delivre_par && { delivre_par: d.delivre_par }),
+        ...(d.date_agrement && { date_agrement: d.date_agrement }),
+        ...(d.date_expiration_agrement && { date_expiration_agrement: d.date_expiration_agrement }),
+        ...(d.places_agreees && { places_agreees: Math.min(d.places_agreees, 3) }),
+        ...(d.nom && { nom: d.nom }),
+        ...(d.prenom && { prenom: d.prenom }),
+        ...(d.adresse && { adresse: d.adresse }),
+        ...(d.code_postal && { code_postal: d.code_postal }),
+        ...(d.ville && { ville: d.ville }),
+      }))
+      setEditMode(true)
+      showToast('✅ Agrément lu ! Vérifiez les informations extraites.')
+    } catch(e) {
+      showToast('❌ Erreur lecture PDF : ' + e.message)
+    }
+    setReadingPdf(false)
   }
 
   async function viewDoc(path) { const { data } = await supabase.storage.from('documents-enfants').createSignedUrl(path,3600); if(data?.signedUrl) window.open(data.signedUrl,'_blank') }
@@ -295,7 +340,7 @@ export default function DossierAssfam({ profile }) {
                 </div>
                 <FG cols={4}>
                   <Field label="N° Agrément" value={v('numero_agrement')} onChange={F('numero_agrement')} readOnly={!editMode} />
-                  <Field label="Délivré par" value="Conseil Départemental du Tarn (81)" readOnly />
+                  <Field label="Délivré par (PMI)" value={v('delivre_par')||''} onChange={F('delivre_par')} readOnly={!editMode} />
                   <Field label="Date de délivrance" type="date" value={v('date_agrement')} onChange={F('date_agrement')} readOnly={!editMode} />
                   <Field label="Date d'expiration" type="date" value={v('date_expiration_agrement')} onChange={F('date_expiration_agrement')} readOnly={!editMode} />
                 </FG>
@@ -313,10 +358,11 @@ export default function DossierAssfam({ profile }) {
                   <div style={{height:8,background:'#eef1f8',borderRadius:10,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(100,(placesOccupees/Math.max(placesContratTarn,1))*100)}%`,background:placesOccupees>=placesContratTarn?'#c0392b':'#2e8b4a',borderRadius:10}} /></div>
                 </div>
                 <div style={{marginTop:14}}>
-                  <label style={{display:'flex',alignItems:'center',gap:8,padding:'7px 12px',border:'1px dashed #c4d4f5',borderRadius:8,background:'#f0f9ff',color:'#1a4b8f',fontSize:12,cursor:'pointer',fontFamily:'Sora,sans-serif'}}>
-                    {uploadingDoc==='agrement'?'⏳...':'📎 Uploader agrément PDF'}
-                    <input type="file" accept="image/*,application/pdf" style={{display:'none'}} onChange={e=>{if(e.target.files[0]) uploadDoc(e.target.files[0],'agrement')}} />
+                  <label style={{display:'flex',alignItems:'center',gap:8,padding:'9px 14px',border:'1px dashed #c4d4f5',borderRadius:8,background:'linear-gradient(135deg,#e8eef8,#f0f9ff)',color:'#1a4b8f',fontSize:12,cursor:'pointer',fontFamily:'Sora,sans-serif',fontWeight:600}}>
+                    {readingPdf ? '⏳ Lecture en cours...' : uploadingDoc==='agrement' ? '⏳ Upload...' : '🤖 Uploader et lire l'agrément PDF'}
+                    <input type="file" accept="application/pdf" style={{display:'none'}} onChange={e=>{if(e.target.files[0]) readAgrementPdf(e.target.files[0])}} disabled={readingPdf} />
                   </label>
+                  <div style={{fontSize:11,color:'#9aa3b8',marginTop:4,marginLeft:2}}>Le formulaire sera pré-rempli automatiquement à partir du PDF</div>
                   {documents.filter(d=>d.type_doc==='agrement').map(d=>(
                     <div key={d.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:'#f4f6fb',borderRadius:7,border:'1px solid #dde3f0',marginTop:6}}>
                       <span>📄</span><span style={{flex:1,fontSize:12}}>{d.nom}</span>
