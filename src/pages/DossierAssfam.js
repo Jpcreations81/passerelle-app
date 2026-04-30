@@ -86,7 +86,6 @@ export default function DossierAssfam({ profile }) {
   const [collegues, setCollegues] = useState([])
   const [gestionnaires, setGestionnaires] = useState([])
   const [photoUrl, setPhotoUrl] = useState(null)
-  const [gestionnaires, setGestionnaires] = useState([])
   const [frDep, setFrDep] = useState('')
   const [frArr, setFrArr] = useState('')
   const [frKm, setFrKm] = useState('')
@@ -126,7 +125,6 @@ export default function DossierAssfam({ profile }) {
   }, [])
 
   const fetchCollegues = useCallback(async () => { const { data } = await supabase.from('profiles').select('id,nom,prenom,role,telephone,email').eq('territoire', profile?.territoire); if(data) setCollegues(data) }, [profile])
-  const fetchGestionnaires = useCallback(async () => {
     const { data } = await supabase.from('gestionnaires_paie').select('*').order('nom')
     if (data) setGestionnaires(data)
   }, [])
