@@ -301,7 +301,36 @@ export default function DossierAssfam({ profile }) {
                     <Field label="Téléphone" type="tel" value={v('telephone')} onChange={F('telephone')} readOnly={!editMode} />
                     <Field label="Téléphone 2" type="tel" value={v('telephone2')} onChange={F('telephone2')} readOnly={!editMode} />
                     <Field label="Email" type="email" value={v('email')} onChange={F('email')} readOnly={!editMode} span={2} />
-                    <Field label="N° Sécurité Sociale" value={v('numero_secu')} onChange={F('numero_secu')} readOnly={!editMode} />
+                    <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
+                      <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', letterSpacing:'.4px', textTransform:'uppercase' }}>N° Sécurité Sociale</label>
+                      {editMode ? (
+                        <input
+                          value={v('numero_secu')}
+                          onChange={e => {
+                            const digits = e.target.value.replace(/\D/g, '').slice(0, 15)
+                            let fmt = ''
+                            if (digits.length > 0)  fmt += digits.slice(0, 1)
+                            if (digits.length > 1)  fmt += ' ' + digits.slice(1, 3)
+                            if (digits.length > 3)  fmt += ' ' + digits.slice(3, 5)
+                            if (digits.length > 5)  fmt += ' ' + digits.slice(5, 7)
+                            if (digits.length > 7)  fmt += ' ' + digits.slice(7, 10)
+                            if (digits.length > 10) fmt += ' ' + digits.slice(10, 13)
+                            if (digits.length > 13) fmt += ' ' + digits.slice(13, 15)
+                            F('numero_secu')(fmt)
+                          }}
+                          placeholder="1 85 07 75 108 042 28"
+                          maxLength={20}
+                          style={{ padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontFamily:'Sora,sans-serif', fontSize:13, background:'#f4f6fb', color:'#1c2333', outline:'none', letterSpacing:'2px' }}
+                        />
+                      ) : (
+                        <div style={{ padding:'10px 12px', background:'#eef1f8', borderRadius:8, fontSize:13, letterSpacing:'2px' }}>
+                          {v('numero_secu')
+                            ? v('numero_secu').replace(/^(\d{1})(\d{2})(\d{2})(\d{2})(\d{3})(\d{3})(\d{2})$/, '$1 $2 $3 $4 $5 $6 $7')
+                            : <span style={{ color:'#9aa3b8', fontStyle:'italic', letterSpacing:'normal' }}>—</span>
+                          }
+                        </div>
+                      )}
+                    </div>
                   </FG>
                 </div>
               </SectionCard>
