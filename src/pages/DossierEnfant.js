@@ -163,7 +163,7 @@ export default function DossierEnfant({ profile }) {
   }, [id])
 
   const fetchCollegues = useCallback(async () => {
-    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire').eq('territoire', profile?.territoire)
+    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire, telephone, email, ville').in('role', ['af','referent','encadrant','rtase','admin'])
     if (data) setCollegues(data)
   }, [profile])
 
