@@ -267,6 +267,17 @@ export default function ListeEnfants({ profile }) {
                       <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
                     ))}
                   </select>
+                  {newEnfant.af_principal_id && (() => {
+                    const af = collegues.find(c => c.id === newEnfant.af_principal_id)
+                    return af ? (
+                      <div style={{marginTop:8,padding:'10px 14px',background:'#e6f5eb',borderRadius:8,border:'1px solid #c4e8cc',fontSize:12}}>
+                        <div style={{fontWeight:700,marginBottom:4}}>👨‍👩‍👧 {af.nom} {af.prenom}</div>
+                        {af.telephone&&<div>📞 {af.telephone}</div>}
+                        {af.email&&<div>✉️ {af.email}</div>}
+                        {af.ville&&<div>📍 {af.ville}</div>}
+                      </div>
+                    ) : null
+                  })()}
                 </div>
               )}
               <div className="form-group" style={{ marginBottom:16 }}>
@@ -277,6 +288,16 @@ export default function ListeEnfants({ profile }) {
                     <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
                   ))}
                 </select>
+                {newEnfant.referent_id && (() => {
+                  const ref = collegues.find(c => c.id === newEnfant.referent_id)
+                  return ref ? (
+                    <div style={{marginTop:8,padding:'10px 14px',background:'#e8eef8',borderRadius:8,border:'1px solid #c4d4f5',fontSize:12}}>
+                      <div style={{fontWeight:700,marginBottom:4}}>👩‍💼 {ref.nom} {ref.prenom}</div>
+                      {ref.telephone&&<div>📞 {ref.telephone}</div>}
+                      {ref.email&&<div>✉️ {ref.email}</div>}
+                    </div>
+                  ) : null
+                })()}
               </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Annuler</button>
