@@ -572,8 +572,12 @@ export default function DossierEnfant({ profile }) {
     setSaving(false)
   }
 
+  const DATE_KEYS = ['pere_ddn','mere_ddn','date_naissance','date_placement','date_fin_placement','tj_date_audience','date_jugement','date_revision','date_debut','date_fin','date_naissance_pere','date_naissance_mere','date_agrement','date_expiration_agrement','date_debut_contrat','vehicule_assurance_exp','vehicule_ct_exp','deaf_date']
   function F(key) {
-    return (val) => setForm(f => ({ ...f, [key]: val }))
+    return (val) => {
+      const cleaned = DATE_KEYS.includes(key) && val === '' ? null : val
+      setForm(f => ({ ...f, [key]: cleaned }))
+    }
   }
   function v(key) { return form[key] || '' }
 
