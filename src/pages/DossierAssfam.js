@@ -51,7 +51,6 @@ const BAREME_KM = {
   6: [{ max:2000, taux:0.41 }, { max:10000, taux:0.51 }, { max:Infinity, taux:0.30 }],
   8: [{ max:2000, taux:0.45 }, { max:10000, taux:0.55 }, { max:Infinity, taux:0.32 }],
 }
-// Arrêté ministériel du 14 mars 2022 — en vigueur au 22/09/2023
 function calcTauxKm(cv, km) {
   let cvKey = 5
   if (typeof cv === 'string') {
@@ -82,10 +81,10 @@ export default function DossierAssfam({ profile }) {
   const [foyerEnfants, setFoyerEnfants] = useState([])
   const [documents, setDocuments] = useState([])
   const [uploadingDoc, setUploadingDoc] = useState(null)
-  const [readingPdf, setReadingPdf] = useState(false)
   const [collegues, setCollegues] = useState([])
   const [gestionnaires, setGestionnaires] = useState([])
   const [photoUrl, setPhotoUrl] = useState(null)
+  const [readingPdf, setReadingPdf] = useState(false)
   const [frDep, setFrDep] = useState('')
   const [frArr, setFrArr] = useState('')
   const [frKm, setFrKm] = useState('')
@@ -113,23 +112,78 @@ export default function DossierAssfam({ profile }) {
   function dureePlacement(d1, d2) { const a=new Date(d1),b=d2?new Date(d2):new Date(); const m=Math.round((b-a)/(1000*60*60*24*30)); if(m<1)return "< 1 mois"; if(m<12)return `${m} mois`; const an=Math.floor(m/12),rm=m%12; return rm?`${an} an${an>1?'s':''} et ${rm} mois`:`${an} an${an>1?'s':''}` }
   function calcAnciennete(debut) { if(!debut)return '—'; const d=new Date(debut),now=new Date(); const m=(now.getFullYear()-d.getFullYear())*12+(now.getMonth()-d.getMonth()); const a=Math.floor(m/12),rm=m%12; return [a>0?`${a} an${a>1?'s':''}`:null,rm>0?`${rm} mois`:null].filter(Boolean).join(' et ')||"< 1 mois" }
 
-  const fetchAf = useCallback(async () => { const { data } = await supabase.from('profiles').select('*').eq('id', id).single(); if (data) { setAf(data); setForm(data) } setLoading(false) }, [id])
-  const fetchEnfants = useCallback(async () => { const { data } = await supabase.from('enfants').select('id,prenom,nom,date_naissance,type_placement,date_placement,date_fin_placement').eq('af_principal_id', id).order('date_placement',{ascending:false}); if(data){ setEnfantsAccueillis(data.filter(e=>!e.date_fin_placement&&e.type_placement!=='non_place')); setHistorique(data.filter(e=>e.date_fin_placement)) } }, [id])
-  const fetchConges = useCallback(async () => { const { data } = await supabase.from('conges').select('*').eq('af_id', id).order('date_debut',{ascending:false}); if(data) setConges(data) }, [id])
-  const fetchFormations = useCallback(async () => { const { data } = await supabase.from('formations').select('*').eq('af_id', id).order('date_debut',{ascending:false}); if(data) setFormations(data) }, [id])
-  const fetchFoyerEnfants = useCallback(async () => { const { data } = await supabase.from('foyer_enfants').select('*').eq('af_id', id); if(data) setFoyerEnfants(data) }, [id])
-  const fetchDocuments = useCallback(async () => { const { data } = await supabase.from('documents_parent').select('*').eq('parent_id', id).order('created_at',{ascending:false}); if(data) setDocuments(data) }, [id])
-  const fetchCollegues = useCallback(async () => { const { data } = await supabase.from('profiles').select('id,nom,prenom,role,telephone,email').eq('territoire', profile?.territoire); if(data) setCollegues(data) }, [profile])
+  const fetchAf = useCallback(async () => {
+    const { data } = await supabase.from('profiles').select('*').eq('id', id).single()
+    if (data) { setAf(data); setForm(data) }
+    setLoading(false)
+  }, [id])
+
+  const fetchEnfants = useCallback(async () => {
+    const { data } = await supabase.from('enfants').select('id,prenom,nom,date_naissance,type_placement,date_placement,date_fin_placement').eq('af_principal_id', id).order('date_placement',{ascending:false})
+    if (data) {
+      setEnfantsAccueillis(data.filter(e=>!e.date_fin_placement&&e.type_placement!=='non_place'))
+      setHistorique(data.filter(e=>e.date_fin_placement))
+    }
+  }, [id])
+
+  const fetchConges = useCallback(async () => {
+    const { data } = await supabase.from('conges').select('*').eq('af_id', id).order('date_debut',{ascending:false})
+    if (data) setConges(data)
+  }, [id])
+
+  const fetchFormations = useCallback(async () => {
+    const { data } = await supabase.from('formations').select('*').eq('af_id', id).order('date_debut',{ascending:false})
+    if (data) setFormations(data)
+  }, [id])
+
+  const fetchFoyerEnfants = useCallback(async () => {
+    const { data } = await supabase.from('foyer_enfants').select('*').eq('af_id', id)
+    if (data) setFoyerEnfants(data)
+  }, [id])
+
+  const fetchDocuments = useCallback(async () => {
+    const { data } = await supabase.from('documents_parent').select('*').eq('parent_id', id).order('created_at',{ascending:false})
+    if (data) setDocuments(data)
+  }, [id])
+
+  const fetchCollegues = useCallback(async () => {
+    const { data } = await supabase.from('profiles').select('id,nom,prenom,role,telephone,email').eq('territoire', profile?.territoire)
+    if (data) setCollegues(data)
+  }, [profile])
+
   const fetchGestionnaires = useCallback(async () => {
     const { data } = await supabase.from('gestionnaires_paie').select('*').order('nom')
     if (data) setGestionnaires(data)
   }, [])
 
-  useEffect(() => { fetchAf(); fetchEnfants(); fetchConges(); fetchFormations(); fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto(); fetchGestionnaires() }, [fetchAf,fetchEnfants,fetchConges,fetchFormations,fetchFoyerEnfants,fetchDocuments,fetchCollegues,fetchPhoto,fetchGestionnaires])
+  const fetchPhoto = useCallback(async () => {
+    const { data } = await supabase.storage.from('documents-enfants').list(`assfam/${id}/photos`)
+    if (data && data.length > 0) {
+      const { data:url } = await supabase.storage.from('documents-enfants').createSignedUrl(`assfam/${id}/photos/${data[0].name}`, 3600)
+      if (url?.signedUrl) setPhotoUrl(url.signedUrl)
+    }
+  }, [id])
+
+  useEffect(() => {
+    fetchAf(); fetchEnfants(); fetchConges(); fetchFormations()
+    fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto(); fetchGestionnaires()
+  }, [fetchAf,fetchEnfants,fetchConges,fetchFormations,fetchFoyerEnfants,fetchDocuments,fetchCollegues,fetchPhoto,fetchGestionnaires])
 
   async function saveForm() {
     setSaving(true)
-    const cols = ['nom','prenom','date_naissance','situation_familiale','telephone','telephone2','email','numero_secu','adresse','code_postal','ville','territoire','matricule','numero_agrement','date_agrement','date_expiration_agrement','delivre_par','places_agreees','places_relais','places_contrat_tarn','deaf_obtenu','deaf_date','deaf_centre','deaf_numero','accord_urgence','vehicule_marque','vehicule_immat','vehicule_cv','vehicule_assurance_exp','vehicule_ct_exp','conjoint_nom','conjoint_profession','conjoint_telephone','km_cumules_annee','profil_age','profil_sexe','profil_duree','cap_troubles_comportement_legers','cap_troubles_comportement','cap_handicap','cap_fratrie','cap_urgence','cap_bas_age','cap_relais','date_debut_contrat','gestionnaire_paie_id']
+    const cols = [
+      'nom','prenom','date_naissance','situation_familiale','telephone','telephone2',
+      'email','numero_secu','adresse','code_postal','ville','territoire','matricule',
+      'numero_agrement','date_agrement','date_expiration_agrement','delivre_par',
+      'places_agreees','places_relais','places_contrat_tarn',
+      'deaf_obtenu','deaf_date','deaf_centre','deaf_numero','accord_urgence',
+      'vehicule_marque','vehicule_immat','vehicule_cv','vehicule_assurance_exp','vehicule_ct_exp',
+      'conjoint_nom','conjoint_profession','conjoint_telephone','km_cumules_annee',
+      'profil_age','profil_sexe','profil_duree',
+      'cap_troubles_comportement_legers','cap_troubles_comportement','cap_handicap',
+      'cap_fratrie','cap_urgence','cap_bas_age','cap_relais',
+      'date_debut_contrat','gestionnaire_paie_id','secteur','ville_rattachement',
+    ]
     const fd = Object.fromEntries(cols.filter(k=>form[k]!==undefined).map(k=>[k,form[k]]))
     const { error } = await supabase.from('profiles').update(fd).eq('id', id)
     if (!error) { showToast('✅ Enregistré !'); setAf({...af,...fd}); setEditMode(false) }
@@ -139,12 +193,10 @@ export default function DossierAssfam({ profile }) {
 
   async function uploadDoc(file, typeDoc) {
     if (!file) return; setUploadingDoc(typeDoc)
-    const ext=file.name.split('.').pop()
-    // Utiliser un chemin fixe par type pour éviter les doublons storage
-    const path=`assfam/${id}/${typeDoc}.${ext}`
+    const ext = file.name.split('.').pop()
+    const path = `assfam/${id}/${typeDoc}.${ext}`
     const { error:sErr } = await supabase.storage.from('documents-enfants').upload(path, file, { contentType:file.type, upsert:true })
     if (sErr) { showToast('❌ Storage: '+sErr.message); setUploadingDoc(null); return }
-    // Supprimer l'ancien enregistrement du même type
     await supabase.from('documents_parent').delete().eq('parent_id', id).eq('type_doc', typeDoc)
     const { error:dbErr } = await supabase.from('documents_parent').insert({ parent_id:id, type_doc:typeDoc, nom:file.name, storage_path:path, taille:file.size, mime_type:file.type, uploaded_by:profile.id })
     if (dbErr) { showToast('❌ DB: '+dbErr.message); setUploadingDoc(null); return }
@@ -153,27 +205,29 @@ export default function DossierAssfam({ profile }) {
 
   async function uploadPhoto(file) {
     if (!file) return; setUploadingDoc('photo')
-    const ext=file.name.split('.').pop(), path=`assfam/${id}/photos/photo.${ext}`
+    const ext = file.name.split('.').pop()
+    const path = `assfam/${id}/photos/photo.${ext}`
     await supabase.storage.from('documents-enfants').upload(path, file, { contentType:file.type, upsert:true })
     const { data:url } = await supabase.storage.from('documents-enfants').createSignedUrl(path, 3600)
     if (url?.signedUrl) setPhotoUrl(url.signedUrl)
     showToast('✅ Photo mise à jour !'); setUploadingDoc(null)
   }
 
+  async function viewDoc(path) {
+    const { data } = await supabase.storage.from('documents-enfants').createSignedUrl(path, 3600)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+  }
+
   async function readAgrementPdf(file) {
-    if (!file) return
-    setReadingPdf(true)
+    if (!file) return; setReadingPdf(true)
     try {
-      // Convertir en base64
       const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader()
         reader.onload = () => resolve(reader.result.split(',')[1])
         reader.onerror = reject
         reader.readAsDataURL(file)
       })
-      // Uploader d'abord le PDF
       await uploadDoc(file, 'agrement')
-      // Appeler l'API de lecture
       const resp = await fetch('/api/read-agrement', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -181,7 +235,6 @@ export default function DossierAssfam({ profile }) {
       })
       const result = await resp.json()
       if (!result.success) throw new Error(result.error)
-      // Pré-remplir le formulaire avec les données extraites
       const d = result.data
       setForm(f => ({
         ...f,
@@ -197,37 +250,38 @@ export default function DossierAssfam({ profile }) {
         ...(d.ville && { ville: d.ville }),
       }))
       setEditMode(true)
-      showToast('✅ Agrément lu ! Vérifiez les informations extraites.')
+      showToast('✅ Agrément lu ! Vérifiez et enregistrez.')
     } catch(e) {
-      showToast('❌ Erreur lecture PDF : ' + e.message)
+      showToast('❌ ' + e.message)
     }
     setReadingPdf(false)
   }
 
-  async function viewDoc(path) { const { data } = await supabase.storage.from('documents-enfants').createSignedUrl(path,3600); if(data?.signedUrl) window.open(data.signedUrl,'_blank') }
-
   function calcFrais() {
-    const km=parseFloat(frKm); if(!km||km<=0){ showToast('⚠️ Distance invalide'); return }
-    const kmC=af?.km_cumules_annee||0, cv=af?.vehicule_cv||5, taux=calcTauxKm(cv,kmC)
-    const dist=frType==='ar'?km*2:km, montant=dist*taux
+    const km = parseFloat(frKm); if (!km||km<=0) { showToast('⚠️ Distance invalide'); return }
+    const kmC = af?.km_cumules_annee||0, taux = calcTauxKm(af?.vehicule_cv||5, kmC)
+    const dist = frType==='ar' ? km*2 : km, montant = dist*taux
     setFrResult({ km:dist, taux, montant, motif:frMotif, depart:frDep, arrivee:frArr, date:frDate })
   }
 
   async function saveConge() {
     if (!congeDebut||!congeFin) { showToast('⚠️ Dates requises'); return }
-    const nb_jours=Math.ceil((new Date(congeFin)-new Date(congeDebut))/(1000*60*60*24))+1
-    const relaisStr=Object.entries(congeRelais).filter(([,v])=>v).map(([k,v])=>v).join(' | ')
+    const nb_jours = Math.ceil((new Date(congeFin)-new Date(congeDebut))/(1000*60*60*24))+1
+    const relaisStr = Object.entries(congeRelais).filter(([,v])=>v).map(([,v])=>v).join(' | ')
     const { error } = await supabase.from('conges').insert({ date_debut:congeDebut, date_fin:congeFin, nb_jours, notes:[relaisStr,congeNotes].filter(Boolean).join('\n'), af_id:id, statut:'en_attente' })
     if (!error) { showToast('✅ Demande envoyée !'); setCongeDebut(''); setCongeFin(''); setCongeRelais({}); setCongeNotes(''); fetchConges() }
     else showToast('❌ '+error.message)
   }
 
-  async function validerConge(congeId, statut) { await supabase.from('conges').update({ statut, valideur_id:profile.id }).eq('id',congeId); showToast(statut==='valide'?'✅ Validé':'❌ Refusé'); fetchConges() }
+  async function validerConge(congeId, statut) {
+    await supabase.from('conges').update({ statut, valideur_id:profile.id }).eq('id', congeId)
+    showToast(statut==='valide'?'✅ Validé':'❌ Refusé'); fetchConges()
+  }
 
   async function saveFormation() {
     if (!newFormation.titre) { showToast('⚠️ Titre requis'); return }
     const { error } = await supabase.from('formations').insert({ ...newFormation, af_id:id })
-    if (!error) { showToast('✅ Formation ajoutée !'); setShowFormationModal(false); setNewFormation({ titre:'',organisme:'',date_debut:'',duree_heures:'',statut:'planifiee' }); fetchFormations() }
+    if (!error) { showToast('✅ Ajoutée !'); setShowFormationModal(false); setNewFormation({ titre:'',organisme:'',date_debut:'',duree_heures:'',statut:'planifiee' }); fetchFormations() }
     else showToast('❌ '+error.message)
   }
 
@@ -238,15 +292,42 @@ export default function DossierAssfam({ profile }) {
     else showToast('❌ '+error.message)
   }
 
-  const placesOccupees=enfantsAccueillis.length, placesContratTarn=af?.places_contrat_tarn||af?.places_agreees||3, placesTotal=af?.places_agreees||3, placesDisponibles=Math.max(0,placesContratTarn-placesOccupees)
-  const congesPris=conges.filter(c=>c.statut==='valide').reduce((s,c)=>s+(c.nb_jours||0),0), congesRestants=30-congesPris, kmCumules=af?.km_cumules_annee||0, cv=af?.vehicule_cv||5
-  const agrExp=af?.date_expiration_agrement?new Date(af.date_expiration_agrement):null, joursAgrExp=agrExp?Math.ceil((agrExp-new Date())/(1000*60*60*24)):null, agrAlerte=joursAgrExp!==null&&joursAgrExp<=90
-  const initiales=`${af?.nom?.[0]||''}${af?.prenom?.[0]||''}`
+  const placesOccupees = enfantsAccueillis.length
+  const placesContratTarn = af?.places_contrat_tarn||af?.places_agreees||3
+  const placesTotal = af?.places_agreees||3
+  const placesDisponibles = Math.max(0, placesContratTarn-placesOccupees)
+  const congesPris = conges.filter(c=>c.statut==='valide').reduce((s,c)=>s+(c.nb_jours||0),0)
+  const congesRestants = 30-congesPris
+  const kmCumules = af?.km_cumules_annee||0
+  const cv = af?.vehicule_cv||5
+  const agrExp = af?.date_expiration_agrement ? new Date(af.date_expiration_agrement) : null
+  const joursAgrExp = agrExp ? Math.ceil((agrExp-new Date())/(1000*60*60*24)) : null
+  const agrAlerte = joursAgrExp!==null && joursAgrExp<=90
+  const agrExpire = joursAgrExp!==null && joursAgrExp<=0
+  const initiales = `${af?.nom?.[0]||''}${af?.prenom?.[0]||''}`
 
-  const ONGLETS=[{id:'identite',icon:'🪪',label:'Identité'},{id:'agrement',icon:'📜',label:'Agrément'},{id:'foyer',icon:'🏠',label:'Foyer'},{id:'enfants',icon:'👶',label:'Enfants & Frais'},{id:'conges',icon:'🏖️',label:'Congés'},{id:'formations',icon:'🎓',label:'Formations'},{id:'safa',icon:'🏛️',label:'SAFA & Contrat'}]
+  const ONGLETS = [
+    {id:'identite',icon:'🪪',label:'Identité'},
+    {id:'agrement',icon:'📜',label:'Agrément'},
+    {id:'foyer',icon:'🏠',label:'Foyer'},
+    {id:'enfants',icon:'👶',label:'Enfants & Frais'},
+    {id:'conges',icon:'🏖️',label:'Congés'},
+    {id:'formations',icon:'🎓',label:'Formations'},
+    {id:'safa',icon:'🏛️',label:'SAFA & Contrat'},
+  ]
 
-  if (loading) return <div className="app-layout"><Sidebar profile={profile} /><div className="main-content" style={{display:'flex',alignItems:'center',justifyContent:'center'}}><div style={{textAlign:'center',color:'#9aa3b8'}}><div style={{fontSize:36}}>👨‍👩‍👧</div><div>Chargement...</div></div></div></div>
-  if (!af) return <div className="app-layout"><Sidebar profile={profile} /><div className="main-content" style={{padding:32}}><div style={{color:'#c0392b'}}>❌ Profil introuvable</div></div></div>
+  if (loading) return (
+    <div className="app-layout"><Sidebar profile={profile} />
+      <div className="main-content" style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <div style={{textAlign:'center',color:'#9aa3b8'}}><div style={{fontSize:36}}>👨‍👩‍👧</div><div>Chargement...</div></div>
+      </div>
+    </div>
+  )
+  if (!af) return (
+    <div className="app-layout"><Sidebar profile={profile} />
+      <div className="main-content" style={{padding:32}}><div style={{color:'#c0392b'}}>❌ Profil introuvable</div></div>
+    </div>
+  )
 
   return (
     <div className="app-layout">
@@ -263,11 +344,18 @@ export default function DossierAssfam({ profile }) {
             </div>
             <div>
               <div className="page-title">{af.nom} {af.prenom}</div>
-              <div className="page-subtitle">Assistante familiale agréée · {af.territoire||''}{af.numero_agrement&&` · Agrément N° ${af.numero_agrement}`}{agrAlerte&&<span style={{marginLeft:8,background:joursAgrExp<=0?'#fdf0ee':'#fef3e2',color:joursAgrExp<=0?'#c0392b':'#d97706',padding:'1px 8px',borderRadius:10,fontSize:10,fontWeight:700}}>{joursAgrExp<=0?'🔴 Agrément EXPIRÉ':`⚠️ Renouvellement dans ${joursAgrExp}j`}</span>}</div>
+              <div className="page-subtitle">
+                Assistante familiale agréée · {af.territoire||''}
+                {af.numero_agrement&&` · Agrément N° ${af.numero_agrement}`}
+                {agrAlerte&&<span style={{marginLeft:8,background:agrExpire?'#fdf0ee':'#fef3e2',color:agrExpire?'#c0392b':'#d97706',padding:'1px 8px',borderRadius:10,fontSize:10,fontWeight:700}}>{agrExpire?'🔴 Agrément EXPIRÉ':`⚠️ Renouvellement dans ${joursAgrExp}j`}</span>}
+              </div>
             </div>
           </div>
           <div className="header-actions">
-            {editMode ? (<><button onClick={()=>{setForm(af);setEditMode(false)}} className="btn btn-danger">✕ Annuler</button><button onClick={saveForm} disabled={saving} className="btn btn-primary">{saving?'⏳...':'💾 Enregistrer'}</button></>) : ((isReferent||isOwnProfile)&&<button onClick={()=>setEditMode(true)} className="btn btn-secondary">✏️ Modifier</button>)}
+            {editMode
+              ? (<><button onClick={()=>{setForm(af);setEditMode(false)}} className="btn btn-danger">✕ Annuler</button><button onClick={saveForm} disabled={saving} className="btn btn-primary">{saving?'⏳...':'💾 Enregistrer'}</button></>)
+              : ((isReferent||isOwnProfile)&&<button onClick={()=>setEditMode(true)} className="btn btn-secondary">✏️ Modifier</button>)
+            }
           </div>
         </header>
 
@@ -317,33 +405,24 @@ export default function DossierAssfam({ profile }) {
                     <Field label="Téléphone" type="tel" value={v('telephone')} onChange={F('telephone')} readOnly={!editMode} />
                     <Field label="Téléphone 2" type="tel" value={v('telephone2')} onChange={F('telephone2')} readOnly={!editMode} />
                     <Field label="Email" type="email" value={v('email')} onChange={F('email')} readOnly={!editMode} span={2} />
-                    <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
-                      <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', letterSpacing:'.4px', textTransform:'uppercase' }}>N° Sécurité Sociale</label>
+                    <div style={{display:'flex',flexDirection:'column',gap:5}}>
+                      <label style={{fontSize:11,fontWeight:600,color:'#5a6478',letterSpacing:'.4px',textTransform:'uppercase'}}>N° Sécurité Sociale</label>
                       {editMode ? (
-                        <input
-                          value={v('numero_secu')}
-                          onChange={e => {
-                            const digits = e.target.value.replace(/\D/g, '').slice(0, 15)
-                            let fmt = ''
-                            if (digits.length > 0)  fmt += digits.slice(0, 1)
-                            if (digits.length > 1)  fmt += ' ' + digits.slice(1, 3)
-                            if (digits.length > 3)  fmt += ' ' + digits.slice(3, 5)
-                            if (digits.length > 5)  fmt += ' ' + digits.slice(5, 7)
-                            if (digits.length > 7)  fmt += ' ' + digits.slice(7, 10)
-                            if (digits.length > 10) fmt += ' ' + digits.slice(10, 13)
-                            if (digits.length > 13) fmt += ' ' + digits.slice(13, 15)
-                            F('numero_secu')(fmt)
-                          }}
-                          placeholder="1 85 07 75 108 042 28"
-                          maxLength={20}
-                          style={{ padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontFamily:'Sora,sans-serif', fontSize:13, background:'#f4f6fb', color:'#1c2333', outline:'none', letterSpacing:'2px' }}
-                        />
+                        <input value={v('numero_secu')} onChange={e=>{
+                          const digits=e.target.value.replace(/\D/g,'').slice(0,15)
+                          let fmt=''
+                          if(digits.length>0)  fmt+=digits.slice(0,1)
+                          if(digits.length>1)  fmt+=' '+digits.slice(1,3)
+                          if(digits.length>3)  fmt+=' '+digits.slice(3,5)
+                          if(digits.length>5)  fmt+=' '+digits.slice(5,7)
+                          if(digits.length>7)  fmt+=' '+digits.slice(7,10)
+                          if(digits.length>10) fmt+=' '+digits.slice(10,13)
+                          if(digits.length>13) fmt+=' '+digits.slice(13,15)
+                          F('numero_secu')(fmt)
+                        }} placeholder="1 85 07 75 108 042 28" maxLength={21} style={{padding:'10px 12px',border:'1.5px solid #dde3f0',borderRadius:8,fontFamily:'monospace',fontSize:14,background:'#f4f6fb',outline:'none',letterSpacing:'1px'}} />
                       ) : (
-                        <div style={{ padding:'10px 12px', background:'#eef1f8', borderRadius:8, fontSize:13, letterSpacing:'2px' }}>
-                          {v('numero_secu')
-                            ? v('numero_secu').replace(/^(\d{1})(\d{2})(\d{2})(\d{2})(\d{3})(\d{3})(\d{2})$/, '$1 $2 $3 $4 $5 $6 $7')
-                            : <span style={{ color:'#9aa3b8', fontStyle:'italic', letterSpacing:'normal' }}>—</span>
-                          }
+                        <div style={{padding:'10px 12px',background:'#eef1f8',borderRadius:8,fontSize:14,fontFamily:'monospace',letterSpacing:'1px'}}>
+                          {v('numero_secu')||<span style={{color:'#9aa3b8',fontStyle:'italic',fontFamily:'Sora,sans-serif',fontSize:13,letterSpacing:'normal'}}>—</span>}
                         </div>
                       )}
                     </div>
@@ -384,35 +463,47 @@ export default function DossierAssfam({ profile }) {
           {onglet==='agrement'&&(
             <>
               <SectionCard icon="📜" title="Agrément en cours">
-                {agrAlerte&&<div style={{background:'#fef3e2',border:'1px solid #f5dca4',borderRadius:10,padding:'10px 14px',marginBottom:16,fontSize:12,color:'#d97706',display:'flex',alignItems:'center',gap:8}}>⚠️ <strong>Renouvellement dans {joursAgrExp} jours</strong> — Expire le {fmtDate(af.date_expiration_agrement)}</div>}
+                {agrAlerte&&(
+                  <div style={{background:agrExpire?'#fdf0ee':'#fef3e2',border:`1px solid ${agrExpire?'#fde8e8':'#f5dca4'}`,borderRadius:10,padding:'10px 14px',marginBottom:16,fontSize:12,color:agrExpire?'#c0392b':'#d97706',display:'flex',alignItems:'center',gap:8}}>
+                    {agrExpire?'🔴':'⚠️'} <strong>{agrExpire?'Agrément EXPIRÉ':'Renouvellement dans '+joursAgrExp+' jours'}</strong> — {agrExpire?'Expiré le':'Expire le'} {fmtDate(af.date_expiration_agrement)}
+                  </div>
+                )}
                 <div style={{background:'#e8eef8',border:'1px solid #c4d4f5',borderRadius:9,padding:'10px 14px',marginBottom:14,fontSize:12,color:'#1a4b8f'}}>
-                  📎 Ces informations sont renseignées par lecture de l'agrément PDF — uploadez-le ci-dessous.
+                  📎 Ces informations sont renseignées par lecture du PDF — uploadez-le ci-dessous.
                 </div>
                 <FG cols={4}>
                   <Field label="N° Agrément" value={v('numero_agrement')} onChange={F('numero_agrement')} readOnly={!editMode} />
-                  <Field label="Délivré par (PMI)" value={v('delivre_par')||''} onChange={F('delivre_par')} readOnly={!editMode} />
+                  <Field label="Délivré par (PMI)" value={v('delivre_par')} onChange={F('delivre_par')} readOnly={!editMode} />
                   <Field label="Date de délivrance" type="date" value={v('date_agrement')} onChange={F('date_agrement')} readOnly={!editMode} />
                   <Field label="Date d'expiration" type="date" value={v('date_expiration_agrement')} onChange={F('date_expiration_agrement')} readOnly={!editMode} />
                 </FG>
                 <FG cols={3} style={{marginTop:12}}>
                   <div style={{display:'flex',flexDirection:'column',gap:5}}>
                     <label style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.4px'}}>Places agréées (total)</label>
-                    {editMode ? <input type="number" min="1" max="3" value={v('places_agreees')||''} onChange={e=>F('places_agreees')(Math.min(parseInt(e.target.value)||1,3))} style={{padding:'10px 12px',border:'1.5px solid #dde3f0',borderRadius:8,fontFamily:'Sora,sans-serif',fontSize:13,background:'#f4f6fb',outline:'none'}} /> : <div style={{padding:'10px 12px',background:'#eef1f8',borderRadius:8,fontSize:13}}>{v('places_agreees')||<span style={{color:'#9aa3b8',fontStyle:'italic'}}>—</span>}</div>}
+                    {editMode
+                      ? <input type="number" min="1" max="3" value={v('places_agreees')||''} onChange={e=>F('places_agreees')(Math.min(parseInt(e.target.value)||1,3))} style={{padding:'10px 12px',border:'1.5px solid #dde3f0',borderRadius:8,fontFamily:'Sora,sans-serif',fontSize:13,background:'#f4f6fb',outline:'none'}} />
+                      : <div style={{padding:'10px 12px',background:'#eef1f8',borderRadius:8,fontSize:13}}>{v('places_agreees')||<span style={{color:'#9aa3b8',fontStyle:'italic'}}>—</span>}</div>
+                    }
                     <div style={{fontSize:10,color:'#9aa3b8'}}>Max 3 places (agrément individuel)</div>
                   </div>
                   <Field label="Places contractées Tarn" type="number" value={v('places_contrat_tarn')} onChange={F('places_contrat_tarn')} readOnly={!editMode} />
                   <Field label="Dont places relais" type="number" value={v('places_relais')} onChange={F('places_relais')} readOnly={!editMode} />
                 </FG>
                 <div style={{marginTop:14}}>
-                  <div style={{fontSize:12,color:'#5a6478',marginBottom:4}}><strong>Contrat Tarn :</strong> {placesOccupees}/{placesContratTarn} occupée{placesOccupees>1?'s':''}<span style={{float:'right',fontWeight:600,color:placesDisponibles>0?'#2e8b4a':'#c0392b'}}>{placesDisponibles>0?`${placesDisponibles} dispo${placesDisponibles>1?'s':''}`:' Complet Tarn'}</span></div>
-                  <div style={{height:8,background:'#eef1f8',borderRadius:10,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(100,(placesOccupees/Math.max(placesContratTarn,1))*100)}%`,background:placesOccupees>=placesContratTarn?'#c0392b':'#2e8b4a',borderRadius:10}} /></div>
+                  <div style={{fontSize:12,color:'#5a6478',marginBottom:4}}>
+                    <strong>Contrat Tarn :</strong> {placesOccupees}/{placesContratTarn} occupée{placesOccupees>1?'s':''}
+                    <span style={{float:'right',fontWeight:600,color:placesDisponibles>0?'#2e8b4a':'#c0392b'}}>{placesDisponibles>0?`${placesDisponibles} dispo${placesDisponibles>1?'s':''}`:' Complet Tarn'}</span>
+                  </div>
+                  <div style={{height:8,background:'#eef1f8',borderRadius:10,overflow:'hidden'}}>
+                    <div style={{height:'100%',width:`${Math.min(100,(placesOccupees/Math.max(placesContratTarn,1))*100)}%`,background:placesOccupees>=placesContratTarn?'#c0392b':'#2e8b4a',borderRadius:10}} />
+                  </div>
                 </div>
                 <div style={{marginTop:14}}>
                   <label style={{display:'flex',alignItems:'center',gap:8,padding:'9px 14px',border:'1px dashed #c4d4f5',borderRadius:8,background:'linear-gradient(135deg,#e8eef8,#f0f9ff)',color:'#1a4b8f',fontSize:12,cursor:'pointer',fontFamily:'Sora,sans-serif',fontWeight:600}}>
-                    {readingPdf ? '⏳ Lecture en cours...' : uploadingDoc==='agrement' ? '⏳ Upload...' : '🤖 Uploader et lire l\'agrément PDF'}
+                    {readingPdf?'⏳ Lecture en cours...':(uploadingDoc==='agrement'?'⏳ Upload...':'🤖 Uploader et lire l\'agrément PDF')}
                     <input type="file" accept="application/pdf" style={{display:'none'}} onChange={e=>{if(e.target.files[0]) readAgrementPdf(e.target.files[0])}} disabled={readingPdf} />
                   </label>
-                  <div style={{fontSize:11,color:'#9aa3b8',marginTop:4,marginLeft:2}}>Le formulaire sera pré-rempli automatiquement à partir du PDF</div>
+                  <div style={{fontSize:11,color:'#9aa3b8',marginTop:4}}>Le formulaire sera pré-rempli automatiquement</div>
                   {documents.filter(d=>d.type_doc==='agrement').map(d=>(
                     <div key={d.id} style={{display:'flex',alignItems:'center',gap:8,padding:'7px 10px',background:'#f4f6fb',borderRadius:7,border:'1px solid #dde3f0',marginTop:6}}>
                       <span>📄</span><span style={{flex:1,fontSize:12}}>{d.nom}</span>
@@ -424,25 +515,17 @@ export default function DossierAssfam({ profile }) {
 
               <SectionCard icon="📋" title="Historique des agréments">
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                  <thead>
-                    <tr style={{background:'#eef2ff',borderBottom:'2px solid #1a4b8f'}}>
-                      {['N° Agrément','Période','Places','Statut'].map(h=>(
-                        <th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:'#1a4b8f',textTransform:'uppercase',letterSpacing:'.4px'}}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
+                  <thead><tr style={{background:'#eef2ff',borderBottom:'2px solid #1a4b8f'}}>{['N° Agrément','Période','Places','Statut'].map(h=><th key={h} style={{padding:'8px 12px',textAlign:'left',fontSize:11,fontWeight:700,color:'#1a4b8f',textTransform:'uppercase',letterSpacing:'.4px'}}>{h}</th>)}</tr></thead>
                   <tbody>
                     {af.numero_agrement&&(
                       <tr style={{borderBottom:'1px solid #f0f0f0'}}>
                         <td style={{padding:'10px 12px',fontWeight:600}}>{af.numero_agrement}</td>
                         <td style={{padding:'10px 12px',color:'#5a6478'}}>{fmtDate(af.date_agrement)} → {fmtDate(af.date_expiration_agrement)}</td>
                         <td style={{padding:'10px 12px'}}>{af.places_agreees}</td>
-                        <td style={{padding:'10px 12px'}}><span style={{padding:'3px 10px',borderRadius:10,background:'#e6f5eb',color:'#2e8b4a',fontSize:11,fontWeight:600}}>En cours</span></td>
+                        <td style={{padding:'10px 12px'}}><span style={{padding:'3px 10px',borderRadius:10,background:agrExpire?'#fdf0ee':'#e6f5eb',color:agrExpire?'#c0392b':'#2e8b4a',fontSize:11,fontWeight:600}}>{agrExpire?'Expiré':'En cours'}</span></td>
                       </tr>
                     )}
-                    <tr style={{borderBottom:'1px solid #f0f0f0',opacity:.5}}>
-                      <td style={{padding:'10px 12px',color:'#9aa3b8',fontStyle:'italic'}} colSpan={4}>Les agréments précédents s'afficheront ici</td>
-                    </tr>
+                    <tr><td colSpan={4} style={{padding:'10px 12px',color:'#9aa3b8',fontStyle:'italic',fontSize:12}}>Les agréments précédents s'afficheront ici</td></tr>
                   </tbody>
                 </table>
               </SectionCard>
@@ -488,22 +571,29 @@ export default function DossierAssfam({ profile }) {
                 <FG>
                   <Field label="Marque / Modèle" value={v('vehicule_marque')} onChange={F('vehicule_marque')} readOnly={!editMode} />
                   <Field label="Immatriculation" value={v('vehicule_immat')} onChange={F('vehicule_immat')} readOnly={!editMode} />
-                  <Field label="Puissance fiscale (CV)" value={String(v('vehicule_cv')||'5')} onChange={val=>F('vehicule_cv')(parseInt(val))} readOnly={!editMode} options={['5 CV et moins','6-7 CV','8 CV et plus']} />
+                  <Field label="Puissance fiscale" value={String(v('vehicule_cv')||'5 CV et moins')} onChange={val=>F('vehicule_cv')(val)} readOnly={!editMode} options={['5 CV et moins','6-7 CV','8 CV et plus']} />
                   <Field label="Expiration assurance" type="date" value={v('vehicule_assurance_exp')} onChange={F('vehicule_assurance_exp')} readOnly={!editMode} />
                   <Field label="Contrôle technique" type="date" value={v('vehicule_ct_exp')} onChange={F('vehicule_ct_exp')} readOnly={!editMode} />
                 </FG>
                 <div style={{marginTop:14,background:'#f4f6fb',border:'1px solid #dde3f0',borderRadius:10,padding:14}}>
                   <div style={{fontSize:12,fontWeight:700,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.4px',marginBottom:10}}>
-                    Barème kilométrique {new Date().getFullYear()} — {cv} CV
-                    <span style={{fontSize:10,fontWeight:400,marginLeft:8,color:'#9aa3b8'}}>(barème commun à tous les AF)</span>
+                    Barème kilométrique {new Date().getFullYear()}
+                    <span style={{fontSize:10,fontWeight:400,marginLeft:8,color:'#9aa3b8'}}>(arrêté ministériel 14/03/2022 — barème commun à tous les AF)</span>
                   </div>
                   <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                    <thead><tr style={{borderBottom:'2px solid #dde3f0'}}>{['Tranche km annuels','Taux','Votre situation'].map(h=><th key={h} style={{padding:'7px 10px',textAlign:'left',fontSize:11,fontWeight:700,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.3px'}}>{h}</th>)}</tr></thead>
+                    <thead><tr style={{borderBottom:'2px solid #dde3f0'}}>{['Véhicule','≤ 2 000 km','2 001–10 000 km','> 10 000 km'].map(h=><th key={h} style={{padding:'7px 10px',textAlign:'left',fontSize:11,fontWeight:700,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.3px'}}>{h}</th>)}</tr></thead>
                     <tbody>
-                      {(BAREME_KM[cv]||BAREME_KM[5]).map((t,i)=>{
-                        const labels=["Jusqu'à 2 000 km","De 2 001 à 10 000 km","Au-delà de 10 000 km"]
-                        const isCurrent=calcTauxKm(cv,kmCumules)===t.taux
-                        return <tr key={i} style={{borderBottom:'1px solid #f0f0f0',background:isCurrent?'#e8eef8':'transparent'}}><td style={{padding:'8px 10px'}}>{labels[i]}</td><td style={{padding:'8px 10px',fontWeight:700,color:'#1a4b8f'}}>{t.taux.toFixed(2)} €/km</td><td style={{padding:'8px 10px'}}>{isCurrent?<span style={{color:'#2e8b4a',fontWeight:600,fontSize:11}}>✅ Tranche actuelle</span>:<span style={{color:'#9aa3b8'}}>—</span>}</td></tr>
+                      {[['5 CV et moins',0.32,0.40,0.23],['6 et 7 CV',0.41,0.51,0.30],['8 CV et plus',0.45,0.55,0.32]].map(([label,t1,t2,t3])=>{
+                        const cvStr = String(af?.vehicule_cv||'')
+                        const isCurrent = (label.includes('5')&&(cvStr.includes('5')||cvStr==='5'))||(label.includes('6')&&cvStr.includes('6'))||(label.includes('8')&&cvStr.includes('8'))
+                        return (
+                          <tr key={label} style={{borderBottom:'1px solid #f0f0f0',background:isCurrent?'#e8eef8':'transparent'}}>
+                            <td style={{padding:'8px 10px',fontWeight:isCurrent?700:400}}>{label}</td>
+                            <td style={{padding:'8px 10px',color:'#1a4b8f',fontWeight:700}}>{t1.toFixed(2)} €/km</td>
+                            <td style={{padding:'8px 10px',color:'#1a4b8f',fontWeight:700}}>{t2.toFixed(2)} €/km</td>
+                            <td style={{padding:'8px 10px',color:'#1a4b8f',fontWeight:700}}>{t3.toFixed(2)} €/km</td>
+                          </tr>
+                        )
                       })}
                     </tbody>
                   </table>
@@ -522,9 +612,9 @@ export default function DossierAssfam({ profile }) {
                 <div style={{marginTop:16}}>
                   <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.4px',marginBottom:8}}>Personnes du foyer</div>
                   {foyerEnfants.map(e=>{
-                    const age=e.date_naissance?parseInt(calcAge(e.date_naissance)):0
-                    const needsCasier=age>=13||e.lien!=='enfant'
-                    const hasCasier=documents.some(d=>d.type_doc===`casier_foyer_${e.id}`)
+                    const age = e.date_naissance ? parseInt(calcAge(e.date_naissance)) : 0
+                    const needsCasier = age>=13||e.lien!=='enfant'
+                    const hasCasier = documents.some(d=>d.type_doc===`casier_foyer_${e.id}`)
                     return (
                       <div key={e.id} style={{display:'flex',alignItems:'center',gap:12,padding:'10px 12px',background:'#f4f6fb',borderRadius:8,marginBottom:8,border:'1px solid #dde3f0'}}>
                         <span style={{fontSize:20}}>{e.sexe==='F'?'👧':'👦'}</span>
@@ -540,7 +630,7 @@ export default function DossierAssfam({ profile }) {
             </>
           )}
 
-          {/* ENFANTS ACCUEILLIS */}
+          {/* ENFANTS & FRAIS */}
           {onglet==='enfants'&&(
             <>
               {placesDisponibles>0&&<div style={{background:'#e6f5eb',border:'1px solid #c4e8cc',borderRadius:10,padding:'10px 16px',marginBottom:16,fontSize:12,color:'#2e8b4a',display:'flex',gap:8}}>✅ <strong>{placesDisponibles} place{placesDisponibles>1?'s':''} disponible{placesDisponibles>1?'s':''}</strong> sur {placesContratTarn} contractées{af.profil_age&&` — Profil souhaité : enfant de ${af.profil_age}`}</div>}
@@ -588,8 +678,8 @@ export default function DossierAssfam({ profile }) {
                   <label style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.4px',display:'block',marginBottom:10}}>Capacités particulières</label>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>
                     {[
-                      {key:'cap_troubles_comportement_legers',label:'Enfants avec troubles du comportement légers',icon:'🧠'},
-                      {key:'cap_troubles_comportement',label:'Enfants avec troubles du comportement lourds',icon:'🧠'},
+                      {key:'cap_troubles_comportement_legers',label:'Troubles du comportement légers',icon:'🧠'},
+                      {key:'cap_troubles_comportement',label:'Troubles du comportement lourds',icon:'🧠'},
                       {key:'cap_handicap',label:'Enfants porteurs de handicap',icon:'♿'},
                       {key:'cap_fratrie',label:'Fratries (accueil simultané)',icon:'👧👦'},
                       {key:'cap_urgence',label:"Accueil d'urgence (moins de 48h)",icon:'🚨'},
@@ -676,7 +766,7 @@ export default function DossierAssfam({ profile }) {
               <SectionCard icon="📋" title="Historique des congés">
                 {conges.length===0 ? <div style={{color:'#9aa3b8',fontStyle:'italic',fontSize:13}}>Aucun congé enregistré</div>
                 : conges.map(c=>{
-                  const relaisInfo=c.notes?.split('\n')[0]
+                  const relaisInfo = c.notes?.split('\n')[0]
                   return (
                     <div key={c.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'#f4f6fb',borderRadius:10,marginBottom:8,border:'1px solid #dde3f0'}}>
                       <span style={{fontSize:24}}>{c.statut==='valide'?'🏖️':c.statut==='refuse'?'❌':'⏳'}</span>
@@ -753,7 +843,7 @@ export default function DossierAssfam({ profile }) {
                 <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
                   {collegues.filter(c=>['encadrant','admin'].includes(c.role)).map(c=>(
                     <div key={c.id} style={{background:'#f4f6fb',borderRadius:10,padding:16,border:'1px solid #dde3f0'}}>
-                      <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:8}}>{c.role==='encadrant'?'👨‍💼 Encadrant Technique':c.role==='rtase'?'🎖️ RTASE':'👤 Admin'}</div>
+                      <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:8}}>{c.role==='encadrant'?'👨‍💼 Encadrant Technique':'👤 Admin'}</div>
                       <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{c.nom} {c.prenom}</div>
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                         {c.telephone&&<a href={`tel:${c.telephone}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {c.telephone}</a>}
@@ -764,23 +854,21 @@ export default function DossierAssfam({ profile }) {
                   <div style={{background:'#f4f6fb',borderRadius:10,padding:16,border:'1px solid #dde3f0'}}>
                     <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:12}}>💰 Gestionnaire Paie</div>
                     {editMode ? (
-                      <select className="form-control" style={{marginBottom:8}} value={v('gestionnaire_paie_id')||''} onChange={e=>F('gestionnaire_paie_id')(e.target.value||null)}>
-                        <option value="">— Choisir —</option>
+                      <select className="form-control" value={v('gestionnaire_paie_id')||''} onChange={e=>F('gestionnaire_paie_id')(e.target.value||null)}>
+                        <option value="">— Sélectionner —</option>
                         {gestionnaires.map(g=><option key={g.id} value={g.id}>{g.nom} {g.prenom}</option>)}
                       </select>
-                    ) : null}
-                    {(() => {
+                    ) : (() => {
                       const g = gestionnaires.find(g=>g.id===v('gestionnaire_paie_id'))
-                      if (!g) return <div style={{fontSize:12,color:'#9aa3b8',fontStyle:'italic'}}>Non renseigné</div>
-                      return (
+                      return g ? (
                         <div>
                           <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{g.nom} {g.prenom}</div>
                           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                            <a href={`tel:${g.telephone}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none'}}>📞 {g.telephone}</a>
-                            <a href={`mailto:${g.email}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e6f5eb',color:'#2e8b4a',fontSize:12,textDecoration:'none'}}>✉️ {g.email}</a>
+                            {g.telephone&&<a href={`tel:${g.telephone}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {g.telephone}</a>}
+                            {g.email&&<a href={`mailto:${g.email}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e6f5eb',color:'#2e8b4a',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>✉️ {g.email}</a>}
                           </div>
                         </div>
-                      )
+                      ) : <div style={{fontSize:12,color:'#9aa3b8',fontStyle:'italic'}}>Non renseigné</div>
                     })()}
                   </div>
                 </div>
