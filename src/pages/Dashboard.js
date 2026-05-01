@@ -255,7 +255,7 @@ export default function Dashboard({ profile, session }) {
               )}
 
               {/* ── Alertes ASE ── */}
-              {['referent','encadrant','rtase','admin'].includes(profile?.role) && (
+              {['encadrant','rtase','admin'].includes(profile?.role) && (
                 <>
                   <AlertItem icon="🚨" title="Relais non trouvé — Martin René" sub="Congés 15-30 mai · Hugo M. · Sara L. · J-33" type="danger" onClick={() => {}} />
                   {alertesAgrement.map(af => {
