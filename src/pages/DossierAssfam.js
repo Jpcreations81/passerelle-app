@@ -82,7 +82,6 @@ export default function DossierAssfam({ profile }) {
   const [documents, setDocuments] = useState([])
   const [uploadingDoc, setUploadingDoc] = useState(null)
   const [collegues, setCollegues] = useState([])
-  const [gestionnaires, setGestionnaires] = useState([])
   const [photoUrl, setPhotoUrl] = useState(null)
   const [readingPdf, setReadingPdf] = useState(false)
   const [frDep, setFrDep] = useState('')
@@ -147,13 +146,8 @@ export default function DossierAssfam({ profile }) {
   }, [id])
 
   const fetchCollegues = useCallback(async () => {
-    const { data } = await supabase.from('profiles').select('id,nom,prenom,role,telephone,email').eq('territoire', profile?.territoire)
+    const { data } = await supabase.from('profiles').select('id,nom,prenom,role,telephone,email').in('role',['encadrant','admin'])
     if (data) setCollegues(data)
-  }, [profile])
-
-  const fetchGestionnaires = useCallback(async () => {
-    const { data } = await supabase.from('gestionnaires_paie').select('*').order('nom')
-    if (data) setGestionnaires(data)
   }, [])
 
   const fetchPhoto = useCallback(async () => {
@@ -166,8 +160,8 @@ export default function DossierAssfam({ profile }) {
 
   useEffect(() => {
     fetchAf(); fetchEnfants(); fetchConges(); fetchFormations()
-    fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto(); fetchGestionnaires()
-  }, [fetchAf,fetchEnfants,fetchConges,fetchFormations,fetchFoyerEnfants,fetchDocuments,fetchCollegues,fetchPhoto,fetchGestionnaires])
+    fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto()
+  }, [fetchAf,fetchEnfants,fetchConges,fetchFormations,fetchFoyerEnfants,fetchDocuments,fetchCollegues,fetchPhoto])
 
   async function saveForm() {
     setSaving(true)
@@ -182,7 +176,8 @@ export default function DossierAssfam({ profile }) {
       'profil_age','profil_sexe','profil_duree',
       'cap_troubles_comportement_legers','cap_troubles_comportement','cap_handicap',
       'cap_fratrie','cap_urgence','cap_bas_age','cap_relais',
-      'date_debut_contrat','gestionnaire_paie_id','secteur','ville_rattachement',
+      'date_debut_contrat','secteur','ville_rattachement',
+      'gestionnaire_paie_nom','gestionnaire_paie_tel','gestionnaire_paie_email',
     ]
     const fd = Object.fromEntries(cols.filter(k=>form[k]!==undefined).map(k=>[k,form[k]]))
     const { error } = await supabase.from('profiles').update(fd).eq('id', id)
@@ -260,8 +255,8 @@ export default function DossierAssfam({ profile }) {
   function calcFrais() {
     const km = parseFloat(frKm); if (!km||km<=0) { showToast('⚠️ Distance invalide'); return }
     const kmC = af?.km_cumules_annee||0, taux = calcTauxKm(af?.vehicule_cv||5, kmC)
-    const dist = frType==='ar' ? km*2 : km, montant = dist*taux
-    setFrResult({ km:dist, taux, montant, motif:frMotif, depart:frDep, arrivee:frArr, date:frDate })
+    const dist = frType==='ar' ? km*2 : km
+    setFrResult({ km:dist, taux, montant:dist*taux, motif:frMotif, depart:frDep, arrivee:frArr, date:frDate })
   }
 
   async function saveConge() {
@@ -294,12 +289,10 @@ export default function DossierAssfam({ profile }) {
 
   const placesOccupees = enfantsAccueillis.length
   const placesContratTarn = af?.places_contrat_tarn||af?.places_agreees||3
-  const placesTotal = af?.places_agreees||3
   const placesDisponibles = Math.max(0, placesContratTarn-placesOccupees)
   const congesPris = conges.filter(c=>c.statut==='valide').reduce((s,c)=>s+(c.nb_jours||0),0)
   const congesRestants = 30-congesPris
   const kmCumules = af?.km_cumules_annee||0
-  const cv = af?.vehicule_cv||5
   const agrExp = af?.date_expiration_agrement ? new Date(af.date_expiration_agrement) : null
   const joursAgrExp = agrExp ? Math.ceil((agrExp-new Date())/(1000*60*60*24)) : null
   const agrAlerte = joursAgrExp!==null && joursAgrExp<=90
@@ -345,7 +338,7 @@ export default function DossierAssfam({ profile }) {
             <div>
               <div className="page-title">{af.nom} {af.prenom}</div>
               <div className="page-subtitle">
-                Assistante familiale agréée · {af.territoire||''}
+                Assistante familiale agréée · {af.secteur||af.territoire||''}
                 {af.numero_agrement&&` · Agrément N° ${af.numero_agrement}`}
                 {agrAlerte&&<span style={{marginLeft:8,background:agrExpire?'#fdf0ee':'#fef3e2',color:agrExpire?'#c0392b':'#d97706',padding:'1px 8px',borderRadius:10,fontSize:10,fontWeight:700}}>{agrExpire?'🔴 Agrément EXPIRÉ':`⚠️ Renouvellement dans ${joursAgrExp}j`}</span>}
               </div>
@@ -383,7 +376,6 @@ export default function DossierAssfam({ profile }) {
             ))}
           </div>
 
-          {/* IDENTITÉ */}
           {onglet==='identite'&&(
             <>
               <SectionCard icon="👤" title="État civil">
@@ -459,7 +451,6 @@ export default function DossierAssfam({ profile }) {
             </>
           )}
 
-          {/* AGRÉMENT */}
           {onglet==='agrement'&&(
             <>
               <SectionCard icon="📜" title="Agrément en cours">
@@ -554,7 +545,6 @@ export default function DossierAssfam({ profile }) {
             </>
           )}
 
-          {/* FOYER */}
           {onglet==='foyer'&&(
             <>
               <SectionCard icon="🏠" title="Domicile">
@@ -578,14 +568,14 @@ export default function DossierAssfam({ profile }) {
                 <div style={{marginTop:14,background:'#f4f6fb',border:'1px solid #dde3f0',borderRadius:10,padding:14}}>
                   <div style={{fontSize:12,fontWeight:700,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.4px',marginBottom:10}}>
                     Barème kilométrique {new Date().getFullYear()}
-                    <span style={{fontSize:10,fontWeight:400,marginLeft:8,color:'#9aa3b8'}}>(arrêté ministériel 14/03/2022 — barème commun à tous les AF)</span>
+                    <span style={{fontSize:10,fontWeight:400,marginLeft:8,color:'#9aa3b8'}}>(arrêté ministériel 14/03/2022)</span>
                   </div>
                   <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
                     <thead><tr style={{borderBottom:'2px solid #dde3f0'}}>{['Véhicule','≤ 2 000 km','2 001–10 000 km','> 10 000 km'].map(h=><th key={h} style={{padding:'7px 10px',textAlign:'left',fontSize:11,fontWeight:700,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.3px'}}>{h}</th>)}</tr></thead>
                     <tbody>
                       {[['5 CV et moins',0.32,0.40,0.23],['6 et 7 CV',0.41,0.51,0.30],['8 CV et plus',0.45,0.55,0.32]].map(([label,t1,t2,t3])=>{
                         const cvStr = String(af?.vehicule_cv||'')
-                        const isCurrent = (label.includes('5')&&(cvStr.includes('5')||cvStr==='5'))||(label.includes('6')&&cvStr.includes('6'))||(label.includes('8')&&cvStr.includes('8'))
+                        const isCurrent = (label.includes('5')&&(cvStr.includes('5')||cvStr==='5'))||(label.includes('6')&&(cvStr.includes('6')||cvStr.includes('7')))||(label.includes('8')&&cvStr.includes('8'))
                         return (
                           <tr key={label} style={{borderBottom:'1px solid #f0f0f0',background:isCurrent?'#e8eef8':'transparent'}}>
                             <td style={{padding:'8px 10px',fontWeight:isCurrent?700:400}}>{label}</td>
@@ -620,7 +610,7 @@ export default function DossierAssfam({ profile }) {
                         <span style={{fontSize:20}}>{e.sexe==='F'?'👧':'👦'}</span>
                         <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{e.nom} {e.prenom}</div><div style={{fontSize:11,color:'#9aa3b8'}}>{e.date_naissance&&calcAge(e.date_naissance)} · {e.lien||'Enfant'}</div></div>
                         {needsCasier&&<span style={{padding:'3px 8px',borderRadius:8,fontSize:10,fontWeight:600,background:hasCasier?'#e6f5eb':'#fdf0ee',color:hasCasier?'#2e8b4a':'#c0392b'}}>{hasCasier?'✅ Casier B3':'⚠️ Casier B3 requis'}</span>}
-                        {needsCasier&&!hasCasier&&<label style={{padding:'3px 8px',border:'1px dashed #fde8e8',borderRadius:7,background:'#fdf0ee',color:'#c0392b',fontSize:10,cursor:'pointer'}}>📎 Ajouter B3<input type="file" accept="application/pdf,image/*" style={{display:'none'}} onChange={ev=>{if(ev.target.files[0]) uploadDoc(ev.target.files[0],`casier_foyer_${e.id}`)}} /></label>}
+                        {needsCasier&&!hasCasier&&<label style={{padding:'3px 8px',border:'1px dashed #fde8e8',borderRadius:7,background:'#fdf0ee',color:'#c0392b',fontSize:10,cursor:'pointer'}}>📎 B3<input type="file" accept="application/pdf,image/*" style={{display:'none'}} onChange={ev=>{if(ev.target.files[0]) uploadDoc(ev.target.files[0],`casier_foyer_${e.id}`)}} /></label>}
                       </div>
                     )
                   })}
@@ -630,18 +620,15 @@ export default function DossierAssfam({ profile }) {
             </>
           )}
 
-          {/* ENFANTS & FRAIS */}
           {onglet==='enfants'&&(
             <>
-              {placesDisponibles>0&&<div style={{background:'#e6f5eb',border:'1px solid #c4e8cc',borderRadius:10,padding:'10px 16px',marginBottom:16,fontSize:12,color:'#2e8b4a',display:'flex',gap:8}}>✅ <strong>{placesDisponibles} place{placesDisponibles>1?'s':''} disponible{placesDisponibles>1?'s':''}</strong> sur {placesContratTarn} contractées{af.profil_age&&` — Profil souhaité : enfant de ${af.profil_age}`}</div>}
-
+              {placesDisponibles>0&&<div style={{background:'#e6f5eb',border:'1px solid #c4e8cc',borderRadius:10,padding:'10px 16px',marginBottom:16,fontSize:12,color:'#2e8b4a',display:'flex',gap:8}}>✅ <strong>{placesDisponibles} place{placesDisponibles>1?'s':''} disponible{placesDisponibles>1?'s':''}</strong> sur {placesContratTarn} contractées{af.profil_age&&` — Profil souhaité : ${af.profil_age}`}</div>}
               <SectionCard icon="👶" title="Enfants accueillis actuellement">
                 {enfantsAccueillis.length===0 ? <div style={{color:'#9aa3b8',fontStyle:'italic',fontSize:13}}>Aucun enfant accueilli actuellement</div>
                 : enfantsAccueillis.map(e=>(
                   <div key={e.id} style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:'#f4f6fb',borderRadius:10,marginBottom:8,border:'1px solid #dde3f0'}}>
                     <div style={{width:38,height:38,borderRadius:'50%',background:'linear-gradient(135deg,#1a4b8f,#2e8b4a)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'#fff'}}>{e.nom?.[0]}{e.prenom?.[0]}</div>
-                    <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{e.nom} {e.prenom}</div><div style={{fontSize:11,color:'#9aa3b8'}}>{calcAge(e.date_naissance)} · Depuis {fmtDate(e.date_placement)} · {e.type_placement}</div></div>
-                    <span style={{padding:'3px 10px',borderRadius:10,background:'#e8eef8',color:'#1a4b8f',fontSize:11,fontWeight:600}}>Principal</span>
+                    <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{e.nom} {e.prenom}</div><div style={{fontSize:11,color:'#9aa3b8'}}>{calcAge(e.date_naissance)} · Depuis {fmtDate(e.date_placement)}</div></div>
                     <button onClick={()=>navigate(`/enfants/${e.id}`)} style={{padding:'5px 10px',borderRadius:7,border:'1px solid #c4d4f5',background:'#e8eef8',color:'#1a4b8f',fontSize:11,cursor:'pointer'}}>📁 Dossier</button>
                   </div>
                 ))}
@@ -716,7 +703,6 @@ export default function DossierAssfam({ profile }) {
             </>
           )}
 
-          {/* CONGÉS */}
           {onglet==='conges'&&(
             <>
               <SectionCard icon="🏖️" title="Solde de congés">
@@ -730,8 +716,8 @@ export default function DossierAssfam({ profile }) {
               </SectionCard>
 
               <SectionCard icon="📅" title="Demande de congés">
-                <div style={{background:'#e8eef8',border:'1px solid #c4d4f5',borderRadius:9,padding:'10px 14px',fontSize:12,color:'#1a4b8f',marginBottom:16,lineHeight:1.6}}>
-                  💡 La demande sera transmise à votre encadrant technique. Elle inclura automatiquement les dates de relais pour chaque enfant accueilli.
+                <div style={{background:'#e8eef8',border:'1px solid #c4d4f5',borderRadius:9,padding:'10px 14px',fontSize:12,color:'#1a4b8f',marginBottom:16}}>
+                  💡 La demande sera transmise à votre encadrant technique. Elle inclura les dates de relais pour chaque enfant accueilli.
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
                   <div style={{display:'flex',flexDirection:'column',gap:5}}>
@@ -788,7 +774,6 @@ export default function DossierAssfam({ profile }) {
             </>
           )}
 
-          {/* FORMATIONS */}
           {onglet==='formations'&&(
             <>
               <SectionCard icon="🎓" title="DEAF — Diplôme d'État">
@@ -836,14 +821,13 @@ export default function DossierAssfam({ profile }) {
             </>
           )}
 
-          {/* SAFA & CONTRAT */}
           {onglet==='safa'&&(
             <>
               <SectionCard icon="👥" title="Équipe SAFA référente">
                 <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
-                  {collegues.filter(c=>['encadrant','admin'].includes(c.role)).map(c=>(
+                  {collegues.filter(c=>c.role==='encadrant').map(c=>(
                     <div key={c.id} style={{background:'#f4f6fb',borderRadius:10,padding:16,border:'1px solid #dde3f0'}}>
-                      <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:8}}>{c.role==='encadrant'?'👨‍💼 Encadrant Technique':'👤 Admin'}</div>
+                      <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:8}}>👨‍💼 Encadrant Technique</div>
                       <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{c.nom} {c.prenom}</div>
                       <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                         {c.telephone&&<a href={`tel:${c.telephone}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {c.telephone}</a>}
@@ -854,22 +838,20 @@ export default function DossierAssfam({ profile }) {
                   <div style={{background:'#f4f6fb',borderRadius:10,padding:16,border:'1px solid #dde3f0'}}>
                     <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:12}}>💰 Gestionnaire Paie</div>
                     {editMode ? (
-                      <select className="form-control" value={v('gestionnaire_paie_id')||''} onChange={e=>F('gestionnaire_paie_id')(e.target.value||null)}>
-                        <option value="">— Sélectionner —</option>
-                        {gestionnaires.map(g=><option key={g.id} value={g.id}>{g.nom} {g.prenom}</option>)}
-                      </select>
-                    ) : (() => {
-                      const g = gestionnaires.find(g=>g.id===v('gestionnaire_paie_id'))
-                      return g ? (
-                        <div>
-                          <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{g.nom} {g.prenom}</div>
-                          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                            {g.telephone&&<a href={`tel:${g.telephone}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {g.telephone}</a>}
-                            {g.email&&<a href={`mailto:${g.email}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e6f5eb',color:'#2e8b4a',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>✉️ {g.email}</a>}
-                          </div>
+                      <FG cols={1}>
+                        <Field label="Nom Prénom" value={v('gestionnaire_paie_nom')} onChange={F('gestionnaire_paie_nom')} />
+                        <Field label="Téléphone" type="tel" value={v('gestionnaire_paie_tel')} onChange={F('gestionnaire_paie_tel')} />
+                        <Field label="Email" type="email" value={v('gestionnaire_paie_email')} onChange={F('gestionnaire_paie_email')} />
+                      </FG>
+                    ) : v('gestionnaire_paie_nom') ? (
+                      <div>
+                        <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{v('gestionnaire_paie_nom')}</div>
+                        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                          {v('gestionnaire_paie_tel')&&<a href={`tel:${v('gestionnaire_paie_tel')}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {v('gestionnaire_paie_tel')}</a>}
+                          {v('gestionnaire_paie_email')&&<a href={`mailto:${v('gestionnaire_paie_email')}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e6f5eb',color:'#2e8b4a',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>✉️ {v('gestionnaire_paie_email')}</a>}
                         </div>
-                      ) : <div style={{fontSize:12,color:'#9aa3b8',fontStyle:'italic'}}>Non renseigné</div>
-                    })()}
+                      </div>
+                    ) : <div style={{fontSize:12,color:'#9aa3b8',fontStyle:'italic'}}>Non renseigné — cliquez sur Modifier</div>}
                   </div>
                 </div>
               </SectionCard>
