@@ -1218,12 +1218,10 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
 
                   {/* Contacts ASE */}
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:12, marginTop:12 }}>
+                    {/* AF et Référent — sélecteurs profils */}
                     {[
-                      { role:'referent',      icon:'👩‍💼', label:'Référent(e) Enfant',         bg:'#e8eef8', idKey:'referent_id',     data: enfant.referent },
-                      { role:'af',            icon:'👨‍👩‍👧', label:'AF Principal',               bg:'#e6f5eb', idKey:'af_principal_id', data: enfant.af_principal },
-                      { role:'ref_sante',     icon:'👩‍⚕️', label:'Référent(e) Santé',          bg:'#f0ebfb', idKey:'ref_sante_id',    data: null },
-                      { role:'gestionnaire',  icon:'👨‍💼', label:'Gestionnaire Enfant',         bg:'#fef3e2', idKey:'gestionnaire_id', data: null },
-                      { role:'rt_ase',        icon:'🎖️', label:'Responsable Territorial ASE', bg:'#e6f5eb', idKey:'rt_ase_id',       data: null },
+                      { role:'referent', icon:'👩‍💼', label:'Référent(e) Enfant',   bg:'#e8eef8', idKey:'referent_id',     data: enfant.referent },
+                      { role:'af',       icon:'👨‍👩‍👧', label:'AF Principal',         bg:'#e6f5eb', idKey:'af_principal_id', data: enfant.af_principal },
                     ].map(({ role, icon, label, bg, idKey, data }) => {
                       const profil = collegues.find(c => c.id === v(idKey)) || data
                       return (
@@ -1232,8 +1230,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                             {icon} {label}
                           </div>
                           {editMode ? (
-                            <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)}
-                              style={{ fontSize:12 }}>
+                            <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
                               <option value="">— Sélectionner —</option>
                               {collegues.filter(c => role === 'af' ? c.role === 'af' : ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
                                 <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
@@ -1241,7 +1238,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                             </select>
                           ) : profil ? (
                             <div>
-                              <div style={{ fontSize:13, fontWeight:600 }}>{profil.prenom} {profil.nom}</div>
+                              <div style={{ fontSize:13, fontWeight:600 }}>{profil.nom} {profil.prenom}</div>
                               {profil.telephone && <div style={{ fontSize:11, color:'#5a6478', marginTop:3 }}>📞 <a href={`tel:${profil.telephone}`} style={{ color:'#1a4b8f' }}>{profil.telephone}</a></div>}
                               {profil.email && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
                             </div>
@@ -1251,6 +1248,36 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                         </div>
                       )
                     })}
+
+                    {/* Santé, Gestionnaire, RTASE — champs texte libres */}
+                    {[
+                      { icon:'👩‍⚕️', label:'Référent(e) Santé',          bg:'#f0ebfb', nomKey:'ref_sante_nom',        telKey:'ref_sante_tel',        emailKey:'ref_sante_email' },
+                      { icon:'👨‍💼', label:'Gestionnaire Enfant',         bg:'#fef3e2', nomKey:'gestionnaire_nom',      telKey:'gestionnaire_tel',      emailKey:'gestionnaire_email' },
+                      { icon:'🎖️', label:'Responsable Territorial ASE',  bg:'#e6f5eb', nomKey:'rt_ase_nom',            telKey:'rt_ase_tel',            emailKey:'rt_ase_email' },
+                    ].map(({ icon, label, bg, nomKey, telKey, emailKey }) => (
+                      <div key={nomKey} style={{ background: bg, borderRadius:10, padding:14, border:'1px solid #dde3f0' }}>
+                        <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.3px', marginBottom:8 }}>
+                          {icon} {label}
+                        </div>
+                        {editMode ? (
+                          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                            <input className="form-control" style={{ fontSize:12 }} value={v(nomKey)||''} onChange={e=>F(nomKey)(e.target.value)} placeholder="Nom Prénom" />
+                            <input className="form-control" style={{ fontSize:12 }} value={v(telKey)||''} onChange={e=>F(telKey)(e.target.value)} placeholder="📞 Téléphone" />
+                            <input className="form-control" style={{ fontSize:12 }} value={v(emailKey)||''} onChange={e=>F(emailKey)(e.target.value)} placeholder="✉️ Email" />
+                          </div>
+                        ) : v(nomKey) ? (
+                          <div>
+                            <div style={{ fontSize:13, fontWeight:600, marginBottom:4 }}>{v(nomKey)}</div>
+                            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                              {v(telKey)&&<a href={`tel:${v(telKey)}`} style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:6, background:'#e8eef8', color:'#1a4b8f', fontSize:11, textDecoration:'none' }}>📞 {v(telKey)}</a>}
+                              {v(emailKey)&&<a href={`mailto:${v(emailKey)}`} style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:6, background:'#e6f5eb', color:'#2e8b4a', fontSize:11, textDecoration:'none' }}>✉️ {v(emailKey)}</a>}
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Non renseigné — cliquez sur Modifier</div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </SectionCard>
 
