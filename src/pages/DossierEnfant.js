@@ -1218,10 +1218,11 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
 
                   {/* Contacts ASE */}
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:12, marginTop:12 }}>
-                    {/* AF et Référent — sélecteurs profils */}
+                    {/* AF, Référent et Gestionnaire — sélecteurs profils */}
                     {[
-                      { role:'referent', icon:'👩‍💼', label:'Référent(e) Enfant',   bg:'#e8eef8', idKey:'referent_id',     data: enfant.referent },
-                      { role:'af',       icon:'👨‍👩‍👧', label:'AF Principal',         bg:'#e6f5eb', idKey:'af_principal_id', data: enfant.af_principal },
+                      { role:'referent',     icon:'👩‍💼', label:'Référent(e) Enfant',   bg:'#e8eef8', idKey:'referent_id',     data: enfant.referent },
+                      { role:'af',           icon:'👨‍👩‍👧', label:'AF Principal',         bg:'#e6f5eb', idKey:'af_principal_id', data: enfant.af_principal },
+                      { role:'gestionnaire', icon:'👨‍💼', label:'Gestionnaire Enfant',   bg:'#fef3e2', idKey:'gestionnaire_id', data: null },
                     ].map(({ role, icon, label, bg, idKey, data }) => {
                       const profil = collegues.find(c => c.id === v(idKey)) || data
                       return (
@@ -1252,7 +1253,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                     {/* Santé, Gestionnaire, RTASE — champs texte libres */}
                     {[
                       { icon:'👩‍⚕️', label:'Référent(e) Santé',          bg:'#f0ebfb', nomKey:'ref_sante_nom',        telKey:'ref_sante_tel',        emailKey:'ref_sante_email' },
-                      { icon:'👨‍💼', label:'Gestionnaire Enfant',         bg:'#fef3e2', nomKey:'gestionnaire_nom',      telKey:'gestionnaire_tel',      emailKey:'gestionnaire_email' },
+
                       { icon:'🎖️', label:'Responsable Territorial ASE',  bg:'#e6f5eb', nomKey:'rt_ase_nom',            telKey:'rt_ase_tel',            emailKey:'rt_ase_email' },
                     ].map(({ icon, label, bg, nomKey, telKey, emailKey }) => (
                       <div key={nomKey} style={{ background: bg, borderRadius:10, padding:14, border:'1px solid #dde3f0' }}>
