@@ -555,7 +555,7 @@ export default function DossierEnfant({ profile }) {
         if (champsExclus.includes(k)) return false
         if (v !== null && typeof v === 'object' && !Array.isArray(v)) return false
         return true
-      }).map(([k, v]) => {
+      .map(([k, v]) => {...})
         // Convertir les chaînes vides en null pour les champs date
         if (v === '' && (k.includes('date') || k.includes('naissance') || k.includes('exp') || k.includes('debut') || k.includes('fin'))) {
           return [k, null]
