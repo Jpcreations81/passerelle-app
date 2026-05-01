@@ -148,7 +148,7 @@ export default function Dashboard({ profile, session }) {
           title={`Bonjour ${profile?.prenom || ''} ${profile?.nom || ''}${profile?.matricule ? ` · N° ${profile.matricule}` : ''}`}
           subtitle={`${profile?.territoire || ''} · ${
             profile?.role === 'af' ? 'Assistant(e) Familial(e)' :
-            profile?.role === 'referent' ? 'Référent(e) ASE' :
+            profile?.role === 'referent' ? (profile?.fonction || 'Référent(e) ASE') :
             profile?.role === 'encadrant' ? 'Encadrant(e) Technique' :
             profile?.role === 'rtase' ? 'Responsable Territorial ASE' : profile?.role
           }`}
