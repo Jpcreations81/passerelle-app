@@ -9,7 +9,7 @@ export default function ListeEnfants({ profile }) {
   const [enfants, setEnfants] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [newEnfant, setNewEnfant] = useState({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', lieu_accueil:'af_principal', af_principal_id:'', fratrie:[] })
+  const [newEnfant, setNewEnfant] = useState({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', lieu_accueil:'af_principal', af_principal_id:'', referent_id:'', fratrie:[] })
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
   const [collegues, setCollegues] = useState([])
@@ -39,7 +39,8 @@ export default function ListeEnfants({ profile }) {
   }, [profile])
 
   const fetchCollegues = useCallback(async () => {
-    const { data } = await supabase.from('profiles').select('id, nom, prenom, role').eq('territoire', profile?.territoire)
+    // Charger tous les AF + référents sans filtre territoire
+    const { data } = await supabase.from('profiles').select('id, nom, prenom, role').in('role', ['af','referent','encadrant','rtase','admin'])
     if (data) setCollegues(data)
   }, [profile])
 
@@ -89,14 +90,14 @@ export default function ListeEnfants({ profile }) {
       lieu_accueil: newEnfant.lieu_accueil || 'af_principal',
       af_principal_id: newEnfant.lieu_accueil === 'af_principal' ? (newEnfant.af_principal_id || null) : null,
       fratrie: newEnfant.fratrie?.length > 0 ? newEnfant.fratrie : null,
-      referent_id: profile.id,
+      referent_id: newEnfant.referent_id || null,
       territoire: profile.territoire,
     }).select().single()
 
     if (!error && data) {
       showToast('✅ Dossier créé !')
       setShowModal(false)
-      setNewEnfant({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', lieu_accueil:'af_principal', af_principal_id:'', fratrie:[] })
+      setNewEnfant({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', lieu_accueil:'af_principal', af_principal_id:'', referent_id:'', fratrie:[] })
       navigate(`/enfants/${data.id}`)
     } else showToast('❌ Erreur : ' + error?.message)
     setSaving(false)
@@ -263,11 +264,20 @@ export default function ListeEnfants({ profile }) {
                   <select className="form-control" value={newEnfant.af_principal_id || ''} onChange={e => setNewEnfant(n => ({...n, af_principal_id: e.target.value}))}>
                     <option value="">— Sélectionner un AF —</option>
                     {collegues.filter(c => c.role === 'af').map(c => (
-                      <option key={c.id} value={c.id}>{c.prenom} {c.nom}</option>
+                      <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
                     ))}
                   </select>
                 </div>
               )}
+              <div className="form-group" style={{ marginBottom:16 }}>
+                <label className="form-label">Référent(e) ASE</label>
+                <select className="form-control" value={newEnfant.referent_id || ''} onChange={e => setNewEnfant(n => ({...n, referent_id: e.target.value}))}>
+                  <option value="">— Sélectionner (optionnel) —</option>
+                  {collegues.filter(c => c.role === 'referent').map(c => (
+                    <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
+                  ))}
+                </select>
+              </div>
               <div className="modal-footer">
                 <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Annuler</button>
                 <button className="btn btn-primary" onClick={createEnfant} disabled={saving}>
