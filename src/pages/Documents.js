@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
@@ -78,25 +77,8 @@ export default function Documents({ profile }) {
       setLoading(true)
       // Initialiser les dossiers par défaut si vide
       const racine = await fetchDossiers(null)
-      if (racine.length === 0 && profile?.territoire) {
-        // Créer les dossiers par défaut
-        for (const d of DOSSIERS_DEFAUT) {
-          const { data: parent } = await supabase.from('documents_dossiers').insert({
-            nom: d.nom, parent_id: null, territoire: profile.territoire, created_by: profile.id
-          }).select().single()
-          if (parent) {
-            for (const enfant of d.enfants) {
-              await supabase.from('documents_dossiers').insert({
-                nom: enfant, parent_id: parent.id, territoire: profile.territoire, created_by: profile.id
-              })
-            }
-          }
-        }
-        const recharged = await fetchDossiers(null)
-        setDossiers(recharged)
-      } else {
-        setDossiers(racine)
-      }
+      setDossiers(racine)
+      // Les AF gèrent leurs dossiers librement — pas de création automatique
       setLoading(false)
     }
     init()
