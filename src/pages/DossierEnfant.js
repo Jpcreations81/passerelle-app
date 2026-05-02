@@ -109,6 +109,10 @@ export default function DossierEnfant({ profile }) {
   const [rapportTexte, setRapportTexte] = useState('')
   const [rapportLoading, setRapportLoading] = useState(false)
   const [documents, setDocuments] = useState([])
+  const [docsEnfant, setDocsEnfant] = useState([])
+  const [dossiersEnfant, setDossiersEnfant] = useState([])
+  const [dossierActifEnfant, setDossierActifEnfant] = useState(null)
+  const [uploadingDocEnfant, setUploadingDocEnfant] = useState(null)
   const [uploadingDoc, setUploadingDoc] = useState(null)
   const [photoUrl, setPhotoUrl] = useState(null)
   const [showFratrieModal, setShowFratrieModal] = useState(false)
@@ -515,6 +519,48 @@ export default function DossierEnfant({ profile }) {
     fetchDocuments()
   }
 
+  const DOSSIERS_ENFANT_DEFAUT = [
+    { nom: '🏥 Médical', enfants: ['Ordonnances', 'Comptes-rendus', 'Vaccinations'] },
+    { nom: '🏫 Scolaire', enfants: ['Bulletins', 'Correspondance école', 'Inscriptions'] },
+  ]
+
+  const fetchDossiersEnfant = useCallback(async () => {
+    // Charger les dossiers de l'enfant
+    const { data } = await supabase.from('documents_dossiers')
+      .select('*').is('parent_id', null)
+      .eq('territoire', id) // on utilise territoire = enfant_id pour isoler
+      .order('nom')
+    if (data) {
+      if (data.length === 0) {
+        // Créer les dossiers par défaut
+        for (const d of DOSSIERS_ENFANT_DEFAUT) {
+          const { data: parent } = await supabase.from('documents_dossiers').insert({
+            nom: d.nom, parent_id: null, territoire: id, created_by: profile?.id
+          }).select().single()
+          if (parent) {
+            for (const enfant of d.enfants) {
+              await supabase.from('documents_dossiers').insert({
+                nom: enfant, parent_id: parent.id, territoire: id, created_by: profile?.id
+              })
+            }
+          }
+        }
+        const { data: recharged } = await supabase.from('documents_dossiers')
+          .select('*').is('parent_id', null).eq('territoire', id).order('nom')
+        setDossiersEnfant(recharged || [])
+      } else {
+        setDossiersEnfant(data)
+      }
+    }
+  }, [id, profile])
+
+  const fetchDocsEnfantDossier = useCallback(async (dossierId) => {
+    if (!dossierId) { setDocsEnfant([]); return }
+    const { data } = await supabase.from('documents_generaux')
+      .select('*').eq('dossier_id', dossierId).order('created_at', { ascending: false })
+    if (data) setDocsEnfant(data)
+  }, [])
+
   const fetchJournal = useCallback(async () => {
     if (!id) return
     const { data } = await supabase
@@ -532,6 +578,7 @@ export default function DossierEnfant({ profile }) {
     fetchJournal()
     fetchDocuments()
     fetchMaisonsDept()
+    fetchDossiersEnfant()
   }, [fetchEnfant, fetchCollegues, fetchJournal, fetchDocuments, fetchMaisonsDept])
 
   // Charger docs parents quand pere/mere chargés
@@ -740,6 +787,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
     { id:'placement', icon:'🏠', label:'Placement', hidden: nonPlace },
     { id:'judiciaire', icon:'⚖️', label:'Judiciaire', restricted: isAF, hidden: nonPlace },
     { id:'quotidien', icon:'🌱', label:'Vie quotidienne', hidden: nonPlace },
+    { id:'docs', icon:'📂', label:'Docs', hidden: nonPlace },
     { id:'journal', icon:'📝', label:'Journal', hidden: nonPlace, badge: journalNotes.length > 0 ? journalNotes.filter(n => {
       const d = new Date(n.date); const now = new Date(); return (now - d) < 7 * 24 * 3600 * 1000
     }).length : 0 },
@@ -1633,6 +1681,86 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                     <button onClick={() => showToast('🏊 Centre de loisirs...')} className="btn btn-secondary">🏊 Centre de loisirs</button>
                   </div>
                 </SectionCard>
+              </>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════
+                ONGLET DOCS ENFANT
+            ══════════════════════════════════════════════════════════════ */}
+            {onglet === 'docs' && (
+              <>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
+                  <h2 style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', margin:0 }}>
+                    📂 Documents · {enfant.nom} {enfant.prenom}
+                  </h2>
+                  <button onClick={() => {
+                    setDossierActifEnfant(null)
+                    fetchDossiersEnfant()
+                  }} style={{ padding:'6px 12px', borderRadius:8, border:'1px solid #dde3f0', background:'#fff', fontSize:12, cursor:'pointer' }}>
+                    🔄 Rafraîchir
+                  </button>
+                </div>
+
+                {/* Dossiers */}
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', gap:12, marginBottom:16 }}>
+                  {dossiersEnfant.map(d => (
+                    <div key={d.id} onClick={() => {
+                      setDossierActifEnfant(d.id)
+                      fetchDocsEnfantDossier(d.id)
+                    }} style={{ background: dossierActifEnfant === d.id ? '#e8eef8' : '#f4f6fb', border:`2px solid ${dossierActifEnfant === d.id ? '#1a4b8f' : '#dde3f0'}`, borderRadius:12, padding:16, cursor:'pointer', textAlign:'center', transition:'all .15s' }}>
+                      <div style={{ fontSize:32, marginBottom:6 }}>📁</div>
+                      <div style={{ fontSize:13, fontWeight:600, color: dossierActifEnfant === d.id ? '#1a4b8f' : '#1c2333' }}>{d.nom}</div>
+                    </div>
+                  ))}
+                  {isReferent && (
+                    <div onClick={async () => {
+                      const nom = prompt('Nom du nouveau dossier :')
+                      if (!nom) return
+                      await supabase.from('documents_dossiers').insert({ nom, parent_id: null, territoire: id, created_by: profile.id })
+                      fetchDossiersEnfant()
+                    }} style={{ background:'#fff', border:'2px dashed #c4d4f5', borderRadius:12, padding:16, cursor:'pointer', textAlign:'center', color:'#1a4b8f' }}>
+                      <div style={{ fontSize:32, marginBottom:6 }}>➕</div>
+                      <div style={{ fontSize:13, fontWeight:600 }}>Nouveau dossier</div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Documents du dossier sélectionné */}
+                {dossierActifEnfant && (
+                  <SectionCard icon="📄" title="Documents">
+                    {docsEnfant.length === 0 ? (
+                      <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13, marginBottom:12 }}>Aucun document dans ce dossier</div>
+                    ) : docsEnfant.map(d => (
+                      <div key={d.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8, border:'1px solid #dde3f0', marginBottom:6 }}>
+                        <span>{d.mime_type?.includes('pdf') ? '📄' : '🖼️'}</span>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:12, fontWeight:600 }}>{d.nom}</div>
+                          <div style={{ fontSize:10, color:'#9aa3b8' }}>{d.taille ? `${Math.round(d.taille/1024)} Ko` : ''} · {fmtDate(d.created_at?.slice(0,10))}</div>
+                        </div>
+                        <button onClick={() => viewDocument(d.storage_path)} style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>👁</button>
+                        <button onClick={() => downloadDocument(d.storage_path, d.nom)} style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>⬇</button>
+                        {isReferent && <button onClick={() => deleteDocument(d.id, d.storage_path)} style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #fde8e8', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>}
+                      </div>
+                    ))}
+                    <label style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', border:'1px dashed #c4d4f5', borderRadius:8, background:'#f0f9ff', color:'#1a4b8f', fontSize:12, cursor:'pointer', marginTop:8, fontFamily:'Sora,sans-serif' }}>
+                      {uploadingDocEnfant ? '⏳ Upload...' : '📎 Ajouter un document'}
+                      <input type="file" accept="image/*,application/pdf" style={{ display:'none' }}
+                        onChange={async e => {
+                          if (!e.target.files[0]) return
+                          const file = e.target.files[0]
+                          setUploadingDocEnfant(dossierActifEnfant)
+                          const ext = file.name.split('.').pop()
+                          const path = `enfants/${id}/docs/${dossierActifEnfant}/${Date.now()}.${ext}`
+                          const { error: sErr } = await supabase.storage.from('documents-enfants').upload(path, file, { contentType: file.type })
+                          if (sErr) { showToast('❌ ' + sErr.message); setUploadingDocEnfant(null); return }
+                          await supabase.from('documents_generaux').insert({ dossier_id: dossierActifEnfant, nom: file.name, storage_path: path, taille: file.size, mime_type: file.type, created_by: profile.id })
+                          showToast('✅ Document uploadé !')
+                          fetchDocsEnfantDossier(dossierActifEnfant)
+                          setUploadingDocEnfant(null)
+                        }} />
+                    </label>
+                  </SectionCard>
+                )}
               </>
             )}
 
