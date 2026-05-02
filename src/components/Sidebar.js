@@ -37,7 +37,11 @@ export default function Sidebar({ profile }) {
       <div style={{ height: 16 }} />
 
       <nav className="s-nav">
-        {navItems.map(item => (
+        {navItems.filter(item => {
+          if (item.path === '/enfants' && profile?.role === 'encadrant') return false
+          if (item.path === '/assfam' && profile?.role === 'referent') return false
+          return true
+        }).map(item => (
           <button
             key={item.path}
             className={`s-nav-btn ${isActive(item.path) ? 'active' : ''}`}
