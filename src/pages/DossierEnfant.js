@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
@@ -91,10 +91,12 @@ function ContactCard({ icon, role, nom, prenom, tel, email, onEdit, bg }) {
 export default function DossierEnfant({ profile }) {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const [enfant, setEnfant] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [onglet, setOnglet] = useState('identite')
+  const searchParams = new URLSearchParams(location.search)
+  const [onglet, setOnglet] = useState(searchParams.get('onglet') || 'identite')
   const [editMode, setEditMode] = useState(false)
   const [form, setForm] = useState({})
   const [collegues, setCollegues] = useState([])
@@ -112,6 +114,8 @@ export default function DossierEnfant({ profile }) {
   const [docsEnfant, setDocsEnfant] = useState([])
   const [dossiersEnfant, setDossiersEnfant] = useState([])
   const [dossierActifEnfant, setDossierActifEnfant] = useState(null)
+  const [cheminEnfant, setCheminEnfant] = useState([]) // fil d'ariane
+  const [sousDossiersEnfant, setSousDossiersEnfant] = useState([])
   const [uploadingDocEnfant, setUploadingDocEnfant] = useState(null)
   const [uploadingDoc, setUploadingDoc] = useState(null)
   const [photoUrl, setPhotoUrl] = useState(null)
@@ -553,6 +557,12 @@ export default function DossierEnfant({ profile }) {
       }
     }
   }, [id, profile])
+
+  const fetchSousDossiersEnfant = useCallback(async (parentId) => {
+    const { data } = await supabase.from('documents_dossiers')
+      .select('*').eq('parent_id', parentId).order('nom')
+    setSousDossiersEnfant(data || [])
+  }, [])
 
   const fetchDocsEnfantDossier = useCallback(async (dossierId) => {
     if (!dossierId) { setDocsEnfant([]); return }
@@ -1688,83 +1698,17 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                 ONGLET DOCS ENFANT
             ══════════════════════════════════════════════════════════════ */}
             {onglet === 'docs' && (
-              <>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
-                  <h2 style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', margin:0 }}>
-                    📂 Documents · {enfant.nom} {enfant.prenom}
-                  </h2>
-                  <button onClick={() => {
-                    setDossierActifEnfant(null)
-                    fetchDossiersEnfant()
-                  }} style={{ padding:'6px 12px', borderRadius:8, border:'1px solid #dde3f0', background:'#fff', fontSize:12, cursor:'pointer' }}>
-                    🔄 Rafraîchir
-                  </button>
-                </div>
-
-                {/* Dossiers */}
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(180px, 1fr))', gap:12, marginBottom:16 }}>
-                  {dossiersEnfant.map(d => (
-                    <div key={d.id} onClick={() => {
-                      setDossierActifEnfant(d.id)
-                      fetchDocsEnfantDossier(d.id)
-                    }} style={{ background: dossierActifEnfant === d.id ? '#e8eef8' : '#f4f6fb', border:`2px solid ${dossierActifEnfant === d.id ? '#1a4b8f' : '#dde3f0'}`, borderRadius:12, padding:16, cursor:'pointer', textAlign:'center', transition:'all .15s' }}>
-                      <div style={{ fontSize:32, marginBottom:6 }}>📁</div>
-                      <div style={{ fontSize:13, fontWeight:600, color: dossierActifEnfant === d.id ? '#1a4b8f' : '#1c2333' }}>{d.nom}</div>
-                    </div>
-                  ))}
-                  {isReferent && (
-                    <div onClick={async () => {
-                      const nom = prompt('Nom du nouveau dossier :')
-                      if (!nom) return
-                      await supabase.from('documents_dossiers').insert({ nom, parent_id: null, territoire: id, created_by: profile.id })
-                      fetchDossiersEnfant()
-                    }} style={{ background:'#fff', border:'2px dashed #c4d4f5', borderRadius:12, padding:16, cursor:'pointer', textAlign:'center', color:'#1a4b8f' }}>
-                      <div style={{ fontSize:32, marginBottom:6 }}>➕</div>
-                      <div style={{ fontSize:13, fontWeight:600 }}>Nouveau dossier</div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Documents du dossier sélectionné */}
-                {dossierActifEnfant && (
-                  <SectionCard icon="📄" title="Documents">
-                    {docsEnfant.length === 0 ? (
-                      <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13, marginBottom:12 }}>Aucun document dans ce dossier</div>
-                    ) : docsEnfant.map(d => (
-                      <div key={d.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8, border:'1px solid #dde3f0', marginBottom:6 }}>
-                        <span>{d.mime_type?.includes('pdf') ? '📄' : '🖼️'}</span>
-                        <div style={{ flex:1 }}>
-                          <div style={{ fontSize:12, fontWeight:600 }}>{d.nom}</div>
-                          <div style={{ fontSize:10, color:'#9aa3b8' }}>{d.taille ? `${Math.round(d.taille/1024)} Ko` : ''} · {fmtDate(d.created_at?.slice(0,10))}</div>
-                        </div>
-                        <button onClick={() => viewDocument(d.storage_path)} style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>👁</button>
-                        <button onClick={() => downloadDocument(d.storage_path, d.nom)} style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>⬇</button>
-                        {isReferent && <button onClick={() => deleteDocument(d.id, d.storage_path)} style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #fde8e8', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>}
-                      </div>
-                    ))}
-                    <label style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', border:'1px dashed #c4d4f5', borderRadius:8, background:'#f0f9ff', color:'#1a4b8f', fontSize:12, cursor:'pointer', marginTop:8, fontFamily:'Sora,sans-serif' }}>
-                      {uploadingDocEnfant ? '⏳ Upload...' : '📎 Ajouter un document'}
-                      <input type="file" accept="image/*,application/pdf" style={{ display:'none' }}
-                        onChange={async e => {
-                          if (!e.target.files[0]) return
-                          const file = e.target.files[0]
-                          setUploadingDocEnfant(dossierActifEnfant)
-                          const ext = file.name.split('.').pop()
-                          const path = `enfants/${id}/docs/${dossierActifEnfant}/${Date.now()}.${ext}`
-                          const { error: sErr } = await supabase.storage.from('documents-enfants').upload(path, file, { contentType: file.type })
-                          if (sErr) { showToast('❌ ' + sErr.message); setUploadingDocEnfant(null); return }
-                          await supabase.from('documents_generaux').insert({ dossier_id: dossierActifEnfant, nom: file.name, storage_path: path, taille: file.size, mime_type: file.type, created_by: profile.id })
-                          showToast('✅ Document uploadé !')
-                          fetchDocsEnfantDossier(dossierActifEnfant)
-                          setUploadingDocEnfant(null)
-                        }} />
-                    </label>
-                  </SectionCard>
-                )}
-              </>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:60,gap:16}}>
+                <div style={{fontSize:48}}>📂</div>
+                <div style={{fontSize:16,fontWeight:600,color:'#1c2333'}}>Documents · {enfant.nom} {enfant.prenom}</div>
+                <div style={{fontSize:13,color:'#9aa3b8'}}>Accédez à la gestion complète des documents</div>
+                <button onClick={()=>navigate(`/enfants/${id}/docs`)} className="btn btn-primary" style={{fontSize:14,padding:'12px 24px'}}>
+                  📂 Ouvrir les documents
+                </button>
+              </div>
             )}
 
-            {/* ══════════════════════════════════════════════════════════════
+                        {/* ══════════════════════════════════════════════════════════════
                 ONGLET JOURNAL
             ══════════════════════════════════════════════════════════════ */}
             {onglet === 'journal' && (
