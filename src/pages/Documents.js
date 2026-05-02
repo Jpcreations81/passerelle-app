@@ -26,12 +26,6 @@ import PageHeader from '../components/PageHeader'
 const DOSSIERS_DEFAUT = [
   { nom: '📋 Administratif', enfants: ['Feuilles de présence', 'Relais', 'Courriers'] },
   { nom: '🚗 Frais', enfants: ['Frais de déplacement', 'Sommes dues', 'Remboursements'] },
-] },
-  { nom: '🏥 Médical', enfants: ['Ordonnances', 'Comptes-rendus', 'Vaccinations'] },
-  { nom: '🏫 Scolaire', enfants: ['Bulletins', 'Correspondance école', 'Inscriptions'] },
-  { nom: '⚖️ Judiciaire', enfants: ['Jugements', 'Ordonnances de placement', 'Audiences'] },
-  { nom: '👨‍👩‍👧 Famille', enfants: ['Documents parents', 'Fratrie'] },
-  { nom: '🚗 Frais', enfants: ['Frais kilométriques', 'Remboursements'] },
 ]
 
 export default function Documents({ profile }) {
