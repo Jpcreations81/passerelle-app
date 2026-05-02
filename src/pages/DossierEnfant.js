@@ -236,10 +236,17 @@ export default function DossierEnfant({ profile }) {
 
     try {
       let parentId
+      // Nettoyer les dates vides avant envoi
+      const parentData = Object.fromEntries(
+        Object.entries(editParent).map(([k, v]) => {
+          if (v === '' && k.includes('date') || v === '' && k.includes('naissance')) return [k, null]
+          return [k, v]
+        })
+      )
       if (parentActuel?.id) {
         // Mise à jour
         const { error } = await supabase.from('parents').update({
-          ...editParent,
+          ...parentData,
           updated_at: new Date().toISOString()
         }).eq('id', parentActuel.id)
         if (error) throw error
@@ -249,7 +256,7 @@ export default function DossierEnfant({ profile }) {
       } else {
         // Création
         const { data, error } = await supabase.from('parents').insert({
-          ...editParent,
+          ...parentData,
           created_by: profile.id
         }).select().single()
         if (error) throw error
