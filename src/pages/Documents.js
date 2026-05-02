@@ -24,7 +24,9 @@ import PageHeader from '../components/PageHeader'
 // );
 
 const DOSSIERS_DEFAUT = [
-  { nom: '📋 Administratif', enfants: ['Courriers', 'Conventions', 'Formulaires'] },
+  { nom: '📋 Administratif', enfants: ['Feuilles de présence', 'Relais', 'Courriers'] },
+  { nom: '🚗 Frais', enfants: ['Frais de déplacement', 'Sommes dues', 'Remboursements'] },
+] },
   { nom: '🏥 Médical', enfants: ['Ordonnances', 'Comptes-rendus', 'Vaccinations'] },
   { nom: '🏫 Scolaire', enfants: ['Bulletins', 'Correspondance école', 'Inscriptions'] },
   { nom: '⚖️ Judiciaire', enfants: ['Jugements', 'Ordonnances de placement', 'Audiences'] },
@@ -77,8 +79,25 @@ export default function Documents({ profile }) {
       setLoading(true)
       // Initialiser les dossiers par défaut si vide
       const racine = await fetchDossiers(null)
-      setDossiers(racine)
-      // Les AF gèrent leurs dossiers librement — pas de création automatique
+      if (racine.length === 0 && profile?.role === 'af') {
+        // Créer les 2 dossiers par défaut pour les AF
+        for (const d of DOSSIERS_DEFAUT) {
+          const { data: parent } = await supabase.from('documents_dossiers').insert({
+            nom: d.nom, parent_id: null, created_by: profile.id, proprietaire_id: profile.id
+          }).select().single()
+          if (parent) {
+            for (const enfant of d.enfants) {
+              await supabase.from('documents_dossiers').insert({
+                nom: enfant, parent_id: parent.id, created_by: profile.id, proprietaire_id: profile.id
+              })
+            }
+          }
+        }
+        const recharged = await fetchDossiers(null)
+        setDossiers(recharged)
+      } else {
+        setDossiers(racine)
+      }
       setLoading(false)
     }
     init()
