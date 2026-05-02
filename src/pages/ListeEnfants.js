@@ -31,8 +31,14 @@ export default function ListeEnfants({ profile }) {
       af_principal:af_principal_id(nom, prenom),
       referent:referent_id(nom, prenom)
     `)
-    if (profile.role === 'af') q = q.eq('af_principal_id', profile.id).neq('type_placement', 'non_place')
-    else if (profile.role === 'referent') q = q.eq('referent_id', profile.id).neq('type_placement', 'non_place')
+    if (profile.role === 'af') {
+      q = q.eq('af_principal_id', profile.id).neq('type_placement', 'non_place')
+    } else if (profile.role === 'referent') {
+      q = q.eq('territoire', profile.territoire)
+    } else if (profile.role === 'encadrant') {
+      // Encadrant voit les enfants de son secteur via les AF
+      q = q.eq('territoire', profile.territoire)
+    }
     const { data } = await q.order('nom', { ascending: true })
     if (data) setEnfants(data)
     setLoading(false)
