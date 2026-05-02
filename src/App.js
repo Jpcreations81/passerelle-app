@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import ListeEnfants from './pages/ListeEnfants'
 import DossierEnfant from './pages/DossierEnfant'
+import DocumentsEnfant from './pages/DocumentsEnfant'
 import Agenda from './pages/Agenda'
 import FichePresence from './pages/FichePresence'
 import Rapports from './pages/Rapports'
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/" element={session ? <Dashboard profile={profile} session={session} /> : <Navigate to="/login" />} />
         <Route path="/enfants" element={session ? <ListeEnfants profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/enfants/:id" element={session ? <DossierEnfant profile={profile} /> : <Navigate to="/login" />} />
+        <Route path="/enfants/:id/docs" element={session ? <DocumentsEnfant profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/enfant/:id" element={session ? <DossierEnfant profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/agenda" element={session ? <Agenda profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/fiche-presence" element={session ? <FichePresence profile={profile} /> : <Navigate to="/login" />} />
