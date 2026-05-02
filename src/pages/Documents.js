@@ -77,12 +77,12 @@ export default function Documents({ profile }) {
         // Créer les 2 dossiers par défaut pour les AF
         for (const d of DOSSIERS_DEFAUT) {
           const { data: parent } = await supabase.from('documents_dossiers').insert({
-            nom: d.nom, parent_id: null, created_by: profile.id, proprietaire_id: profile.id
+            nom: d.nom, parent_id: null, created_by: profile.id, territoire: profile.id
           }).select().single()
           if (parent) {
             for (const enfant of d.enfants) {
               await supabase.from('documents_dossiers').insert({
-                nom: enfant, parent_id: parent.id, created_by: profile.id, proprietaire_id: profile.id
+                nom: enfant, parent_id: parent.id, created_by: profile.id, territoire: profile.id
               })
             }
           }
