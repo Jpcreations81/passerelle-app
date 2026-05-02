@@ -32,8 +32,12 @@ export default function Assfam({ profile }) {
     let q = supabase.from('profiles').select('*').eq('role', 'af')
     if (profile?.role === 'af') {
       q = q.eq('id', profile.id)
+    } else if (profile?.role === 'referent') {
+      q = q.eq('territoire', profile.territoire)
+    } else if (profile?.role === 'encadrant') {
+      q = q.eq('secteur', profile.secteur)
     }
-    // referent et encadrant voient tous les AF (filtrage par secteur à affiner plus tard)
+    // rtase et admin voient tous les AF
     q = q.order('nom')
     const { data } = await q
     if (data) setAfs(data)
