@@ -161,7 +161,7 @@ export default function Documents({ profile }) {
     <div className="app-layout">
       <Sidebar profile={profile} />
       <div className="main-content">
-        <PageHeader icon="📂" title="Documents" subtitle={profile?.territoire || ''} />
+        <PageHeader icon="📂" title={`Documents · ${profile?.nom || ''} ${profile?.prenom || ''}`} subtitle={profile?.territoire || profile?.secteur || ''} />
 
         <div style={{ padding:24 }}>
 
