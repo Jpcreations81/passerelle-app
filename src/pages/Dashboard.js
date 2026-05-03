@@ -52,6 +52,8 @@ export default function Dashboard({ profile, session }) {
       query = query.eq('referent_id', profile.id).neq('type_placement', 'non_place')
     } else if (profile.role === 'encadrant') {
       // L'encadrant voit les AF, pas directement les enfants
+      setEnfants([])
+      setLoading(false)
       return
     }
     const { data, error } = await query.order('created_at', { ascending: false })
@@ -284,8 +286,8 @@ export default function Dashboard({ profile, session }) {
             </div>
           </div>
 
-          {/* Enfants */}
-          <div className="card">
+          {/* Enfants — masqué pour encadrant */}
+          {profile?.role !== 'encadrant' && <div className="card">
             <div className="card-header">
               <h3>👶 {profile?.role === 'af' ? 'Enfants accueillis' : 'Enfants de mon territoire'}</h3>
               <button className="btn btn-secondary" onClick={() => navigate('/enfants')}>Voir tous →</button>
@@ -324,7 +326,7 @@ export default function Dashboard({ profile, session }) {
                 })
               )}
             </div>
-          </div>
+          </div>}
 
         </div>
       </div>
