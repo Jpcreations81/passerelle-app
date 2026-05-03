@@ -55,12 +55,12 @@ export default function DocumentsEnfant({ profile }) {
         // Créer les dossiers par défaut
         for (const d of DOSSIERS_DEFAUT) {
           const { data: parent } = await supabase.from('documents_dossiers').insert({
-            nom: d.nom, parent_id: null, territoire: id, created_by: profile?.id
+            nom: d.nom, parent_id: null, territoire: id, created_by: profile?.id, type: 'enfant'
           }).select().single()
           if (parent) {
             for (const enfant of d.enfants) {
               await supabase.from('documents_dossiers').insert({
-                nom: enfant, parent_id: parent.id, territoire: id, created_by: profile?.id
+                nom: enfant, parent_id: parent.id, territoire: id, created_by: profile?.id, type: 'enfant'
               })
             }
           }
@@ -106,7 +106,7 @@ export default function DocumentsEnfant({ profile }) {
     const nom = prompt('Nom du nouveau dossier :')
     if (!nom) return
     await supabase.from('documents_dossiers').insert({
-      nom, parent_id: dossierActif || null, territoire: id, created_by: profile?.id
+      nom, parent_id: dossierActif || null, territoire: id, created_by: profile?.id, type: 'enfant'
     })
     const sous = await fetchDossiers(dossierActif)
     setDossiers(sous)
