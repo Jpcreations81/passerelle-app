@@ -50,6 +50,9 @@ export default function Dashboard({ profile, session }) {
       query = query.eq('af_principal_id', profile.id).neq('type_placement', 'non_place')
     } else if (profile.role === 'referent') {
       query = query.eq('referent_id', profile.id).neq('type_placement', 'non_place')
+    } else if (profile.role === 'encadrant') {
+      // L'encadrant voit les AF, pas directement les enfants
+      return
     }
     const { data, error } = await query.order('created_at', { ascending: false })
     if (!error) setEnfants(data || [])
