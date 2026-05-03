@@ -47,9 +47,9 @@ export default function Documents({ profile }) {
     let q = supabase.from('documents_dossiers').select('*').order('nom')
     if (parentId) q = q.eq('parent_id', parentId)
     else q = q.is('parent_id', null)
-    // Filtrer par AF (created_by) pour isoler les dossiers de chaque AF
-    if (profile?.role === 'af') q = q.eq('created_by', profile.id)
-    else if (profile?.territoire) q = q.eq('territoire', profile.territoire)
+    // Filtrer par AF et type = 'af' pour isoler les dossiers de chaque AF
+    if (profile?.role === 'af') q = q.eq('created_by', profile.id).eq('type', 'af')
+    else if (profile?.territoire) q = q.eq('territoire', profile.territoire).eq('type', 'af')
     const { data } = await q
     return data || []
   }, [profile])
@@ -79,12 +79,12 @@ export default function Documents({ profile }) {
         // Créer les 2 dossiers par défaut pour les AF
         for (const d of DOSSIERS_DEFAUT) {
           const { data: parent } = await supabase.from('documents_dossiers').insert({
-            nom: d.nom, parent_id: null, created_by: profile.id
+            nom: d.nom, parent_id: null, created_by: profile.id, type: 'af'
           }).select().single()
           if (parent) {
             for (const enfant of d.enfants) {
               await supabase.from('documents_dossiers').insert({
-                nom: enfant, parent_id: parent.id, created_by: profile.id
+                nom: enfant, parent_id: parent.id, created_by: profile.id, type: 'af'
               })
             }
           }
