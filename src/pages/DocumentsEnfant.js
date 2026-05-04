@@ -6,6 +6,8 @@ import Sidebar from '../components/Sidebar'
 const DOSSIERS_DEFAUT = [
   { nom: '🏥 Médical', enfants: ['Ordonnances', 'Comptes-rendus', 'Vaccinations'] },
   { nom: '🏫 Scolaire', enfants: ['Bulletins', 'Correspondance école', 'Inscriptions'] },
+  { nom: '📋 Administratif', enfants: ['Jugements', 'Ordonnances de placement', 'Courriers ASE'] },
+  { nom: '📅 Visites', enfants: ['Calendriers VM', 'Comptes-rendus visites'] },
 ]
 
 export default function DocumentsEnfant({ profile }) {
