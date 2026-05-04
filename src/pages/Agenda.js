@@ -884,13 +884,17 @@ export default function Agenda({ profile }) {
       if (pdfFile) {
         // Trouver les enfants concernés — via enfant_ids OU via af_id
         const enfantIdsDirects = [...new Set(selectionnes.flatMap(e => e.enfant_ids || []))]
+        console.log('PDF save - enfantIdsDirects:', enfantIdsDirects)
         // Si pas d'enfant_ids, chercher les enfants de l'AF concerné
         let enfantIds = enfantIdsDirects
         if (enfantIds.length === 0) {
           const afIds = [...new Set(selectionnes.map(e => e.af_id || profile.id))]
+          console.log('PDF save - afIds fallback:', afIds)
           const { data: enfsAF } = await supabase.from('enfants').select('id').in('af_principal_id', afIds)
+          console.log('PDF save - enfsAF:', enfsAF)
           enfantIds = (enfsAF || []).map(e => e.id)
         }
+        console.log('PDF save - enfantIds final:', enfantIds)
         for (const enfantId of enfantIds) {
           // Chercher ou créer le dossier Visites pour cet enfant
           let { data: dossiers } = await supabase.from('documents_dossiers')
@@ -908,6 +912,7 @@ export default function Agenda({ profile }) {
             const path = `enfants/${enfantId}/docs/${dossierId}/${Date.now()}.${ext}`
             const { error: sErr } = await supabase.storage.from('documents-enfants')
               .upload(path, pdfFile, { contentType: pdfFile.type })
+            console.log('PDF save - storage error:', sErr, 'path:', path)
             if (!sErr) {
               await supabase.from('documents_generaux').insert({
                 dossier_id: dossierId, nom: pdfFile.name, storage_path: path,
