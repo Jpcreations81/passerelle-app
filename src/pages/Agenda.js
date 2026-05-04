@@ -880,7 +880,37 @@ export default function Agenda({ profile }) {
 
     const { error } = await supabase.from('evenements').insert(rows)
     if (!error) {
-      showToast(`✅ ${rows.length} événement${rows.length > 1 ? 's' : ''} importé${rows.length > 1 ? 's' : ''} !`)
+      // Sauvegarder le PDF dans Docs enfant → dossier Visites
+      if (pdfFile) {
+        // Trouver les enfants concernés par les événements sélectionnés
+        const enfantIds = [...new Set(selectionnes.flatMap(e => e.enfant_ids || []))]
+        for (const enfantId of enfantIds) {
+          // Chercher ou créer le dossier Visites pour cet enfant
+          let { data: dossiers } = await supabase.from('documents_dossiers')
+            .select('id').eq('territoire', enfantId).eq('nom', '📅 Visites').is('parent_id', null).single()
+          let dossierId = dossiers?.id
+          if (!dossierId) {
+            const { data: newD } = await supabase.from('documents_dossiers').insert({
+              nom: '📅 Visites', parent_id: null, territoire: enfantId,
+              created_by: profile.id, type: 'enfant'
+            }).select().single()
+            dossierId = newD?.id
+          }
+          if (dossierId) {
+            const ext = pdfFile.name.split('.').pop()
+            const path = `enfants/${enfantId}/docs/${dossierId}/${Date.now()}.${ext}`
+            const { error: sErr } = await supabase.storage.from('documents-enfants')
+              .upload(path, pdfFile, { contentType: pdfFile.type })
+            if (!sErr) {
+              await supabase.from('documents_generaux').insert({
+                dossier_id: dossierId, nom: pdfFile.name, storage_path: path,
+                taille: pdfFile.size, mime_type: pdfFile.type, created_by: profile.id
+              })
+            }
+          }
+        }
+      }
+      showToast(`✅ ${rows.length} événement${rows.length > 1 ? 's' : ''} importé${rows.length > 1 ? 's' : ''} — PDF sauvegardé dans Docs enfant !`)
       setShowImportModal(false)
       setEvtsImportes([])
       setEvtsImportesChecked({})
@@ -2103,7 +2133,7 @@ export default function Agenda({ profile }) {
                 {/* Résumé */}
                 <div style={{ background:'#e6f5eb', borderRadius:8, padding:'8px 12px', marginBottom:12, fontSize:11, color:'#2e8b4a', fontWeight:600 }}>
                   ✅ {Object.values(evtsImportesChecked).filter(v => v === true).length} événement{Object.values(evtsImportesChecked).filter(Boolean).length > 1 ? 's' : ''} sélectionné{Object.values(evtsImportesChecked).filter(Boolean).length > 1 ? 's' : ''}
-                  {' '}· Le PDF sera sauvegardé dans Documents
+                  {' '}· Le PDF sera sauvegardé dans Docs enfant / 📅 Visites
                 </div>
               </>
             )}
