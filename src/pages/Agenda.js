@@ -916,7 +916,7 @@ export default function Agenda({ profile }) {
             if (!sErr) {
               await supabase.from('documents_generaux').insert({
                 dossier_id: dossierId, nom: pdfFile.name, storage_path: path,
-                taille: pdfFile.size, mime_type: pdfFile.type, created_by: profile.id
+                taille: pdfFile.size, mime_type: pdfFile.type, uploaded_by: profile.id
               })
             }
           }
