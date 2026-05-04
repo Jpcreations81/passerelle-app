@@ -118,10 +118,20 @@ export default function Agenda({ profile }) {
   }, [profile])
 
   const fetchEvenements = useCallback(async () => {
+    // Charger tous les événements SAUF les personnels des autres utilisateurs
     const { data } = await supabase
-      .from('evenements').select('*').order('date_debut', { ascending: true })
+      .from('evenements').select('*')
+      .or(`visible_ase.eq.true,af_id.eq.${profile?.id},cree_par.eq.${profile?.id}`)
+      .order('date_debut', { ascending: true })
     if (!data) return
-    setEvenements(data)
+    // Filtrer côté client : exclure les événements personnels qui ne nous appartiennent pas
+    const filtered = data.filter(e => {
+      if (e.categorie === 'personnel') {
+        return e.af_id === profile?.id || e.cree_par === profile?.id
+      }
+      return true
+    })
+    setEvenements(filtered)
 
     const allEnfantIds = []
     data.forEach(e => { if (e.enfant_ids) e.enfant_ids.forEach(id => { if (!allEnfantIds.includes(id)) allEnfantIds.push(id) }) })
