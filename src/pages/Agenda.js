@@ -882,8 +882,15 @@ export default function Agenda({ profile }) {
     if (!error) {
       // Sauvegarder le PDF dans Docs enfant → dossier Visites
       if (pdfFile) {
-        // Trouver les enfants concernés par les événements sélectionnés
-        const enfantIds = [...new Set(selectionnes.flatMap(e => e.enfant_ids || []))]
+        // Trouver les enfants concernés — via enfant_ids OU via af_id
+        const enfantIdsDirects = [...new Set(selectionnes.flatMap(e => e.enfant_ids || []))]
+        // Si pas d'enfant_ids, chercher les enfants de l'AF concerné
+        let enfantIds = enfantIdsDirects
+        if (enfantIds.length === 0) {
+          const afIds = [...new Set(selectionnes.map(e => e.af_id || profile.id))]
+          const { data: enfsAF } = await supabase.from('enfants').select('id').in('af_principal_id', afIds)
+          enfantIds = (enfsAF || []).map(e => e.id)
+        }
         for (const enfantId of enfantIds) {
           // Chercher ou créer le dossier Visites pour cet enfant
           let { data: dossiers } = await supabase.from('documents_dossiers')
