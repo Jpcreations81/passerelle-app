@@ -205,12 +205,21 @@ export default function DocumentsEnfant({ profile }) {
               {dossiers.length > 0 && (
                 <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px, 1fr))', gap:12, marginBottom:24 }}>
                   {dossiers.map(d => (
-                    <div key={d.id} onClick={() => ouvrirDossier(d)}
-                      style={{ background:'#f4f6fb', border:'1px solid #dde3f0', borderRadius:12, padding:20, cursor:'pointer', textAlign:'center', transition:'all .15s' }}
+                    <div key={d.id} style={{ background:'#f4f6fb', border:'1px solid #dde3f0', borderRadius:12, padding:20, textAlign:'center', transition:'all .15s', position:'relative' }}
                       onMouseOver={e => { e.currentTarget.style.background='#e8eef8'; e.currentTarget.style.borderColor='#1a4b8f' }}
                       onMouseOut={e => { e.currentTarget.style.background='#f4f6fb'; e.currentTarget.style.borderColor='#dde3f0' }}>
-                      <div style={{ fontSize:36, marginBottom:8 }}>📁</div>
-                      <div style={{ fontSize:12, fontWeight:600, color:'#1c2333' }}>{d.nom}</div>
+                      <div onClick={() => ouvrirDossier(d)} style={{ cursor:'pointer' }}>
+                        <div style={{ fontSize:36, marginBottom:8 }}>📁</div>
+                        <div style={{ fontSize:12, fontWeight:600, color:'#1c2333' }}>{d.nom}</div>
+                      </div>
+                      <button onClick={async e => {
+                        e.stopPropagation()
+                        if (!window.confirm(`Supprimer le dossier "${d.nom}" ?`)) return
+                        await supabase.from('documents_dossiers').delete().eq('id', d.id)
+                        const racine = await fetchDossiers(dossierActif)
+                        setDossiers(racine)
+                        showToast('🗑 Dossier supprimé')
+                      }} style={{ position:'absolute', top:6, right:6, width:20, height:20, borderRadius:'50%', border:'1px solid #fde8e8', background:'#fdf0ee', color:'#c0392b', fontSize:10, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', lineHeight:1 }}>✕</button>
                     </div>
                   ))}
                 </div>
