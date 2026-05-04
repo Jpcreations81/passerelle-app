@@ -292,7 +292,10 @@ export default function Agenda({ profile }) {
 
     setEnfants(tous)
     const couleurs = {}
-    tous.forEach((en, i) => { couleurs[en.id] = DEFCOLORS[i % DEFCOLORS.length] })
+    // Charger couleurs sauvegardées depuis le profil
+    const { data: prof } = await supabase.from('profiles').select('couleurs_agenda').eq('id', profile.id).single()
+    const savedColors = prof?.couleurs_agenda || {}
+    tous.forEach((en, i) => { couleurs[en.id] = savedColors[en.id] || DEFCOLORS[i % DEFCOLORS.length] })
     setCouleursEnfants(couleurs)
   }, [profile])
 
@@ -1633,7 +1636,7 @@ export default function Agenda({ profile }) {
                             const newSel = checked
                               ? newEvt.enfantsSelectionnes.filter(id => id !== en.id)
                               : [...newEvt.enfantsSelectionnes, en.id]
-                            const updated = { ...newEvt, enfantsSelectionnes: newSel }
+                            const updated = { ...newEvt, enfantsSelectionnes: newSel, categorie: newEvt.categorie === 'personnel' ? 'autre' : newEvt.categorie }
                             setNewEvt({ ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) })
                           }}
                           style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 12px', borderRadius:20, cursor:'pointer', border:`2px solid ${checked ? couleur : '#dde3f0'}`, background: checked ? couleur : '#fff', color: checked ? '#fff' : '#5a6478', fontSize:12, fontWeight:600, transition:'all .15s', userSelect:'none' }}>
@@ -1642,7 +1645,22 @@ export default function Agenda({ profile }) {
                         </div>
                       )
                     })}
+                    {/* Bouton Personnel */}
+                    <div
+                      onClick={() => {
+                        const updated = { ...newEvt, enfantsSelectionnes: [], categorie: 'personnel' }
+                        setNewEvt({ ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) })
+                      }}
+                      style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 12px', borderRadius:20, cursor:'pointer', border:`2px solid ${newEvt.categorie === 'personnel' ? '#9aa3b8' : '#dde3f0'}`, background: newEvt.categorie === 'personnel' ? '#9aa3b8' : '#fff', color: newEvt.categorie === 'personnel' ? '#fff' : '#5a6478', fontSize:12, fontWeight:600, transition:'all .15s', userSelect:'none' }}>
+                      <span>{newEvt.categorie === 'personnel' ? '✓' : '○'}</span>
+                      🔒 Personnel
+                    </div>
                   </div>
+                  {newEvt.categorie === 'personnel' && (
+                    <div style={{ fontSize:11, color:'#9aa3b8', marginTop:6, fontStyle:'italic' }}>
+                      🔒 Événement personnel — visible uniquement par vous
+                    </div>
+                  )}
                   {newEvt.enfantsSelectionnes.length > 1 && (
                     <div style={{ fontSize:10, color:'#d97706', marginTop:6, fontWeight:600 }}>
                       ⚠️ {newEvt.enfantsSelectionnes.length} événements séparés seront créés (1 par enfant)
@@ -2369,7 +2387,11 @@ export default function Agenda({ profile }) {
                     <div style={{ width:20, height:20, borderRadius:'50%', background: couleursEnfants[en.id] || '#1a4b8f', flexShrink:0 }}></div>
                     <span style={{ fontSize:12, flex:1 }}>{en.prenom} {en.nom}</span>
                     <input type="color" value={couleursEnfants[en.id] || '#1a4b8f'}
-                      onChange={e => setCouleursEnfants(prev => ({ ...prev, [en.id]: e.target.value }))}
+                      onChange={async e => {
+                        const newColors = { ...couleursEnfants, [en.id]: e.target.value }
+                        setCouleursEnfants(newColors)
+                        await supabase.from('profiles').update({ couleurs_agenda: newColors }).eq('id', profile.id)
+                      }}
                       style={{ width:36, height:30, border:'1px solid #dde3f0', borderRadius:5, cursor:'pointer', padding:2 }} />
                   </div>
                 ))}
