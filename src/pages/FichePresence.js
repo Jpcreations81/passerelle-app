@@ -55,7 +55,7 @@ export default function FichePresence({ profile }) {
   const [presences, setPresences] = useState({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [moisComplet, setMoisComplet] = useState(false)
+  const [moisComplet, setMoisComplet] = useState(true)
   const [toast, setToast] = useState('')
   const [showPrint, setShowPrint] = useState(false)
 
@@ -263,11 +263,11 @@ export default function FichePresence({ profile }) {
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
                   <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, cursor:'pointer' }}>
-                    <div style={{ width:14, height:14, border:'1.5px solid #1a4b8f', borderRadius:2, background: !moisComplet ? 'none' : '#1a4b8f', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:10, fontWeight:700, cursor:'pointer' }} onClick={() => setMoisComplet(v => !v)}>{moisComplet ? '✓' : ''}</div>
+                    <div style={{ width:14, height:14, border:'1.5px solid #1a4b8f', borderRadius:2, background: !moisComplet ? 'none' : '#1a4b8f', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:10, fontWeight:700, cursor:'pointer' }} onClick={() => setMoisComplet(true)}>{moisComplet ? '✓' : ''}</div>
                     <span style={{ fontWeight:600 }}>Temps complet</span>
                   </label>
                   <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:11 }}>
-                    <div style={{ width:14, height:14, border:'1.5px solid #1a4b8f', borderRadius:2 }}></div>
+                    <div style={{ width:14, height:14, border:'1.5px solid #1a4b8f', borderRadius:2, background: !moisComplet ? '#1a4b8f' : 'none', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:10, fontWeight:700, cursor:'pointer' }} onClick={() => setMoisComplet(false)}>{!moisComplet ? '✓' : ''}</div>
                     <span>Continu week-end</span>
                   </label>
                 </div>
