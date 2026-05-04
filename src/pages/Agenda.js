@@ -69,6 +69,7 @@ export default function Agenda({ profile }) {
   const [afProfiles, setAfProfiles] = useState({})
   const [enfants, setEnfants] = useState([])
   const [couleursEnfants, setCouleursEnfants] = useState({})
+  const [showCouleursModal, setShowCouleursModal] = useState(false)
   // Demandes de modif reçues (à valider) et retours sur mes demandes
   const [demandesModif, setDemandesModif] = useState([])
   const [mesRetours, setMesRetours] = useState([])
@@ -1417,6 +1418,8 @@ export default function Agenda({ profile }) {
               </button>
             )}
             <button className="btn btn-secondary" onClick={() => setShowPartageModal(true)}>🔗 Partage</button>
+            <button className="btn" style={{ background:'#fef3e2', color:'#d97706', border:'1px solid #f5dca4', fontFamily:'Sora,sans-serif', fontSize:11, padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:600 }}
+              onClick={() => setShowCouleursModal(true)}>🎨 Couleurs</button>
             <button className="btn" style={{ background:'#f0f9ff', color:'#0891b2', border:'1px solid #bae6fd', fontFamily:'Sora,sans-serif', fontSize:11, padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:600 }}
               onClick={() => setShowModifModal(true)}>
               📝 Modifier calendrier
@@ -2671,6 +2674,38 @@ export default function Agenda({ profile }) {
                 onClick={() => setShowSerieModal(false)}>
                 Annuler
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL COULEURS ══ */}
+      {showCouleursModal && (
+        <div className="modal-overlay" onClick={() => setShowCouleursModal(false)}>
+          <div className="modal-box" style={{ maxWidth:380 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-title">🎨 Couleurs de l'agenda</div>
+            <div style={{ fontSize:12, color:'#5a6478', marginBottom:16 }}>
+              Choisissez une couleur par enfant. Ces couleurs sont personnelles — chaque utilisateur a les siennes.
+            </div>
+            {enfants.map(en => (
+              <div key={en.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', background:'#f4f6fb', borderRadius:8, marginBottom:8, border:'1px solid #dde3f0' }}>
+                <div style={{ width:28, height:28, borderRadius:'50%', background: couleursEnfants[en.id] || '#1a4b8f', flexShrink:0, border:'2px solid #fff', boxShadow:'0 1px 4px rgba(0,0,0,.15)' }}></div>
+                <span style={{ fontSize:13, fontWeight:600, flex:1 }}>{en.prenom} {en.nom}</span>
+                <input type="color" value={couleursEnfants[en.id] || '#1a4b8f'}
+                  onChange={async e => {
+                    const newColors = { ...couleursEnfants, [en.id]: e.target.value }
+                    setCouleursEnfants(newColors)
+                    await supabase.from('profiles').update({ couleurs_agenda: newColors }).eq('id', profile.id)
+                  }}
+                  style={{ width:40, height:34, border:'1px solid #dde3f0', borderRadius:6, cursor:'pointer', padding:2 }} />
+              </div>
+            ))}
+            {enfants.length === 0 && <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13 }}>Aucun enfant</div>}
+            <div style={{ marginTop:16, padding:'10px 14px', background:'#e8eef8', borderRadius:8, fontSize:11, color:'#1a4b8f' }}>
+              💡 Astuce : choisissez orange pour Shayna → tous les événements Shayna seront orange dans votre agenda
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => setShowCouleursModal(false)}>✅ Fermer</button>
             </div>
           </div>
         </div>
