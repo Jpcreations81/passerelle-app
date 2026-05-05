@@ -903,7 +903,7 @@ export default function Agenda({ profile }) {
           }
           if (dossierId) {
             const ext = pdfFile.name.split('.').pop()
-            const path = \`enfants/\${enfantId}/docs/\${dossierId}/\${Date.now()}.\${ext}\`
+            const path = `enfants/${enfantId}/docs/${dossierId}/${Date.now()}.${ext}`
             const { error: sErr } = await supabase.storage.from('documents-enfants')
               .upload(path, pdfFile, { contentType: pdfFile.type })
             if (!sErr) {
