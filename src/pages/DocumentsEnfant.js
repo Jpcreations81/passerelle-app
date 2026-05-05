@@ -53,9 +53,11 @@ export default function DocumentsEnfant({ profile }) {
     async function init() {
       setLoading(true)
       const racine = await fetchDossiers(null)
-      if (racine.length === 0) {
-        // Créer les dossiers par défaut
-        for (const d of DOSSIERS_DEFAUT) {
+      const nomsExistants = racine.map(d => d.nom)
+      const manquants = DOSSIERS_DEFAUT.filter(d => !nomsExistants.includes(d.nom))
+      if (manquants.length > 0) {
+        // Créer les dossiers manquants
+        for (const d of manquants) {
           const { data: parent } = await supabase.from('documents_dossiers').insert({
             nom: d.nom, parent_id: null, territoire: id, created_by: profile?.id, type: 'enfant'
           }).select().single()
