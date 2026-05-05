@@ -2116,7 +2116,7 @@ export default function Agenda({ profile }) {
                 {/* Résumé */}
                 <div style={{ background:'#e6f5eb', borderRadius:8, padding:'8px 12px', marginBottom:12, fontSize:11, color:'#2e8b4a', fontWeight:600 }}>
                   ✅ {Object.values(evtsImportesChecked).filter(v => v === true).length} événement{Object.values(evtsImportesChecked).filter(Boolean).length > 1 ? 's' : ''} sélectionné{Object.values(evtsImportesChecked).filter(Boolean).length > 1 ? 's' : ''}
-                  {' '}· Le PDF sera sauvegardé dans Documents
+                  {' '}· Le PDF sera sauvegardé dans Docs enfant / 📅 Visites
                 </div>
               </>
             )}
