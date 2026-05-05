@@ -1,3 +1,4 @@
+// Agenda.js — v2026-05-06 — bouton Personnel + couleurs sauvegardées + filtre perso + sauvegarde PDF 📅 Visites
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -880,7 +881,41 @@ export default function Agenda({ profile }) {
 
     const { error } = await supabase.from('evenements').insert(rows)
     if (!error) {
-      showToast(`✅ ${rows.length} événement${rows.length > 1 ? 's' : ''} importé${rows.length > 1 ? 's' : ''} !`)
+      // Sauvegarder le PDF dans Docs enfant → dossier 📅 Visites
+      if (pdfFile) {
+        const enfantIdsDirects = [...new Set(selectionnes.flatMap(e => e.enfant_ids || []))]
+        let enfantIds = enfantIdsDirects
+        if (enfantIds.length === 0) {
+          const afIds = [...new Set(selectionnes.map(e => e._af_id || profile.id))]
+          const { data: enfsAF } = await supabase.from('enfants').select('id').in('af_principal_id', afIds)
+          enfantIds = (enfsAF || []).map(e => e.id)
+        }
+        for (const enfantId of enfantIds) {
+          let { data: dossier } = await supabase.from('documents_dossiers')
+            .select('id').eq('territoire', enfantId).eq('nom', '📅 Visites').is('parent_id', null).single()
+          let dossierId = dossier?.id
+          if (!dossierId) {
+            const { data: newD } = await supabase.from('documents_dossiers').insert({
+              nom: '📅 Visites', parent_id: null, territoire: enfantId,
+              created_by: profile.id, type: 'enfant'
+            }).select().single()
+            dossierId = newD?.id
+          }
+          if (dossierId) {
+            const ext = pdfFile.name.split('.').pop()
+            const path = \`enfants/\${enfantId}/docs/\${dossierId}/\${Date.now()}.\${ext}\`
+            const { error: sErr } = await supabase.storage.from('documents-enfants')
+              .upload(path, pdfFile, { contentType: pdfFile.type })
+            if (!sErr) {
+              await supabase.from('documents_generaux').insert({
+                dossier_id: dossierId, nom: pdfFile.name, storage_path: path,
+                taille: pdfFile.size, mime_type: pdfFile.type, uploaded_by: profile.id
+              })
+            }
+          }
+        }
+      }
+      showToast(`✅ ${rows.length} événement${rows.length > 1 ? 's' : ''} importé${rows.length > 1 ? 's' : ''} — PDF sauvegardé dans Docs enfant !`)
       setShowImportModal(false)
       setEvtsImportes([])
       setEvtsImportesChecked({})
