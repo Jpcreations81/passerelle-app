@@ -238,17 +238,34 @@ export default function Agenda({ profile }) {
 
   const fetchEnfants = useCallback(async () => {
     if (!profile) return
-    const isASE = ['referent','encadrant','rtase','admin'].includes(profile.role)
 
     let tous = []
 
-    if (isASE) {
-      // Référent/encadrant/RTASE → charger tous les enfants via les AFs du territoire
+    if (profile.role === 'referent') {
+      // Référent → ses enfants via referent_id
+      const { data: enfs } = await supabase
+        .from('enfants')
+        .select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)')
+        .eq('referent_id', profile.id)
+      if (enfs) tous = enfs
+
+    } else if (profile.role === 'gestionnaire') {
+      // Gestionnaire → tous les enfants de son territoire (via les référents du même territoire)
+      const { data: refs } = await supabase
+        .from('profiles').select('id').eq('territoire', profile.territoire).eq('role', 'referent')
+      if (refs && refs.length > 0) {
+        const refIds = refs.map(r => r.id)
+        const { data: enfs } = await supabase
+          .from('enfants')
+          .select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)')
+          .in('referent_id', refIds)
+        if (enfs) tous = enfs
+      }
+
+    } else if (['rtase', 'admin'].includes(profile.role)) {
+      // RTASE → tous les enfants + référents de son territoire
       const { data: afs } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('territoire', profile.territoire)
-        .eq('role', 'af')
+        .from('profiles').select('id').eq('territoire', profile.territoire).eq('role', 'af')
       if (afs && afs.length > 0) {
         const afIds = afs.map(a => a.id)
         const { data: enfs } = await supabase
@@ -257,6 +274,21 @@ export default function Agenda({ profile }) {
           .in('af_principal_id', afIds)
         if (enfs) tous = enfs
       }
+
+    } else if (profile.role === 'encadrant') {
+      // Encadrant → tous les AF de son territoire mais pas les enfants directement
+      // Dans l'agenda il voit les événements de ses AF — on charge juste les enfants de ses AF
+      const { data: afs } = await supabase
+        .from('profiles').select('id').eq('territoire', profile.territoire).eq('role', 'af')
+      if (afs && afs.length > 0) {
+        const afIds = afs.map(a => a.id)
+        const { data: enfs } = await supabase
+          .from('enfants')
+          .select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)')
+          .in('af_principal_id', afIds)
+        if (enfs) tous = enfs
+      }
+
     } else {
       // AF → ses enfants principaux + enfants relais
       const { data: enfantsPrincipaux } = await supabase
