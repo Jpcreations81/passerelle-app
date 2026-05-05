@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06 — bouton Personnel + couleurs sauvegardées + filtre perso + sauvegarde PDF 📅 Visites
+// Agenda.js — v2026-05-06b — fetchEnfants par rôle (référent/gestionnaire/rtase/encadrant)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
