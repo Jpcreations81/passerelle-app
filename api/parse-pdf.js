@@ -1,4 +1,3 @@
-// parse-pdf.js — v2026-05-07c — vm_presents + lieu dans titre VM résultat final affiché sera : Shayna — VM — Père — Graulhet
 // api/parse-pdf.js
 // Vercel Serverless Function — lit un PDF et extrait les événements via Claude API
 // Variables d'environnement requises dans Vercel :
@@ -41,7 +40,7 @@ RÈGLE sur les TISF :
 - tisf_debut et tisf_fin = heures de présence de la TISF si mentionnées, sinon null
 
 Pour chaque événement, retourne un objet JSON avec :
-- titre : string court et clair (ex: "Adaptation relais — ABOUDAOUD", "Relais — ABOUDAOUD", "VM — Père", "VM — Mère", "VM — Parents")
+- titre : OBLIGATOIRE suivre ces règles : pour une VM → "VM — [qui] — [lieu]" (ex: "VM — Père — Graulhet", "VM — Mère — Castres", "VM — Parents — AID 81"). Pour un relais → "Relais — [nom famille]". Ne JAMAIS mettre juste "VM" sans préciser qui et où.
 - categorie : string parmi ["vm", "ase", "medical", "scolaire", "relais", "conge", "formation", "personnel", "autre"]
 - date_debut : string ISO 8601 en heure locale française (Europe/Paris), ex: "2026-04-01T15:00:00" pour 15h
 - date_fin : string ISO 8601 en heure locale française (Europe/Paris), ex: "2026-04-01T17:00:00" pour 17h
