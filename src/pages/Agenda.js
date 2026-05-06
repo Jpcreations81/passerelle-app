@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06f — suppression champ Lieu formulaire + AF relais amélioré (afTousListe + recherche nom/prénom + relais habituels contextuels)
+// Agenda.js — v2026-05-06g — affichage lieu manquant dans fiche détail relais (invitation à compléter via editMode)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2278,7 +2278,12 @@ export default function Agenda({ profile }) {
                       {fin && fin.toDateString() !== deb.toDateString() && (
                         <div>🏁 Fin : <strong>{fin.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long' })}</strong> à {fin.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}</div>
                       )}
-                      {selectedEvt.lieu && <div>📍 <strong>{selectedEvt.lieu}</strong></div>}
+                      {selectedEvt.lieu
+                        ? <div>📍 <strong>{selectedEvt.lieu}</strong></div>
+                        : selectedEvt.categorie === 'relais' && (
+                          <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:11 }}>📍 Lieu non renseigné — à compléter via ✏️ Modifier</div>
+                        )
+                      }
                       {selectedEvt.notes && <div>📝 {selectedEvt.notes}</div>}
                       <div style={{ marginTop:8, display:'flex', gap:8, flexWrap:'wrap' }}>
                         <span style={{ padding:'3px 9px', borderRadius:10, background:cat.bg, color:cat.color, fontSize:10, fontWeight:600 }}>{cat.label}</span>
