@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-05-06a — ajout gestionnaire dans isReferent (bouton + Nouveau dossier)
+// ListeEnfants.js — v2026-05-06b — moteur recherche AF principal (nom/prénom, trié alpha) + gestionnaire isReferent
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -11,6 +11,7 @@ export default function ListeEnfants({ profile }) {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [newEnfant, setNewEnfant] = useState({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', lieu_accueil:'af_principal', af_principal_id:'', referent_id:'', fratrie:[] })
+  const [rechercheAFModal, setRechercheAFModal] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
   const [collegues, setCollegues] = useState([])
@@ -268,23 +269,57 @@ export default function ListeEnfants({ profile }) {
               {newEnfant.lieu_accueil === 'af_principal' && (
                 <div className="form-group" style={{ marginBottom:16 }}>
                   <label className="form-label">AF Principal</label>
-                  <select className="form-control" value={newEnfant.af_principal_id || ''} onChange={e => setNewEnfant(n => ({...n, af_principal_id: e.target.value}))}>
-                    <option value="">— Sélectionner un AF —</option>
-                    {collegues.filter(c => c.role === 'af').map(c => (
-                      <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
-                    ))}
-                  </select>
-                  {newEnfant.af_principal_id && (() => {
+                  {/* AF sélectionné */}
+                  {newEnfant.af_principal_id ? (() => {
                     const af = collegues.find(c => c.id === newEnfant.af_principal_id)
                     return af ? (
-                      <div style={{marginTop:8,padding:'10px 14px',background:'#e6f5eb',borderRadius:8,border:'1px solid #c4e8cc',fontSize:12}}>
-                        <div style={{fontWeight:700,marginBottom:4}}>👨‍👩‍👧 {af.nom} {af.prenom}</div>
-                        {af.telephone&&<div>📞 {af.telephone}</div>}
-                        {af.email&&<div>✉️ {af.email}</div>}
-                        {af.ville&&<div>📍 {af.ville}</div>}
+                      <div style={{ marginBottom:8, padding:'10px 14px', background:'#e6f5eb', borderRadius:8, border:'1px solid #c4e8cc', fontSize:12, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <div>
+                          <div style={{ fontWeight:700, marginBottom:2 }}>✅ 👨‍👩‍👧 {af.nom} {af.prenom}</div>
+                          {af.telephone && <div>📞 {af.telephone}</div>}
+                          {af.email && <div>✉️ {af.email}</div>}
+                          {af.ville && <div>📍 {af.ville}</div>}
+                        </div>
+                        <span style={{ cursor:'pointer', color:'#c0392b', fontSize:16, fontWeight:700, marginLeft:8 }}
+                          onClick={() => setNewEnfant(n => ({...n, af_principal_id: ''}))}>×</span>
                       </div>
                     ) : null
-                  })()}
+                  })() : (
+                    <div style={{ position:'relative' }}>
+                      <input className="form-control"
+                        placeholder="🔍 Rechercher par nom ou prénom..."
+                        value={rechercheAFModal || ''}
+                        onChange={e => setRechercheAFModal(e.target.value)}
+                      />
+                      {rechercheAFModal?.length > 0 && (
+                        <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1px solid #dde3f0', borderRadius:7, zIndex:200, maxHeight:200, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,.12)' }}>
+                          {collegues
+                            .filter(c => c.role === 'af' &&
+                              (`${c.prenom} ${c.nom}`.toLowerCase().includes(rechercheAFModal.toLowerCase()) ||
+                               `${c.nom} ${c.prenom}`.toLowerCase().includes(rechercheAFModal.toLowerCase())))
+                            .sort((a, b) => a.nom.localeCompare(b.nom))
+                            .slice(0, 10)
+                            .map(af => (
+                              <div key={af.id}
+                                onClick={() => { setNewEnfant(n => ({...n, af_principal_id: af.id})); setRechercheAFModal('') }}
+                                style={{ padding:'9px 12px', cursor:'pointer', fontSize:12, borderBottom:'1px solid #f0f0f0', display:'flex', alignItems:'center', justifyContent:'space-between' }}
+                                onMouseOver={e => e.currentTarget.style.background='#f4f6fb'}
+                                onMouseOut={e => e.currentTarget.style.background='#fff'}>
+                                <span style={{ fontWeight:600 }}>👨‍👩‍👧 {af.nom} {af.prenom}</span>
+                                {af.ville && <span style={{ fontSize:10, color:'#9aa3b8' }}>{af.ville}</span>}
+                              </div>
+                            ))}
+                          {collegues.filter(c => c.role === 'af' &&
+                            (`${c.prenom} ${c.nom}`.toLowerCase().includes(rechercheAFModal.toLowerCase()) ||
+                             `${c.nom} ${c.prenom}`.toLowerCase().includes(rechercheAFModal.toLowerCase()))).length === 0 && (
+                            <div style={{ padding:'10px 12px', fontSize:11, color:'#9aa3b8', textAlign:'center' }}>
+                              Aucun résultat pour "{rechercheAFModal}"
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               <div className="form-group" style={{ marginBottom:16 }}>
