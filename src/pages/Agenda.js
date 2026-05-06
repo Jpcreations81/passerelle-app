@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06h — titre relais "famille NOM" (sans prénom) + lieu auto depuis adresse AF sélectionné
+// Agenda.js — v2026-05-06i — lieu AF = adresse + code_postal + ville (colonnes profiles)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -226,7 +226,7 @@ export default function Agenda({ profile }) {
   const fetchAfTousListe = useCallback(async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('id, nom, prenom, territoire')
+      .select('id, nom, prenom, territoire, adresse, code_postal, ville')
       .eq('role', 'af')
       .order('nom', { ascending: true })
     if (data) setAfTousListe(data)
@@ -1924,7 +1924,7 @@ export default function Agenda({ profile }) {
                                 const sel = newEvt.relais_structure_id === af.id
                                 return (
                                   <button key={af.id} type="button"
-                                    onClick={() => { const afData = afTousListe.find(a => a.id === af.id) || af; setNewEvt(n => { const updated = { ...n, relais_structure_id: af.id, relais_nom_libre: af.nom, lieu: afData.adresse || afData.ville || '' }; return { ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) } }) }}
+                                    onClick={() => { const afData = afTousListe.find(a => a.id === af.id) || af; const lieuAF = [afData.adresse, afData.code_postal, afData.ville].filter(Boolean).join(' '); setNewEvt(n => { const updated = { ...n, relais_structure_id: af.id, relais_nom_libre: af.nom, lieu: lieuAF }; return { ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) } }) }}
                                     style={{ padding: '6px 12px', borderRadius: 20, border: `2px solid ${sel ? '#0891b2' : '#bae6fd'}`, background: sel ? '#0891b2' : '#e0f2fe', color: sel ? '#fff' : '#0891b2', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all .15s' }}>
                                     {sel ? '✓ ' : ''}👨‍👩‍👧 {af.prenom} {af.nom}
                                     {af.territoire && !sel && <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 4 }}>· {af.territoire}</span>}
@@ -1958,7 +1958,7 @@ export default function Agenda({ profile }) {
                               .slice(0, 10)
                               .map(af => (
                                 <div key={af.id}
-                                  onClick={() => { const updated = { ...newEvt, relais_structure_id: af.id, relais_nom_libre: af.nom, lieu: af.adresse || af.ville || '' }; setNewEvt({ ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) }); setRechercheAF('') }}
+                                  onClick={() => { const lieuAF = [af.adresse, af.code_postal, af.ville].filter(Boolean).join(' '); const updated = { ...newEvt, relais_structure_id: af.id, relais_nom_libre: af.nom, lieu: lieuAF }; setNewEvt({ ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) }); setRechercheAF('') }}
                                   style={{ padding: '9px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                                   onMouseOver={e => e.currentTarget.style.background = '#f4f6fb'}
                                   onMouseOut={e => e.currentTarget.style.background = '#fff'}>
