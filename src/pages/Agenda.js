@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06n — fix af_id référent (af_principal_id enfant) + fix date J-1 openAdd + fix participants_ids AF relais
+// Agenda.js — v2026-05-06o — titre congé/formation sans enfant = "Congé Prénom NOM" pour identification encadrant
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -986,7 +986,7 @@ export default function Agenda({ profile }) {
   }
 
   // ── Construction automatique du titre ────────────────────────────────────
-  function buildTitreAuto(evt, enfantsList, couleursMap) {
+  function buildTitreAuto(evt, enfantsList, couleursMap, profileData) {
     const LABELS_CAT = {
       vm: 'VM', ase: 'ASE', medical: 'Méd.', scolaire: 'Scol.',
       relais: 'Relais', conge: 'Congé', formation: 'Formation',
@@ -1012,6 +1012,10 @@ export default function Agenda({ profile }) {
       complement = typeLabel ? `${typeLabel} ${evt.relais_nom_libre}` : evt.relais_nom_libre
     } else if (['ase','medical','scolaire'].includes(evt.categorie) && evt.complement_titre) {
       complement = evt.complement_titre
+    } else if (['conge','formation'].includes(evt.categorie) && evt.enfantsSelectionnes?.length === 0) {
+      // Pas d'enfant → ajouter nom AF pour identification par l'encadrant
+      const p = profileData || profile
+      if (p?.nom) complement = `${p.prenom || ''} ${p.nom}`.trim()
     }
 
     const parts = [catLabel, complement].filter(Boolean)
