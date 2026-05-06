@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06o — titre congé/formation sans enfant = "Congé Prénom NOM" pour identification encadrant
+// Agenda.js — v2026-05-06p — congé : relais automatique par enfant (J-1/J+1) avec sélection structure
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -90,6 +90,7 @@ export default function Agenda({ profile }) {
   const [newRelais, setNewRelais] = useState({ nom:'', type:'tiers', adresse:'', telephone:'', email:'', notes:'' })
   const [relaisRecherche, setRelaisRecherche] = useState('') // recherche dans structures
   const [rechercheAF, setRechercheAF] = useState('') // recherche AF relais
+  const [rechercheAFConge, setRechercheAFConge] = useState({}) // recherche AF relais par enfant (congé)
   const [afTousListe, setAfTousListe] = useState([]) // tous les AF pour recherche relais
   const [showSerieModal, setShowSerieModal] = useState(false) // modal choix série
   const [editSerieAction, setEditSerieAction] = useState(null) // callback après choix
@@ -705,10 +706,44 @@ export default function Agenda({ profile }) {
     const allRows = [...rowsAvecSerie, ...rowsSup]
     const { error } = await supabase.from('evenements').insert(allRows)
     if (!error) {
+      // Si congé → créer automatiquement les événements relais par enfant (J-1 à J+1)
+      if (newEvt.categorie === 'conge' && newEvt.congeRelais) {
+        const relaisRows = []
+        const debutConge = new Date(`${newEvt.date_debut}T${newEvt.heure_debut}:00`)
+        const finConge = new Date(`${(newEvt.date_fin || newEvt.date_debut)}T${newEvt.heure_fin}:00`)
+        // J-1 : minuit du jour précédent, J+1 : 23:59 du jour suivant
+        const debutRelais = new Date(debutConge); debutRelais.setDate(debutRelais.getDate() - 1); debutRelais.setHours(0, 0, 0, 0)
+        const finRelais = new Date(finConge); finRelais.setDate(finRelais.getDate() + 1); finRelais.setHours(23, 59, 0, 0)
+
+        Object.entries(newEvt.congeRelais).forEach(([enfantId, relais]) => {
+          if (!relais?.nom) return // Pas de structure choisie → skip
+          relaisRows.push({
+            titre: `Relais — famille ${relais.nom}`,
+            categorie: 'relais',
+            date_debut: debutRelais.toISOString(),
+            date_fin: finRelais.toISOString(),
+            lieu: relais.lieu || '',
+            notes: `Relais pendant congé AF`,
+            af_id: profile.id,
+            cree_par: profile.id,
+            visible_ase: true,
+            source: 'passerelle',
+            relais_type: relais.type || 'af',
+            relais_nom_libre: relais.nom,
+            enfant_ids: [enfantId],
+            ...(relais.afId ? { participants_ids: [relais.afId] } : {})
+          })
+        })
+        if (relaisRows.length > 0) {
+          await supabase.from('evenements').insert(relaisRows)
+        }
+      }
+
       const nb = allRows.length
       showToast(nb > 1 ? `✅ ${nb} événements créés !` : '✅ Événement enregistré !')
       setShowModal(false)
-      setNewEvt({ titre:'', categorie:'vm', date_debut:'', heure_debut:'09:00', date_fin:'', heure_fin:'10:00', lieu:'', notes:'', enfantsSelectionnes:[], relais_type:'af', relais_structure_id:null, relais_af_id:null, relais_nom_libre:'', vm_presents:[], complement_titre:'', dates_sup:[] })
+      setNewEvt({ titre:'', categorie:'vm', date_debut:'', heure_debut:'09:00', date_fin:'', heure_fin:'10:00', lieu:'', notes:'', enfantsSelectionnes:[], relais_type:'af', relais_structure_id:null, relais_af_id:null, relais_nom_libre:'', vm_presents:[], complement_titre:'', dates_sup:[], congeRelais:{} })
+      setRechercheAFConge({})
       fetchEvenements()
     } else showToast('❌ Erreur : ' + error.message)
   }
@@ -1300,7 +1335,7 @@ export default function Agenda({ profile }) {
       heure_debut: '09:00', date_fin: dateLocale,
       heure_fin: '10:00', lieu: '', notes: '', enfantsSelectionnes: [],
       relais_type: 'af', relais_structure_id: null, relais_af_id: null, relais_nom_libre: '',
-      vm_presents: [], complement_titre: '', dates_sup: []
+      vm_presents: [], complement_titre: '', dates_sup: [], congeRelais: {}
     })
     setRechercheAF('')
     setRelaisRecherche('')
@@ -1876,6 +1911,110 @@ export default function Agenda({ profile }) {
                 <label className="form-label">Notes</label>
                 <textarea className="form-control" rows={2} value={newEvt.notes} onChange={e => setNewEvt(n => ({...n, notes: e.target.value}))} placeholder="Observations..." style={{ resize:'vertical' }} />
               </div>
+
+              {/* ── Bloc relais automatique par enfant lors d'un congé ── */}
+              {newEvt.categorie === 'conge' && enfants.length > 0 && (
+                <div className="form-group col-span-2">
+                  <div style={{ background:'#fef3e2', borderRadius:9, padding:12, border:'1px solid #fcd34d' }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:'#d97706', marginBottom:10 }}>
+                      🔄 Relais pendant le congé — du {newEvt.date_debut ? (() => { const [y,m,d] = newEvt.date_debut.split('-'); return new Date(y,m-1,d-1).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) })() : 'J-1'} au {newEvt.date_fin ? (() => { const [y,m,d] = newEvt.date_fin.split('-'); return new Date(y,m-1,parseInt(d)+1).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) })() : 'J+1'}
+                    </div>
+                    {enfants.map(enfant => {
+                      const relais = newEvt.congeRelais?.[enfant.id] || {}
+                      const couleur = couleursEnfants[enfant.id] || '#1a4b8f'
+                      const recherche = rechercheAFConge[enfant.id] || ''
+                      return (
+                        <div key={enfant.id} style={{ marginBottom:12, padding:'10px 12px', background:'#fff', borderRadius:8, border:`2px solid ${couleur}20` }}>
+                          <div style={{ fontSize:12, fontWeight:700, color: couleur, marginBottom:8 }}>
+                            👶 {enfant.prenom} {enfant.nom}
+                          </div>
+
+                          {/* AF sélectionné */}
+                          {relais.nom ? (
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 12px', background:'#e6f5eb', borderRadius:7, fontSize:11, color:'#2e8b4a', fontWeight:600, marginBottom:6 }}>
+                              <span>✅ {relais.nom} {relais.lieu ? <span style={{fontWeight:400, color:'#5a6478'}}>· {relais.lieu}</span> : ''}</span>
+                              <span style={{ cursor:'pointer', color:'#c0392b', fontSize:13, fontWeight:700 }}
+                                onClick={() => setNewEvt(n => ({ ...n, congeRelais: { ...n.congeRelais, [enfant.id]: {} } }))}>×</span>
+                            </div>
+                          ) : null}
+
+                          {/* Relais habituels pour cet enfant */}
+                          {(() => {
+                            const habituels = []
+                            evenements.forEach(evt => {
+                              if (evt.categorie !== 'relais') return
+                              if (!evt.enfant_ids?.includes(enfant.id)) return
+                              if (evt.participants_ids) {
+                                evt.participants_ids.forEach(pid => {
+                                  if (!habituels.find(r => r.id === pid)) {
+                                    const af = afTousListe.find(a => a.id === pid) || collegues.find(c => c.id === pid)
+                                    if (af && af.id !== profile?.id) habituels.push(af)
+                                  }
+                                })
+                              }
+                            })
+                            return habituels.length > 0 ? (
+                              <div style={{ marginBottom:8 }}>
+                                <div style={{ fontSize:10, color:'#0891b2', marginBottom:4, fontWeight:700, textTransform:'uppercase' }}>⭐ Relais habituels</div>
+                                <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                                  {habituels.map(af => {
+                                    const sel = relais.afId === af.id
+                                    return (
+                                      <button key={af.id} type="button"
+                                        onClick={() => {
+                                          const lieuAF = [af.adresse, af.code_postal, af.ville].filter(Boolean).join(' ')
+                                          setNewEvt(n => ({ ...n, congeRelais: { ...n.congeRelais, [enfant.id]: { afId: af.id, nom: af.nom, lieu: lieuAF, type: 'af' } } }))
+                                        }}
+                                        style={{ padding:'5px 10px', borderRadius:20, border:`2px solid ${sel ? '#0891b2' : '#bae6fd'}`, background: sel ? '#0891b2' : '#e0f2fe', color: sel ? '#fff' : '#0891b2', fontSize:11, fontWeight:700, cursor:'pointer' }}>
+                                        {sel ? '✓ ' : ''}👨‍👩‍👧 {af.prenom} {af.nom}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
+                              </div>
+                            ) : null
+                          })()}
+
+                          {/* Recherche AF */}
+                          <div style={{ position:'relative' }}>
+                            <input className="form-control" style={{ fontSize:11 }}
+                              placeholder="🔍 Rechercher un AF par nom ou prénom..."
+                              value={recherche}
+                              onChange={e => setRechercheAFConge(prev => ({ ...prev, [enfant.id]: e.target.value }))}
+                            />
+                            {recherche.length > 1 && (
+                              <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1px solid #dde3f0', borderRadius:7, zIndex:100, maxHeight:150, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,.12)' }}>
+                                {(afTousListe.length > 0 ? afTousListe : collegues)
+                                  .filter(af => af.id !== profile?.id &&
+                                    (`${af.prenom} ${af.nom}`.toLowerCase().includes(recherche.toLowerCase()) ||
+                                     `${af.nom} ${af.prenom}`.toLowerCase().includes(recherche.toLowerCase())))
+                                  .slice(0, 8)
+                                  .map(af => (
+                                    <div key={af.id}
+                                      onClick={() => {
+                                        const lieuAF = [af.adresse, af.code_postal, af.ville].filter(Boolean).join(' ')
+                                        setNewEvt(n => ({ ...n, congeRelais: { ...n.congeRelais, [enfant.id]: { afId: af.id, nom: af.nom, lieu: lieuAF, type: 'af' } } }))
+                                        setRechercheAFConge(prev => ({ ...prev, [enfant.id]: '' }))
+                                      }}
+                                      style={{ padding:'8px 12px', cursor:'pointer', fontSize:11, borderBottom:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between' }}
+                                      onMouseOver={e => e.currentTarget.style.background='#f4f6fb'}
+                                      onMouseOut={e => e.currentTarget.style.background='#fff'}>
+                                      <span style={{ fontWeight:600 }}>👨‍👩‍👧 {af.prenom} {af.nom}</span>
+                                      {af.territoire && <span style={{ fontSize:10, color:'#9aa3b8' }}>{af.territoire}</span>}
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <div style={{ fontSize:10, color:'#9aa3b8', fontStyle:'italic', marginTop:4 }}>
+                      Les événements relais seront créés automatiquement à l'enregistrement du congé.
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* ── Bloc relais — affiché uniquement si catégorie relais ── */}
               {newEvt.categorie === 'relais' && (
