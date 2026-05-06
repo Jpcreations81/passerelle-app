@@ -1,3 +1,4 @@
+// ListeEnfants.js — v2026-05-06a — ajout gestionnaire dans isReferent (bouton + Nouveau dossier)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -20,7 +21,7 @@ export default function ListeEnfants({ profile }) {
   const [fratrieResults, setFratrieResults] = useState([])
   const [newFratrieItem, setNewFratrieItem] = useState({ prenom:'', nom:'', ddn:'', sexe:'M', meme_af:true })
 
-  const isReferent = ['referent','encadrant','rtase','admin'].includes(profile?.role)
+  const isReferent = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2800) }
 
