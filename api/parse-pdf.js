@@ -1,4 +1,4 @@
-// parse-pdf.js — v2026-05-07 — vm_presents + lieu dans titre VM
+// parse-pdf.js — v2026-05-07c — vm_presents + lieu dans titre VM résultat final affiché sera : Shayna — VM — Père — Graulhet
 // api/parse-pdf.js
 // Vercel Serverless Function — lit un PDF et extrait les événements via Claude API
 // Variables d'environnement requises dans Vercel :
@@ -57,9 +57,10 @@ Pour chaque événement, retourne un objet JSON avec :
 RÈGLE sur les VM :
 - Pour les visites médiatisées, détecter qui est présent : père, mère, les deux parents, fratrie
 - Exemples : "visite avec le père" → vm_presents: ["pere"], "rencontre avec les parents" → vm_presents: ["parents"]
-- Le titre doit refléter les présents ET le lieu : "VM — Père — Graulhet", "VM — Mère — Castres", "VM — Parents — AID 81 Graulhet"
-- Si présence non précisée : vm_presents: [] et titre: "VM — [ville ou lieu]"
-- Le lieu dans le titre = ville ou nom court du lieu (ex: "Graulhet", "Castres", "AID 81", "Domicile PEREIRA")
+- Le titre doit suivre ce format EXACT : "VM — Père — Graulhet", "VM — Mère — Castres", "VM — Parents — AID 81"
+- Format : "VM — [qui] — [lieu]" (ex: "VM — Père — Graulhet", "VM — Mère et Fratrie — Castres")
+- Si présence non précisée : titre: "VM — [lieu]"
+- Le lieu = ville ou nom court (ex: "Graulhet", "Castres", "AID 81", "Domicile PEREIRA")
 
 Règles de catégorisation :
 - "vm" : visite médiatisée, visite en présence, droit de visite
