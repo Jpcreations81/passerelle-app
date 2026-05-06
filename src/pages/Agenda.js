@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06d — filtre événements personnels + isASE gestionnaire
+// Agenda.js — v2026-05-06e — vm_presents extrait du PDF + filtre perso
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -836,6 +836,7 @@ export default function Agenda({ profile }) {
                 participants_ids: participantsIds,
                 _af_id: afId,
                 notes,
+                vm_presents: evt.vm_presents || [],
                 _enfantLabel: enf ? `${enf.prenom} ${enf.nom}` : '',
                 _afLabel: afLabel,
                 _relaisLabel: relaisLabel
@@ -914,6 +915,7 @@ export default function Agenda({ profile }) {
       cree_par: profile.id,
       visible_ase: true,
       source: 'pdf_import',
+      ...(evt.vm_presents && evt.vm_presents.length > 0 ? { vm_presents: evt.vm_presents } : {}),
       ...(evt.enfant_ids && evt.enfant_ids.length > 0 ? { enfant_ids: evt.enfant_ids } : {}),
       ...(evt.participants_ids && evt.participants_ids.length > 0 ? { participants_ids: evt.participants_ids } : {})
     }))
