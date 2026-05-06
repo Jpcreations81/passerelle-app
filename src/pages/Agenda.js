@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06k — debug log relais buildEvtsDuJour (temporaire)
+// Agenda.js — v2026-05-06l — version finale : suppression lieu formulaire + AF relais amélioré + titre famille NOM + lieu auto adresse + fix date J-1
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -563,12 +563,7 @@ export default function Agenda({ profile }) {
         const d = new Date(e.date_debut), f = e.date_fin ? new Date(e.date_fin) : d
         const dDate = new Date(date); dDate.setHours(0,0,0,0)
         const fDate = new Date(f); fDate.setHours(23,59,59,999)
-        const match = dDate >= new Date(new Date(d).setHours(0,0,0,0)) && dDate <= fDate
-        // DEBUG temporaire — à retirer après correction
-        if (e.categorie === 'relais') {
-          console.log('[DEBUG relais]', e.titre, '| date_debut:', e.date_debut, '| date testée:', date.toLocaleDateString('fr-FR'), '| match:', match)
-        }
-        return match
+        return dDate >= new Date(new Date(d).setHours(0,0,0,0)) && dDate <= fDate
       })
       const expanded = []
       filtered.forEach(evt => {
@@ -1288,9 +1283,10 @@ export default function Agenda({ profile }) {
   function openEvt(evt, e) { e?.stopPropagation(); setSelectedEvt(evt); setShowDetailModal(true) }
   function openAdd(date) {
     setSelectedDate(date)
+    const dateLocale = date ? date.toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' }) : ''
     setNewEvt({
-      titre: '', categorie: 'vm', date_debut: date ? date.toISOString().slice(0,10) : '',
-      heure_debut: '09:00', date_fin: date ? date.toISOString().slice(0,10) : '',
+      titre: '', categorie: 'vm', date_debut: dateLocale,
+      heure_debut: '09:00', date_fin: dateLocale,
       heure_fin: '10:00', lieu: '', notes: '', enfantsSelectionnes: [],
       relais_type: 'af', relais_structure_id: null, relais_af_id: null, relais_nom_libre: '',
       vm_presents: [], complement_titre: '', dates_sup: []
