@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06c — isASE inclut gestionnaire pour af_id correct à l'import
+// Agenda.js — v2026-05-06d — filtre événements personnels + isASE gestionnaire
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -121,7 +121,14 @@ export default function Agenda({ profile }) {
     const { data } = await supabase
       .from('evenements').select('*').order('date_debut', { ascending: true })
     if (!data) return
-    setEvenements(data)
+    // Filtrer les événements personnels des autres utilisateurs
+    const filtered = data.filter(e => {
+      if (e.categorie === 'personnel') {
+        return e.af_id === profile?.id || e.cree_par === profile?.id
+      }
+      return true
+    })
+    setEvenements(filtered)
 
     const allEnfantIds = []
     data.forEach(e => { if (e.enfant_ids) e.enfant_ids.forEach(id => { if (!allEnfantIds.includes(id)) allEnfantIds.push(id) }) })
@@ -2700,4 +2707,3 @@ export default function Agenda({ profile }) {
     </div>
   )
 }
-             
