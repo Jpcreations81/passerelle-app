@@ -1,4 +1,5 @@
-// Agenda.js — v2026-05-06l — version finale : suppression lieu formulaire + AF relais amélioré + titre famille NOM + lieu auto adresse + fix date J-1
+
+// Agenda.js — v2026-05-06m — debug openAdd J-1 + fix af_id référent
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -651,21 +652,28 @@ export default function Agenda({ profile }) {
       ? [afRelaisId]
       : []
 
-    const rows = enfantsACree.map(enfantId => ({
-      titre: newEvt.titre,
-      categorie: newEvt.categorie,
-      date_debut: debut.toISOString(),
-      date_fin: fin.toISOString(),
-      lieu: newEvt.lieu,
-      notes: newEvt.notes,
-      af_id: profile.id,
-      cree_par: profile.id,
-      visible_ase: !isPersonnel,
-      source: 'passerelle',
-      ...relaisInfo,
-      ...(participantsRelais.length > 0 ? { participants_ids: participantsRelais } : {}),
-      ...(enfantId ? { enfant_ids: [enfantId] } : {})
-    }))
+    const isASE = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
+
+    const rows = enfantsACree.map(enfantId => {
+      // Si ASE/référent → af_id = AF principal de l'enfant, sinon soi-même
+      const enfantObj = enfantId ? enfants.find(e => e.id === enfantId) : null
+      const afId = isASE && enfantObj?.af_principal_id ? enfantObj.af_principal_id : profile.id
+      return {
+        titre: newEvt.titre,
+        categorie: newEvt.categorie,
+        date_debut: debut.toISOString(),
+        date_fin: fin.toISOString(),
+        lieu: newEvt.lieu,
+        notes: newEvt.notes,
+        af_id: afId,
+        cree_par: profile.id,
+        visible_ase: !isPersonnel,
+        source: 'passerelle',
+        ...relaisInfo,
+        ...(participantsRelais.length > 0 ? { participants_ids: participantsRelais } : {}),
+        ...(enfantId ? { enfant_ids: [enfantId] } : {})
+      }
+    })
 
     // Générer un serie_id si plusieurs dates (pour lier les événements d'une série)
     const serieId = newEvt.dates_sup && newEvt.dates_sup.length > 0
@@ -1284,6 +1292,7 @@ export default function Agenda({ profile }) {
   function openAdd(date) {
     setSelectedDate(date)
     const dateLocale = date ? date.toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' }) : ''
+    console.log('[openAdd] date reçue:', date, '| dateLocale:', dateLocale)
     setNewEvt({
       titre: '', categorie: 'vm', date_debut: dateLocale,
       heure_debut: '09:00', date_fin: dateLocale,
