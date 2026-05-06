@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06b — fetchEnfants par rôle (référent/gestionnaire/rtase/encadrant)
+// Agenda.js — v2026-05-06c — isASE inclut gestionnaire pour af_id correct à l'import
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -818,7 +818,7 @@ export default function Agenda({ profile }) {
               const enf = enfants.find(e => e.id === enfantId)
               // Si référent/ASE : af_id = AF principal de l'enfant
               // Si AF : af_id = profile.id (soi-même)
-              const isASE = ['referent','encadrant','rtase','admin'].includes(profile?.role)
+              const isASE = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
               const afId = isASE && enf?.af_principal_id ? enf.af_principal_id : profile.id
               const afLabel = isASE && enf?.af_principal
                 ? `${enf.af_principal.prenom} ${enf.af_principal.nom}`
@@ -1089,13 +1089,17 @@ export default function Agenda({ profile }) {
             })
           }
 
+          const isASEModif = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
+          const afIdModif = isASEModif && ids.length > 0
+            ? (enfants.find(e => e.id === ids[0])?.af_principal_id || profile.id)
+            : profile.id
           evtsAvecIds.push({
             ...evt,
             enfant_ids: ids,
             notes,
             _enfantLabel: ids.length > 0 ? (enfants.find(e => e.id === ids[0])?.prenom + ' ' + enfants.find(e => e.id === ids[0])?.nom) : '',
             _evtExistant: evtExistant || null,
-            _af_id: ids.length > 0 ? (enfants.find(e => e.id === ids[0])?.af_principal_id || profile.id) : profile.id
+            _af_id: afIdModif
           })
         }
 
@@ -2696,3 +2700,4 @@ export default function Agenda({ profile }) {
     </div>
   )
 }
+             
