@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06e — vm_presents extrait du PDF + filtre perso
+// Agenda.js — v2026-05-06f — suppression champ Lieu formulaire + AF relais amélioré (afTousListe + recherche nom/prénom + relais habituels contextuels)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -90,6 +90,7 @@ export default function Agenda({ profile }) {
   const [newRelais, setNewRelais] = useState({ nom:'', type:'tiers', adresse:'', telephone:'', email:'', notes:'' })
   const [relaisRecherche, setRelaisRecherche] = useState('') // recherche dans structures
   const [rechercheAF, setRechercheAF] = useState('') // recherche AF relais
+  const [afTousListe, setAfTousListe] = useState([]) // tous les AF pour recherche relais
   const [showSerieModal, setShowSerieModal] = useState(false) // modal choix série
   const [editSerieAction, setEditSerieAction] = useState(null) // callback après choix
   const [vmPresents, setVmPresents] = useState([]) // présents lors d'une VM
@@ -114,6 +115,7 @@ export default function Agenda({ profile }) {
       fetchDemandesModif(),
       fetchMesRetours(),
       fetchRelaisStructures(),
+      fetchAfTousListe(),
     ]).finally(() => setLoading(false))
   }, [profile])
 
@@ -218,6 +220,16 @@ export default function Agenda({ profile }) {
       .select('*')
       .order('nom', { ascending: true })
     if (data) setRelaisStructures(data)
+  }, [])
+
+  // Charger tous les AF disponibles pour la sélection relais
+  const fetchAfTousListe = useCallback(async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, nom, prenom, territoire')
+      .eq('role', 'af')
+      .order('nom', { ascending: true })
+    if (data) setAfTousListe(data)
   }, [])
 
   // Créer une nouvelle structure relais
@@ -1794,17 +1806,6 @@ export default function Agenda({ profile }) {
                 </div>
               )}
 
-              {/* ── LIEU ── */}
-              <div className="form-group col-span-2">
-                <label className="form-label">📍 Lieu</label>
-                <input className="form-control" value={newEvt.lieu}
-                  onChange={e => {
-                    const updated = { ...newEvt, lieu: e.target.value }
-                    setNewEvt({ ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) })
-                  }}
-                  placeholder="Ex: Marssac/Tarn, Gaillac..." />
-              </div>
-
               {/* ── DATE DÉBUT + HEURE DÉBUT ── */}
               <div className="form-group">
                 <label className="form-label">📅 Date début</label>
@@ -1891,9 +1892,12 @@ export default function Agenda({ profile }) {
                   {newEvt.relais_type === 'af' && (
                     <div>
                       <label className="form-label">Famille AF relais</label>
-                      {/* Relais habituels — AF ayant déjà accueilli ces enfants */}
+
+                      {/* Relais habituels — AF ayant déjà fait du relais avec les enfants sélectionnés */}
                       {(() => {
-                        const enfantsFiltres = newEvt.enfantsSelectionnes.length > 0 ? newEvt.enfantsSelectionnes : enfants.map(e => e.id)
+                        const enfantsFiltres = newEvt.enfantsSelectionnes.length > 0
+                          ? newEvt.enfantsSelectionnes
+                          : enfants.map(e => e.id)
                         const relaisHabituels = []
                         evenements.forEach(evt => {
                           if (evt.categorie !== 'relais') return
@@ -1901,54 +1905,86 @@ export default function Agenda({ profile }) {
                           if (evt.participants_ids) {
                             evt.participants_ids.forEach(pid => {
                               if (pid !== profile?.id && !relaisHabituels.find(r => r.id === pid)) {
-                                const af = collegues.find(c => c.id === pid) || Object.values(afProfiles).find(a => a.id === pid)
+                                // Chercher d'abord dans afTousListe (liste complète), puis collegues, puis afProfiles
+                                const af = afTousListe.find(a => a.id === pid)
+                                  || collegues.find(c => c.id === pid)
+                                  || Object.values(afProfiles).find(a => a.id === pid)
                                 if (af) relaisHabituels.push(af)
                               }
                             })
                           }
                         })
                         return relaisHabituels.length > 0 ? (
-                          <div style={{ marginBottom: 8 }}>
-                            <div style={{ fontSize: 10, color: '#9aa3b8', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.4px' }}>⭐ Relais habituels</div>
+                          <div style={{ marginBottom: 10 }}>
+                            <div style={{ fontSize: 10, color: '#0891b2', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.4px', fontWeight: 700 }}>
+                              ⭐ Déjà fait du relais avec {newEvt.enfantsSelectionnes.length === 0 ? 'ces enfants' : enfants.filter(e => newEvt.enfantsSelectionnes.includes(e.id)).map(e => e.prenom).join(', ')}
+                            </div>
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                              {relaisHabituels.map(af => (
-                                <button key={af.id} type="button"
-                                  onClick={() => setNewEvt(n => ({ ...n, relais_structure_id: af.id, relais_nom_libre: `${af.prenom} ${af.nom}` }))}
-                                  style={{ padding: '5px 10px', borderRadius: 20, border: `1.5px solid ${newEvt.relais_structure_id === af.id ? '#1a4b8f' : '#dde3f0'}`, background: newEvt.relais_structure_id === af.id ? '#1a4b8f' : '#fff', color: newEvt.relais_structure_id === af.id ? '#fff' : '#1c2333', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                                  👨‍👩‍👧 {af.prenom} {af.nom}
-                                </button>
-                              ))}
+                              {relaisHabituels.map(af => {
+                                const sel = newEvt.relais_structure_id === af.id
+                                return (
+                                  <button key={af.id} type="button"
+                                    onClick={() => setNewEvt(n => ({ ...n, relais_structure_id: af.id, relais_nom_libre: `${af.prenom} ${af.nom}` }))}
+                                    style={{ padding: '6px 12px', borderRadius: 20, border: `2px solid ${sel ? '#0891b2' : '#bae6fd'}`, background: sel ? '#0891b2' : '#e0f2fe', color: sel ? '#fff' : '#0891b2', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all .15s' }}>
+                                    {sel ? '✓ ' : ''}👨‍👩‍👧 {af.prenom} {af.nom}
+                                    {af.territoire && !sel && <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 4 }}>· {af.territoire}</span>}
+                                  </button>
+                                )
+                              })}
                             </div>
                           </div>
-                        ) : null
+                        ) : (
+                          newEvt.enfantsSelectionnes.length > 0 ? (
+                            <div style={{ fontSize: 11, color: '#9aa3b8', fontStyle: 'italic', marginBottom: 8 }}>
+                              Aucun relais antérieur pour {enfants.filter(e => newEvt.enfantsSelectionnes.includes(e.id)).map(e => e.prenom).join(', ')} — recherchez par nom ci-dessous
+                            </div>
+                          ) : null
+                        )
                       })()}
-                      {/* Recherche par nom */}
+
+                      {/* Recherche par nom — sur tous les AF */}
                       <div style={{ position: 'relative' }}>
                         <input className="form-control"
-                          placeholder="🔍 Rechercher un AF par nom..."
+                          placeholder="🔍 Rechercher un AF par nom ou prénom..."
                           value={rechercheAF}
                           onChange={e => setRechercheAF(e.target.value)}
                         />
                         {rechercheAF.length > 1 && (
-                          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #dde3f0', borderRadius: 7, zIndex: 100, maxHeight: 160, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.1)' }}>
-                            {collegues.filter(c => (c.role === 'af' || !c.role) &&
-                              `${c.prenom} ${c.nom}`.toLowerCase().includes(rechercheAF.toLowerCase())).map(af => (
-                              <div key={af.id}
-                                onClick={() => { setNewEvt(n => ({ ...n, relais_structure_id: af.id, relais_nom_libre: `${af.prenom} ${af.nom}` })); setRechercheAF('') }}
-                                style={{ padding: '8px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f0f0f0' }}
-                                onMouseOver={e => e.currentTarget.style.background = '#f4f6fb'}
-                                onMouseOut={e => e.currentTarget.style.background = '#fff'}>
-                                {af.prenom} {af.nom}
-                                {af.territoire && <span style={{ fontSize: 10, color: '#9aa3b8', marginLeft: 6 }}>· {af.territoire}</span>}
+                          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #dde3f0', borderRadius: 7, zIndex: 100, maxHeight: 180, overflowY: 'auto', boxShadow: '0 4px 12px rgba(0,0,0,.12)' }}>
+                            {(afTousListe.length > 0 ? afTousListe : collegues.filter(c => c.role === 'af' || !c.role))
+                              .filter(af => af.id !== profile?.id &&
+                                (`${af.prenom} ${af.nom}`.toLowerCase().includes(rechercheAF.toLowerCase()) ||
+                                 `${af.nom} ${af.prenom}`.toLowerCase().includes(rechercheAF.toLowerCase())))
+                              .slice(0, 10)
+                              .map(af => (
+                                <div key={af.id}
+                                  onClick={() => { setNewEvt(n => ({ ...n, relais_structure_id: af.id, relais_nom_libre: `${af.prenom} ${af.nom}` })); setRechercheAF('') }}
+                                  style={{ padding: '9px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                                  onMouseOver={e => e.currentTarget.style.background = '#f4f6fb'}
+                                  onMouseOut={e => e.currentTarget.style.background = '#fff'}>
+                                  <span style={{ fontWeight: 600 }}>👨‍👩‍👧 {af.prenom} {af.nom}</span>
+                                  {af.territoire && <span style={{ fontSize: 10, color: '#9aa3b8' }}>{af.territoire}</span>}
+                                </div>
+                              ))}
+                            {(afTousListe.length > 0 ? afTousListe : collegues)
+                              .filter(af => af.id !== profile?.id &&
+                                (`${af.prenom} ${af.nom}`.toLowerCase().includes(rechercheAF.toLowerCase()) ||
+                                 `${af.nom} ${af.prenom}`.toLowerCase().includes(rechercheAF.toLowerCase())))
+                              .length === 0 && (
+                              <div style={{ padding: '10px 12px', fontSize: 11, color: '#9aa3b8', textAlign: 'center' }}>
+                                Aucun résultat pour "{rechercheAF}"
                               </div>
-                            ))}
+                            )}
                           </div>
                         )}
                       </div>
+
                       {/* AF sélectionné */}
                       {newEvt.relais_structure_id && (
-                        <div style={{ marginTop: 6, fontSize: 11, color: '#2e8b4a', fontWeight: 600 }}>
-                          ✅ {newEvt.relais_nom_libre}
+                        <div style={{ marginTop: 8, padding: '6px 12px', background: '#e6f5eb', borderRadius: 7, fontSize: 11, color: '#2e8b4a', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span>✅ {newEvt.relais_nom_libre}</span>
+                          <span style={{ cursor: 'pointer', color: '#c0392b', fontSize: 13, fontWeight: 700 }}
+                            onClick={() => setNewEvt(n => ({ ...n, relais_structure_id: null, relais_nom_libre: '' }))}>×</span>
                         </div>
                       )}
                     </div>
