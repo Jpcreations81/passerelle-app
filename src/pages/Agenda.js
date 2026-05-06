@@ -1,5 +1,4 @@
-
-// Agenda.js — v2026-05-06m — debug openAdd J-1 + fix af_id référent
+// Agenda.js — v2026-05-06n — fix af_id référent (af_principal_id enfant) + fix date J-1 openAdd + fix participants_ids AF relais
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1292,7 +1291,6 @@ export default function Agenda({ profile }) {
   function openAdd(date) {
     setSelectedDate(date)
     const dateLocale = date ? date.toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' }) : ''
-    console.log('[openAdd] date reçue:', date, '| dateLocale:', dateLocale)
     setNewEvt({
       titre: '', categorie: 'vm', date_debut: dateLocale,
       heure_debut: '09:00', date_fin: dateLocale,
