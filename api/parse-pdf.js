@@ -1,3 +1,4 @@
+// parse-pdf.js — v2026-05-07d — vm_presents + lieu dans titre VM:ok
 // api/parse-pdf.js
 // Vercel Serverless Function — lit un PDF et extrait les événements via Claude API
 // Variables d'environnement requises dans Vercel :
