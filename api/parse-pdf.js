@@ -1,3 +1,4 @@
+// parse-pdf.js — v2026-05-07 — extraction vm_presents (père/mère/parents/fratrie)
 // api/parse-pdf.js
 // Vercel Serverless Function — lit un PDF et extrait les événements via Claude API
 // Variables d'environnement requises dans Vercel :
@@ -40,17 +41,24 @@ RÈGLE sur les TISF :
 - tisf_debut et tisf_fin = heures de présence de la TISF si mentionnées, sinon null
 
 Pour chaque événement, retourne un objet JSON avec :
-- titre : string court et clair (ex: "Adaptation relais — ABOUDAOUD", "Relais — ABOUDAOUD", "VM — Marssac/Tarn")
+- titre : string court et clair (ex: "Adaptation relais — ABOUDAOUD", "Relais — ABOUDAOUD", "VM — Père", "VM — Mère", "VM — Parents")
 - categorie : string parmi ["vm", "ase", "medical", "scolaire", "relais", "conge", "formation", "personnel", "autre"]
 - date_debut : string ISO 8601 en heure locale française (Europe/Paris), ex: "2026-04-01T15:00:00" pour 15h
 - date_fin : string ISO 8601 en heure locale française (Europe/Paris), ex: "2026-04-01T17:00:00" pour 17h
 - IMPORTANT : les heures doivent être EXACTEMENT celles du document, sans conversion UTC
-- lieu : string (ex: "Domicile ABOUDAOUD", "Marssac/Tarn")
+- lieu : string (ex: "Domicile ABOUDAOUD", "Marssac/Tarn", "AID 81 Graulhet")
 - notes : string (préciser si Adaptation ou Relais, nom famille relais, présence TISF, etc.)
 - enfants_noms : array de strings (prénoms et noms des enfants)
 - relais_nom : string ou null — OBLIGATOIRE si categorie="relais", mettre le nom complet de la famille relais (ex: "ABOUDAOUD Fares"), sinon null
 - tisf_debut : string heure ou null (ex: "15:00")
 - tisf_fin : string heure ou null (ex: "17:00")
+- vm_presents : array parmi ["pere", "mere", "parents", "fratrie", "pere_fratrie", "mere_fratrie", "parents_fratrie"] — OBLIGATOIRE si categorie="vm", détecter qui est présent à la visite (ex: "le père" → ["pere"], "les parents" → ["parents"], "la mère et la fratrie" → ["mere_fratrie"]), sinon []
+
+RÈGLE sur les VM :
+- Pour les visites médiatisées, détecter qui est présent : père, mère, les deux parents, fratrie
+- Exemples : "visite avec le père" → vm_presents: ["pere"], "rencontre avec les parents" → vm_presents: ["parents"]
+- Le titre doit refléter les présents : "VM — Père", "VM — Mère", "VM — Parents", "VM — Parents + Fratrie"
+- Si présence non précisée : vm_presents: [] et titre: "VM — [lieu]"
 
 Règles de catégorisation :
 - "vm" : visite médiatisée, visite en présence, droit de visite
