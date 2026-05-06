@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06i — lieu AF = adresse + code_postal + ville (colonnes profiles)
+// Agenda.js — v2026-05-06k — debug log relais buildEvtsDuJour (temporaire)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -563,7 +563,12 @@ export default function Agenda({ profile }) {
         const d = new Date(e.date_debut), f = e.date_fin ? new Date(e.date_fin) : d
         const dDate = new Date(date); dDate.setHours(0,0,0,0)
         const fDate = new Date(f); fDate.setHours(23,59,59,999)
-        return dDate >= new Date(new Date(d).setHours(0,0,0,0)) && dDate <= fDate
+        const match = dDate >= new Date(new Date(d).setHours(0,0,0,0)) && dDate <= fDate
+        // DEBUG temporaire — à retirer après correction
+        if (e.categorie === 'relais') {
+          console.log('[DEBUG relais]', e.titre, '| date_debut:', e.date_debut, '| date testée:', date.toLocaleDateString('fr-FR'), '| match:', match)
+        }
+        return match
       })
       const expanded = []
       filtered.forEach(evt => {
@@ -640,14 +645,15 @@ export default function Agenda({ profile }) {
     // Construire les infos relais si catégorie relais
     const relaisInfo = newEvt.categorie === 'relais' ? {
       relais_type: newEvt.relais_type || 'af',
-      // Si type AF → relais_structure_id doit rester null (c'est un profile, pas une structure)
+      // Si type AF → relais_structure_id reste null (l'id AF va dans participants_ids)
       relais_structure_id: (newEvt.relais_type === 'af') ? null : (newEvt.relais_structure_id || null),
       relais_nom_libre: newEvt.relais_nom_libre || null,
     } : {}
 
-    // Si type AF → ajouter l'AF dans participants_ids
-    const participantsRelais = (newEvt.categorie === 'relais' && newEvt.relais_type === 'af' && newEvt.relais_structure_id)
-      ? [newEvt.relais_structure_id]
+    // Si type AF → ajouter l'AF dans participants_ids (on utilise relais_af_id, pas relais_structure_id)
+    const afRelaisId = newEvt.relais_type === 'af' ? (newEvt.relais_af_id || newEvt.relais_structure_id) : null
+    const participantsRelais = (newEvt.categorie === 'relais' && newEvt.relais_type === 'af' && afRelaisId)
+      ? [afRelaisId]
       : []
 
     const rows = enfantsACree.map(enfantId => ({
@@ -700,7 +706,7 @@ export default function Agenda({ profile }) {
       const nb = allRows.length
       showToast(nb > 1 ? `✅ ${nb} événements créés !` : '✅ Événement enregistré !')
       setShowModal(false)
-      setNewEvt({ titre:'', categorie:'vm', date_debut:'', heure_debut:'09:00', date_fin:'', heure_fin:'10:00', lieu:'', notes:'', enfantsSelectionnes:[], relais_type:'af', relais_structure_id:null, relais_nom_libre:'', vm_presents:[], complement_titre:'', dates_sup:[] })
+      setNewEvt({ titre:'', categorie:'vm', date_debut:'', heure_debut:'09:00', date_fin:'', heure_fin:'10:00', lieu:'', notes:'', enfantsSelectionnes:[], relais_type:'af', relais_structure_id:null, relais_af_id:null, relais_nom_libre:'', vm_presents:[], complement_titre:'', dates_sup:[] })
       fetchEvenements()
     } else showToast('❌ Erreur : ' + error.message)
   }
@@ -1286,7 +1292,7 @@ export default function Agenda({ profile }) {
       titre: '', categorie: 'vm', date_debut: date ? date.toISOString().slice(0,10) : '',
       heure_debut: '09:00', date_fin: date ? date.toISOString().slice(0,10) : '',
       heure_fin: '10:00', lieu: '', notes: '', enfantsSelectionnes: [],
-      relais_type: 'af', relais_structure_id: null, relais_nom_libre: '',
+      relais_type: 'af', relais_structure_id: null, relais_af_id: null, relais_nom_libre: '',
       vm_presents: [], complement_titre: '', dates_sup: []
     })
     setRechercheAF('')
@@ -1924,7 +1930,7 @@ export default function Agenda({ profile }) {
                                 const sel = newEvt.relais_structure_id === af.id
                                 return (
                                   <button key={af.id} type="button"
-                                    onClick={() => { const afData = afTousListe.find(a => a.id === af.id) || af; const lieuAF = [afData.adresse, afData.code_postal, afData.ville].filter(Boolean).join(' '); setNewEvt(n => { const updated = { ...n, relais_structure_id: af.id, relais_nom_libre: af.nom, lieu: lieuAF }; return { ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) } }) }}
+                                    onClick={() => { const afData = afTousListe.find(a => a.id === af.id) || af; const lieuAF = [afData.adresse, afData.code_postal, afData.ville].filter(Boolean).join(' '); setNewEvt(n => { const updated = { ...n, relais_af_id: af.id, relais_structure_id: af.id, relais_nom_libre: af.nom, lieu: lieuAF }; return { ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) } }) }}
                                     style={{ padding: '6px 12px', borderRadius: 20, border: `2px solid ${sel ? '#0891b2' : '#bae6fd'}`, background: sel ? '#0891b2' : '#e0f2fe', color: sel ? '#fff' : '#0891b2', fontSize: 12, fontWeight: 700, cursor: 'pointer', transition: 'all .15s' }}>
                                     {sel ? '✓ ' : ''}👨‍👩‍👧 {af.prenom} {af.nom}
                                     {af.territoire && !sel && <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 4 }}>· {af.territoire}</span>}
@@ -1958,7 +1964,7 @@ export default function Agenda({ profile }) {
                               .slice(0, 10)
                               .map(af => (
                                 <div key={af.id}
-                                  onClick={() => { const lieuAF = [af.adresse, af.code_postal, af.ville].filter(Boolean).join(' '); const updated = { ...newEvt, relais_structure_id: af.id, relais_nom_libre: af.nom, lieu: lieuAF }; setNewEvt({ ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) }); setRechercheAF('') }}
+                                  onClick={() => { const lieuAF = [af.adresse, af.code_postal, af.ville].filter(Boolean).join(' '); const updated = { ...newEvt, relais_af_id: af.id, relais_structure_id: af.id, relais_nom_libre: af.nom, lieu: lieuAF }; setNewEvt({ ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) }); setRechercheAF('') }}
                                   style={{ padding: '9px 12px', cursor: 'pointer', fontSize: 12, borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                                   onMouseOver={e => e.currentTarget.style.background = '#f4f6fb'}
                                   onMouseOut={e => e.currentTarget.style.background = '#fff'}>
