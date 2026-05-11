@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-05-11a — accès AF relais : vie quotidienne (lecture) + journal relais (J-2/J+2)
+// DossierEnfant.js — v2026-05-11b — AF principal peut éditer santé (médecin, spécialiste, groupe, allergies, notes) sans editMode
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -666,7 +666,21 @@ export default function DossierEnfant({ profile }) {
     setSaving(false)
   }
 
-  const DATE_KEYS = ['pere_ddn','mere_ddn','date_naissance','date_placement','date_fin_placement','tj_date_audience','date_jugement','date_revision','date_debut','date_fin','date_naissance_pere','date_naissance_mere','date_agrement','date_expiration_agrement','date_debut_contrat','vehicule_assurance_exp','vehicule_ct_exp','deaf_date']
+  // Sauvegarde directe des champs santé (sans passer par editMode)
+  async function saveSanteField(champ, valeur) {
+    let payload = {}
+    if (champ === 'conditions_sante') {
+      payload = { conditions_sante: valeur }
+      setForm(f => ({ ...f, conditions_sante: valeur }))
+    } else if (champ === 'notes_sante') {
+      payload = { notes_sante: valeur }
+    } else if (champ === 'medecin_groupe') {
+      payload = valeur // { medecin, specialiste, groupe_sanguin }
+    }
+    const { error } = await supabase.from('enfants').update(payload).eq('id', id)
+    if (!error) showToast('✅ Enregistré !')
+    else showToast('❌ Erreur : ' + error.message)
+  }'date_placement','date_fin_placement','tj_date_audience','date_jugement','date_revision','date_debut','date_fin','date_naissance_pere','date_naissance_mere','date_agrement','date_expiration_agrement','date_debut_contrat','vehicule_assurance_exp','vehicule_ct_exp','deaf_date']
   function F(key) {
     return (val) => {
       const cleaned = DATE_KEYS.includes(key) && val === '' ? null : val
@@ -820,6 +834,8 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
 
   const initiales = `${enfant.prenom?.[0] || ''}${enfant.nom?.[0] || ''}`
   const age = calcAge(enfant.date_naissance)
+  const isAfPrincipal = isAF && enfant.af_principal_id === profile?.id
+  const canEditSante = canEdit || isAfPrincipal
 
   const ONGLETS = [
     { id:'identite',  icon:'🪪',  label:'Identité',         hidden: nonPlace || isAfRelaisActif },
@@ -1628,11 +1644,20 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                 )}
                 <SectionCard icon="🏥" title="Santé">
                   <FormGrid cols={3}>
-                    <Field label="Médecin traitant" value={v('medecin')} onChange={F('medecin')} readOnly={!editMode} />
-                    <Field label="Pédopsychiatre / Spécialiste" value={v('specialiste')} onChange={F('specialiste')} readOnly={!editMode} />
-                    <Field label="Groupe sanguin" value={v('groupe_sanguin')} onChange={F('groupe_sanguin')} readOnly={!editMode}
+                    <Field label="Médecin traitant" value={v('medecin')} onChange={F('medecin')} readOnly={!canEditSante && !editMode} />
+                    <Field label="Pédopsychiatre / Spécialiste" value={v('specialiste')} onChange={F('specialiste')} readOnly={!canEditSante && !editMode} />
+                    <Field label="Groupe sanguin" value={v('groupe_sanguin')} onChange={F('groupe_sanguin')} readOnly={!canEditSante && !editMode}
                       options={['A+','A-','B+','B-','AB+','AB-','O+','O-']} />
                   </FormGrid>
+                  {/* Bouton enregistrer médecin/spécialiste/groupe pour AF principal (hors editMode) */}
+                  {canEditSante && !editMode && (
+                    <div style={{ marginTop:8 }}>
+                      <button onClick={() => saveSanteField('medecin_groupe', { medecin: form.medecin, specialiste: form.specialiste, groupe_sanguin: form.groupe_sanguin })}
+                        className="btn btn-primary" style={{ fontSize:11 }}>
+                        💾 Enregistrer
+                      </button>
+                    </div>
+                  )}
 
                   {/* Allergies & Conditions */}
                   <div style={{ marginTop:16 }}>
@@ -1641,19 +1666,19 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                       {(form.conditions_sante || []).map((c, i) => (
                         <span key={i} style={{ padding:'5px 12px', borderRadius:15, fontSize:12, fontWeight:600, background:'#fef3e2', color:'#d97706', border:'1px solid #f5dca4', display:'flex', alignItems:'center', gap:4 }}>
                           {c}
-                          {editMode && <span onClick={() => setForm(f => ({ ...f, conditions_sante: f.conditions_sante.filter((_,j) => j !== i) }))} style={{ cursor:'pointer', color:'#c0392b', marginLeft:3, fontSize:14 }}>×</span>}
+                          {canEditSante && <span onClick={() => saveSanteField('conditions_sante', (form.conditions_sante || []).filter((_,j) => j !== i))} style={{ cursor:'pointer', color:'#c0392b', marginLeft:3, fontSize:14 }}>×</span>}
                         </span>
                       ))}
-                      {editMode && (
+                      {canEditSante && (
                         <button onClick={() => {
                           const c = prompt('Allergie ou condition (ex: ⚠️ Allergie arachides, 💊 Ritaline 10mg/matin, 🧠 TDA/H, 🍽️ Sans gluten)')
-                          if (c) setForm(f => ({ ...f, conditions_sante: [...(f.conditions_sante || []), c] }))
+                          if (c) saveSanteField('conditions_sante', [...(form.conditions_sante || []), c])
                         }} style={{ padding:'5px 12px', borderRadius:15, fontSize:12, border:'1px dashed #c4d4f5', background:'#e8eef8', color:'#1a4b8f', cursor:'pointer', fontWeight:600 }}>
                           + Ajouter
                         </button>
                       )}
                     </div>
-                    {(!form.conditions_sante || form.conditions_sante.length === 0) && !editMode && (
+                    {(!form.conditions_sante || form.conditions_sante.length === 0) && !canEditSante && (
                       <div style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Aucune allergie ou condition renseignée</div>
                     )}
                   </div>
@@ -1664,10 +1689,16 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                       📋 Notes santé importantes
                       <span style={{ fontSize:10, color:'#9aa3b8', fontWeight:400, marginLeft:6 }}>visibles par AF relais</span>
                     </label>
-                    {editMode ? (
-                      <textarea className="form-control" rows={3} value={v('notes_sante')} onChange={e => F('notes_sante')(e.target.value)}
-                        placeholder="Traitements, comportements, précautions importantes..."
-                        style={{ resize:'vertical' }} />
+                    {canEditSante ? (
+                      <div>
+                        <textarea className="form-control" rows={3} value={v('notes_sante')} onChange={e => F('notes_sante')(e.target.value)}
+                          placeholder="Traitements, comportements, précautions importantes..."
+                          style={{ resize:'vertical' }} />
+                        <button onClick={() => saveSanteField('notes_sante', form.notes_sante)}
+                          className="btn btn-primary" style={{ marginTop:6, fontSize:11 }}>
+                          💾 Enregistrer
+                        </button>
+                      </div>
                     ) : (
                       <div style={{ padding:'10px 14px', background: v('notes_sante') ? '#fff9e6' : '#f4f6fb', borderRadius:8, border:`1px solid ${v('notes_sante') ? '#f5dca4' : '#dde3f0'}`, fontSize:13, color: v('notes_sante') ? '#1c2333' : '#9aa3b8', fontStyle: v('notes_sante') ? 'normal' : 'italic', minHeight:48 }}>
                         {v('notes_sante') || 'Aucune note renseignée'}
