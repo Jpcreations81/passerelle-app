@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-05-11e — fix page blanche : sécurisation tableaux conditions_sante/preconisations/fratrie
+// DossierEnfant.js — v2026-05-11f — fix crash preconisations : parseArr robuste pour tableaux Supabase
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -191,11 +191,20 @@ export default function DossierEnfant({ profile }) {
       .eq('id', id)
       .single()
     if (!error && data) {
+      const parseArr = (val) => {
+        if (!val) return []
+        if (Array.isArray(val)) return val.filter(Boolean)
+        if (typeof val === 'string') {
+          try { const p = JSON.parse(val); return Array.isArray(p) ? p.filter(Boolean) : [] }
+          catch { return [] }
+        }
+        return []
+      }
       const safeData = {
         ...data,
-        conditions_sante: data.conditions_sante || [],
-        preconisations: data.preconisations || [],
-        fratrie: data.fratrie || [],
+        conditions_sante: parseArr(data.conditions_sante),
+        preconisations: parseArr(data.preconisations),
+        fratrie: parseArr(data.fratrie),
       }
       setEnfant(safeData)
       setForm(safeData)
