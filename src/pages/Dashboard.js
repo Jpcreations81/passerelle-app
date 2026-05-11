@@ -1,3 +1,4 @@
+// Dashboard.js — v2026-05-12a — alertes relais manquant dynamiques (congé sans relais par enfant, J-X)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -12,6 +13,7 @@ export default function Dashboard({ profile, session }) {
   const [mesEnAttente, setMesEnAttente] = useState([])        // mes demandes envoyées, en attente
   const [relaisInconnus, setRelaisInconnus] = useState([])    // événements relais avec famille inconnue
   const [alertesAgrement, setAlertesAgrement] = useState([])  // AF avec agrément expiré ou expirant
+  const [alertesRelaisManquant, setAlertesRelaisManquant] = useState([]) // congés sans relais
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -22,6 +24,7 @@ export default function Dashboard({ profile, session }) {
     fetchMesEnAttente()
     fetchRelaisInconnus()
     fetchAlertesAgrement()
+    fetchAlertesRelaisManquant()
   }, [profile])
 
   async function fetchAlertesAgrement() {
@@ -39,7 +42,69 @@ export default function Dashboard({ profile, session }) {
     }
   }
 
-  async function fetchEnfants() {
+  async function fetchAlertesRelaisManquant() {
+    if (!profile) return
+    const today = new Date(); today.setHours(0,0,0,0)
+
+    // 1. Chercher les congés futurs (ou en cours)
+    let qConges = supabase.from('evenements')
+      .select('id, titre, date_debut, date_fin, af_id, enfant_ids, cree_par')
+      .eq('categorie', 'conge')
+      .gte('date_debut', today.toISOString())
+      .order('date_debut', { ascending: true })
+
+    if (profile.role === 'af') {
+      qConges = qConges.eq('af_id', profile.id)
+    }
+    const { data: conges } = await qConges
+    if (!conges || conges.length === 0) return
+
+    // 2. Pour chaque congé, chercher les relais couvrant la même période
+    const alertes = []
+    for (const conge of conges) {
+      const debutConge = new Date(conge.date_debut)
+      const finConge = new Date(conge.date_fin || conge.date_debut)
+      // Relais attendus : J-1 à J+1
+      const debutRelais = new Date(debutConge); debutRelais.setDate(debutRelais.getDate() - 1)
+      const finRelais = new Date(finConge); finRelais.setDate(finRelais.getDate() + 1)
+
+      // Enfants concernés par ce congé
+      const enfantIds = conge.enfant_ids || []
+      if (enfantIds.length === 0) continue
+
+      // Chercher les relais existants pour ces enfants sur cette période
+      const { data: relaisExistants } = await supabase.from('evenements')
+        .select('id, enfant_ids, date_debut, date_fin, af_id')
+        .eq('categorie', 'relais')
+        .eq('af_id', conge.af_id)
+        .gte('date_fin', debutRelais.toISOString())
+        .lte('date_debut', finRelais.toISOString())
+
+      // Trouver les enfants SANS relais
+      for (const enfantId of enfantIds) {
+        const aUnRelais = (relaisExistants || []).some(r => r.enfant_ids?.includes(enfantId))
+        if (!aUnRelais) {
+          // Récupérer le nom de l'enfant et de l'AF
+          const { data: enfantData } = await supabase.from('enfants')
+            .select('prenom, nom').eq('id', enfantId).single()
+          const { data: afData } = await supabase.from('profiles')
+            .select('prenom, nom').eq('id', conge.af_id).single()
+
+          const joursAvant = Math.ceil((debutConge - new Date()) / (1000*60*60*24))
+          alertes.push({
+            id: `${conge.id}-${enfantId}`,
+            afNom: afData ? `${afData.nom} ${afData.prenom}` : '—',
+            enfantNom: enfantData ? `${enfantData.prenom} ${enfantData.nom}` : '—',
+            dateDebut: debutConge.toLocaleDateString('fr-FR', { day:'numeric', month:'short' }),
+            dateFin: finConge.toLocaleDateString('fr-FR', { day:'numeric', month:'short' }),
+            joursAvant,
+            congeId: conge.id,
+          })
+        }
+      }
+    }
+    setAlertesRelaisManquant(alertes)
+  }
     if (!profile) return
     let query = supabase.from('enfants').select(`
       *,
@@ -239,7 +304,25 @@ export default function Dashboard({ profile, session }) {
                 />
               )}
 
-              {/* ── Alertes AF existantes ── */}
+              {/* ── Alertes ASE (encadrant/rtase/admin) ── */}
+              {['encadrant','rtase','admin'].includes(profile?.role) && (
+                <>
+                  {alertesAgrement.map(af => {
+                    const jours = Math.ceil((new Date(af.date_expiration_agrement) - new Date()) / (1000*60*60*24))
+                    const expire = jours <= 0
+                    return (
+                      <AlertItem key={af.id}
+                        icon={expire ? '🔴' : '⚠️'}
+                        title={`${expire ? 'Agrément EXPIRÉ' : 'Agrément expirant'} — ${af.nom} ${af.prenom}`}
+                        sub={expire ? `Expiré le ${af.date_expiration_agrement?.slice(0,10).split('-').reverse().join('/')} · Renouvellement urgent` : `Expire dans ${jours} jours · ${af.date_expiration_agrement?.slice(0,10).split('-').reverse().join('/')}`}
+                        type={expire ? 'error' : 'warn'}
+                        onClick={() => navigate('/assfam/' + af.id)} />
+                    )
+                  })}
+                </>
+              )}
+
+              {/* ── Alertes AF (fiche présence, vaccin) ── */}
               {profile?.role === 'af' && enfants.length > 0 && (
                 <AlertItem
                   icon="📋"
@@ -259,27 +342,18 @@ export default function Dashboard({ profile, session }) {
                 />
               )}
 
-              {/* ── Alertes ASE ── */}
-              {['encadrant','rtase','admin'].includes(profile?.role) && (
-                <>
-                  <AlertItem icon="🚨" title="Relais non trouvé — Martin René" sub="Congés 15-30 mai · Hugo M. · Sara L. · J-33" type="danger" onClick={() => {}} />
-                  {alertesAgrement.map(af => {
-                    const jours = Math.ceil((new Date(af.date_expiration_agrement) - new Date()) / (1000*60*60*24))
-                    const expire = jours <= 0
-                    return (
-                      <AlertItem key={af.id}
-                        icon={expire ? '🔴' : '⚠️'}
-                        title={`${expire ? 'Agrément EXPIRÉ' : 'Agrément expirant'} — ${af.nom} ${af.prenom}`}
-                        sub={expire ? `Expiré le ${af.date_expiration_agrement?.slice(0,10).split('-').reverse().join('/')} · Renouvellement urgent` : `Expire dans ${jours} jours · ${af.date_expiration_agrement?.slice(0,10).split('-').reverse().join('/')}`}
-                        type={expire ? 'error' : 'warn'}
-                        onClick={() => navigate('/assfam/' + af.id)} />
-                    )
-                  })}
-                </>
-              )}
-
+              {/* ── Alertes relais manquant (AF + encadrant/rtase) ── */}
+              {alertesRelaisManquant.map(a => (
+                <AlertItem key={a.id}
+                  icon="🚨"
+                  title={`Relais non trouvé — ${a.afNom}`}
+                  sub={`Congé ${a.dateDebut}${a.dateFin !== a.dateDebut ? ` → ${a.dateFin}` : ''} · ${a.enfantNom} · J-${a.joursAvant}`}
+                  type="danger"
+                  onClick={() => navigate('/agenda')}
+                />
+              ))}
               {/* ── Aucune alerte ── */}
-              {profile?.role === 'af' && enfants.length === 0 && demandesModif.length === 0 && mesRetours.length === 0 && mesEnAttente.length === 0 && relaisInconnus.length === 0 && (
+              {profile?.role === 'af' && enfants.length === 0 && demandesModif.length === 0 && mesRetours.length === 0 && mesEnAttente.length === 0 && relaisInconnus.length === 0 && alertesRelaisManquant.length === 0 && (
                 <div style={{ textAlign:'center', color:'#9aa3b8', padding:16, fontSize:12 }}>Aucune alerte pour le moment</div>
               )}
 
