@@ -680,7 +680,9 @@ export default function DossierEnfant({ profile }) {
     const { error } = await supabase.from('enfants').update(payload).eq('id', id)
     if (!error) showToast('✅ Enregistré !')
     else showToast('❌ Erreur : ' + error.message)
-  }'date_placement','date_fin_placement','tj_date_audience','date_jugement','date_revision','date_debut','date_fin','date_naissance_pere','date_naissance_mere','date_agrement','date_expiration_agrement','date_debut_contrat','vehicule_assurance_exp','vehicule_ct_exp','deaf_date']
+  }
+
+  const DATE_KEYS = ['pere_ddn','mere_ddn','date_naissance','date_placement','date_fin_placement','tj_date_audience','date_jugement','date_revision','date_debut','date_fin','date_naissance_pere','date_naissance_mere','date_agrement','date_expiration_agrement','date_debut_contrat','vehicule_assurance_exp','vehicule_ct_exp','deaf_date']
   function F(key) {
     return (val) => {
       const cleaned = DATE_KEYS.includes(key) && val === '' ? null : val
