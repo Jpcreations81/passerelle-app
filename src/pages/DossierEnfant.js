@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-05-11f — fix crash preconisations : parseArr robuste pour tableaux Supabase
+// DossierEnfant.js — v2026-05-11g — debug preconisations type
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -191,6 +191,7 @@ export default function DossierEnfant({ profile }) {
       .eq('id', id)
       .single()
     if (!error && data) {
+      console.log('[DEBUG preconisations]', typeof data.preconisations, JSON.stringify(data.preconisations))
       const parseArr = (val) => {
         if (!val) return []
         if (Array.isArray(val)) return val.filter(Boolean)
