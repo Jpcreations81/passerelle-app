@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-05-06b — moteur recherche AF principal (nom/prénom, trié alpha) + gestionnaire isReferent
+// ListeEnfants.js — v2026-05-11a — AF relais voit les enfants en relais actif (J-2/J+2) + badge 🔄
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -11,7 +11,6 @@ export default function ListeEnfants({ profile }) {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [newEnfant, setNewEnfant] = useState({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', lieu_accueil:'af_principal', af_principal_id:'', referent_id:'', fratrie:[] })
-  const [rechercheAFModal, setRechercheAFModal] = useState('')
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
   const [collegues, setCollegues] = useState([])
@@ -23,6 +22,7 @@ export default function ListeEnfants({ profile }) {
   const [newFratrieItem, setNewFratrieItem] = useState({ prenom:'', nom:'', ddn:'', sexe:'M', meme_af:true })
 
   const isReferent = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
+  const [enfantsRelaisIds, setEnfantsRelaisIds] = useState([]) // IDs des enfants en relais actif chez cet AF
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2800) }
 
@@ -34,11 +34,61 @@ export default function ListeEnfants({ profile }) {
       referent:referent_id(nom, prenom)
     `)
     if (profile.role === 'af') {
-      q = q.eq('af_principal_id', profile.id).neq('type_placement', 'non_place')
+      // 1. Charger les enfants principaux
+      const { data: enfantsPrincipaux } = await supabase.from('enfants').select(`
+        id, prenom, nom, date_naissance, sexe, numero_dossier, type_placement, date_placement,
+        af_principal:af_principal_id(nom, prenom),
+        referent:referent_id(nom, prenom)
+      `).eq('af_principal_id', profile.id).neq('type_placement', 'non_place')
+
+      // 2. Chercher les enfants en relais actif (fenêtre J-2/J+2)
+      const now = new Date()
+      const jMoins2 = new Date(now); jMoins2.setDate(jMoins2.getDate() - 2); jMoins2.setHours(0,0,0,0)
+      const jPlus2 = new Date(now); jPlus2.setDate(jPlus2.getDate() + 2); jPlus2.setHours(23,59,59,999)
+
+      const { data: evtsRelais } = await supabase.from('evenements')
+        .select('enfant_ids, participants_ids')
+        .eq('categorie', 'relais')
+        .gte('date_fin', jMoins2.toISOString())
+        .lte('date_debut', jPlus2.toISOString())
+
+      // Extraire les enfant_ids des relais où l'AF est participant
+      const enfantIdsRelais = []
+      if (evtsRelais) {
+        evtsRelais.forEach(e => {
+          if (e.participants_ids?.includes(profile.id) && e.enfant_ids) {
+            e.enfant_ids.forEach(eid => {
+              if (!enfantIdsRelais.includes(eid)) enfantIdsRelais.push(eid)
+            })
+          }
+        })
+      }
+
+      // 3. Charger les enfants en relais non déjà dans la liste principale
+      let enfantsRelais = []
+      if (enfantIdsRelais.length > 0) {
+        const idsPrincipaux = (enfantsPrincipaux || []).map(e => e.id)
+        const idsACharger = enfantIdsRelais.filter(id => !idsPrincipaux.includes(id))
+        if (idsACharger.length > 0) {
+          const { data } = await supabase.from('enfants').select(`
+            id, prenom, nom, date_naissance, sexe, numero_dossier, type_placement, date_placement,
+            af_principal:af_principal_id(nom, prenom),
+            referent:referent_id(nom, prenom)
+          `).in('id', idsACharger)
+          if (data) enfantsRelais = data
+        }
+      }
+
+      // 4. Fusionner et trier
+      const tous = [...(enfantsPrincipaux || []), ...enfantsRelais]
+        .sort((a, b) => a.nom.localeCompare(b.nom))
+      setEnfants(tous)
+      setEnfantsRelaisIds(enfantsRelais.map(e => e.id))
+      setLoading(false)
+      return
     } else if (profile.role === 'referent') {
       q = q.eq('territoire', profile.territoire)
     } else if (profile.role === 'encadrant') {
-      // Encadrant voit les enfants de son secteur via les AF
       q = q.eq('territoire', profile.territoire)
     }
     const { data } = await q.order('nom', { ascending: true })
@@ -188,6 +238,9 @@ export default function ListeEnfants({ profile }) {
                       {e.type_placement && (
                         <span style={{ padding:'2px 8px', borderRadius:10, background: placement.bg, color: placement.color, fontSize:10, fontWeight:600 }}>{placement.label}</span>
                       )}
+                      {enfantsRelaisIds.includes(e.id) && (
+                        <span style={{ padding:'2px 8px', borderRadius:10, background:'#e0f2fe', color:'#0891b2', fontSize:10, fontWeight:700 }}>🔄 Relais actif</span>
+                      )}
                     </div>
                     <div style={{ borderTop:'1px solid #f0f0f0', paddingTop:10, display:'flex', justifyContent:'space-between', fontSize:11, color:'#9aa3b8' }}>
                       <span>👨‍👩‍👧 {e.af_principal ? `${e.af_principal.nom} ${e.af_principal.prenom}` : 'AF non assigné'}</span>
@@ -269,57 +322,23 @@ export default function ListeEnfants({ profile }) {
               {newEnfant.lieu_accueil === 'af_principal' && (
                 <div className="form-group" style={{ marginBottom:16 }}>
                   <label className="form-label">AF Principal</label>
-                  {/* AF sélectionné */}
-                  {newEnfant.af_principal_id ? (() => {
+                  <select className="form-control" value={newEnfant.af_principal_id || ''} onChange={e => setNewEnfant(n => ({...n, af_principal_id: e.target.value}))}>
+                    <option value="">— Sélectionner un AF —</option>
+                    {collegues.filter(c => c.role === 'af').map(c => (
+                      <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
+                    ))}
+                  </select>
+                  {newEnfant.af_principal_id && (() => {
                     const af = collegues.find(c => c.id === newEnfant.af_principal_id)
                     return af ? (
-                      <div style={{ marginBottom:8, padding:'10px 14px', background:'#e6f5eb', borderRadius:8, border:'1px solid #c4e8cc', fontSize:12, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                        <div>
-                          <div style={{ fontWeight:700, marginBottom:2 }}>✅ 👨‍👩‍👧 {af.nom} {af.prenom}</div>
-                          {af.telephone && <div>📞 {af.telephone}</div>}
-                          {af.email && <div>✉️ {af.email}</div>}
-                          {af.ville && <div>📍 {af.ville}</div>}
-                        </div>
-                        <span style={{ cursor:'pointer', color:'#c0392b', fontSize:16, fontWeight:700, marginLeft:8 }}
-                          onClick={() => setNewEnfant(n => ({...n, af_principal_id: ''}))}>×</span>
+                      <div style={{marginTop:8,padding:'10px 14px',background:'#e6f5eb',borderRadius:8,border:'1px solid #c4e8cc',fontSize:12}}>
+                        <div style={{fontWeight:700,marginBottom:4}}>👨‍👩‍👧 {af.nom} {af.prenom}</div>
+                        {af.telephone&&<div>📞 {af.telephone}</div>}
+                        {af.email&&<div>✉️ {af.email}</div>}
+                        {af.ville&&<div>📍 {af.ville}</div>}
                       </div>
                     ) : null
-                  })() : (
-                    <div style={{ position:'relative' }}>
-                      <input className="form-control"
-                        placeholder="🔍 Rechercher par nom ou prénom..."
-                        value={rechercheAFModal || ''}
-                        onChange={e => setRechercheAFModal(e.target.value)}
-                      />
-                      {rechercheAFModal?.length > 0 && (
-                        <div style={{ position:'absolute', top:'100%', left:0, right:0, background:'#fff', border:'1px solid #dde3f0', borderRadius:7, zIndex:200, maxHeight:200, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,.12)' }}>
-                          {collegues
-                            .filter(c => c.role === 'af' &&
-                              (`${c.prenom} ${c.nom}`.toLowerCase().includes(rechercheAFModal.toLowerCase()) ||
-                               `${c.nom} ${c.prenom}`.toLowerCase().includes(rechercheAFModal.toLowerCase())))
-                            .sort((a, b) => a.nom.localeCompare(b.nom))
-                            .slice(0, 10)
-                            .map(af => (
-                              <div key={af.id}
-                                onClick={() => { setNewEnfant(n => ({...n, af_principal_id: af.id})); setRechercheAFModal('') }}
-                                style={{ padding:'9px 12px', cursor:'pointer', fontSize:12, borderBottom:'1px solid #f0f0f0', display:'flex', alignItems:'center', justifyContent:'space-between' }}
-                                onMouseOver={e => e.currentTarget.style.background='#f4f6fb'}
-                                onMouseOut={e => e.currentTarget.style.background='#fff'}>
-                                <span style={{ fontWeight:600 }}>👨‍👩‍👧 {af.nom} {af.prenom}</span>
-                                {af.ville && <span style={{ fontSize:10, color:'#9aa3b8' }}>{af.ville}</span>}
-                              </div>
-                            ))}
-                          {collegues.filter(c => c.role === 'af' &&
-                            (`${c.prenom} ${c.nom}`.toLowerCase().includes(rechercheAFModal.toLowerCase()) ||
-                             `${c.nom} ${c.prenom}`.toLowerCase().includes(rechercheAFModal.toLowerCase()))).length === 0 && (
-                            <div style={{ padding:'10px 12px', fontSize:11, color:'#9aa3b8', textAlign:'center' }}>
-                              Aucun résultat pour "{rechercheAFModal}"
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  })()}
                 </div>
               )}
               <div className="form-group" style={{ marginBottom:16 }}>
