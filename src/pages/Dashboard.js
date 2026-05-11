@@ -105,6 +105,8 @@ export default function Dashboard({ profile, session }) {
     }
     setAlertesRelaisManquant(alertes)
   }
+
+  async function fetchEnfants() {
     if (!profile) return
     let query = supabase.from('enfants').select(`
       *,
