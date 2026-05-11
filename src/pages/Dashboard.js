@@ -1,4 +1,4 @@
-// Dashboard.js — v2026-05-12a — alertes relais manquant dynamiques (congé sans relais par enfant, J-X)
+// Dashboard.js — v2026-05-12b — fix alertes relais manquant : cherche enfants via af_principal_id (pas enfant_ids congé)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -46,9 +46,9 @@ export default function Dashboard({ profile, session }) {
     if (!profile) return
     const today = new Date(); today.setHours(0,0,0,0)
 
-    // 1. Chercher les congés futurs (ou en cours)
+    // 1. Chercher les congés futurs
     let qConges = supabase.from('evenements')
-      .select('id, titre, date_debut, date_fin, af_id, enfant_ids, cree_par')
+      .select('id, titre, date_debut, date_fin, af_id')
       .eq('categorie', 'conge')
       .gte('date_debut', today.toISOString())
       .order('date_debut', { ascending: true })
@@ -59,42 +59,41 @@ export default function Dashboard({ profile, session }) {
     const { data: conges } = await qConges
     if (!conges || conges.length === 0) return
 
-    // 2. Pour chaque congé, chercher les relais couvrant la même période
     const alertes = []
     for (const conge of conges) {
       const debutConge = new Date(conge.date_debut)
       const finConge = new Date(conge.date_fin || conge.date_debut)
-      // Relais attendus : J-1 à J+1
       const debutRelais = new Date(debutConge); debutRelais.setDate(debutRelais.getDate() - 1)
       const finRelais = new Date(finConge); finRelais.setDate(finRelais.getDate() + 1)
 
-      // Enfants concernés par ce congé
-      const enfantIds = conge.enfant_ids || []
-      if (enfantIds.length === 0) continue
+      // 2. Chercher tous les enfants de cet AF principal
+      const { data: enfantsAF } = await supabase.from('enfants')
+        .select('id, prenom, nom')
+        .eq('af_principal_id', conge.af_id)
+        .neq('type_placement', 'non_place')
 
-      // Chercher les relais existants pour ces enfants sur cette période
+      if (!enfantsAF || enfantsAF.length === 0) continue
+
+      // 3. Chercher les relais existants de cet AF sur cette période
       const { data: relaisExistants } = await supabase.from('evenements')
-        .select('id, enfant_ids, date_debut, date_fin, af_id')
+        .select('id, enfant_ids, date_debut, date_fin')
         .eq('categorie', 'relais')
         .eq('af_id', conge.af_id)
         .gte('date_fin', debutRelais.toISOString())
         .lte('date_debut', finRelais.toISOString())
 
-      // Trouver les enfants SANS relais
-      for (const enfantId of enfantIds) {
-        const aUnRelais = (relaisExistants || []).some(r => r.enfant_ids?.includes(enfantId))
-        if (!aUnRelais) {
-          // Récupérer le nom de l'enfant et de l'AF
-          const { data: enfantData } = await supabase.from('enfants')
-            .select('prenom, nom').eq('id', enfantId).single()
-          const { data: afData } = await supabase.from('profiles')
-            .select('prenom, nom').eq('id', conge.af_id).single()
+      // 4. Trouver les enfants SANS relais
+      const { data: afData } = await supabase.from('profiles')
+        .select('prenom, nom').eq('id', conge.af_id).single()
 
+      for (const enfant of enfantsAF) {
+        const aUnRelais = (relaisExistants || []).some(r => r.enfant_ids?.includes(enfant.id))
+        if (!aUnRelais) {
           const joursAvant = Math.ceil((debutConge - new Date()) / (1000*60*60*24))
           alertes.push({
-            id: `${conge.id}-${enfantId}`,
+            id: `${conge.id}-${enfant.id}`,
             afNom: afData ? `${afData.nom} ${afData.prenom}` : '—',
-            enfantNom: enfantData ? `${enfantData.prenom} ${enfantData.nom}` : '—',
+            enfantNom: `${enfant.prenom} ${enfant.nom}`,
             dateDebut: debutConge.toLocaleDateString('fr-FR', { day:'numeric', month:'short' }),
             dateFin: finConge.toLocaleDateString('fr-FR', { day:'numeric', month:'short' }),
             joursAvant,
