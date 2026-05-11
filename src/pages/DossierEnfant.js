@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-05-11d — fix JSX ordonnances SectionCard + préconisations particulières
+// DossierEnfant.js — v2026-05-11e — fix page blanche : sécurisation tableaux conditions_sante/preconisations/fratrie
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -191,8 +191,14 @@ export default function DossierEnfant({ profile }) {
       .eq('id', id)
       .single()
     if (!error && data) {
-      setEnfant(data)
-      setForm(data)
+      const safeData = {
+        ...data,
+        conditions_sante: data.conditions_sante || [],
+        preconisations: data.preconisations || [],
+        fratrie: data.fratrie || [],
+      }
+      setEnfant(safeData)
+      setForm(safeData)
       if (data.pere) setPere(data.pere)
       if (data.mere) setMere(data.mere)
     }
@@ -694,7 +700,11 @@ export default function DossierEnfant({ profile }) {
       setForm(f => ({ ...f, [key]: cleaned }))
     }
   }
-  function v(key) { return form[key] || '' }
+  const ARRAY_KEYS = ['conditions_sante', 'preconisations', 'fratrie']
+  function v(key) {
+    if (ARRAY_KEYS.includes(key)) return form[key] || []
+    return form[key] || ''
+  }
 
   // ── Calcul âge ──────────────────────────────────────────────────────────────
   // Formater une date ISO (YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS) en DD/MM/YYYY
