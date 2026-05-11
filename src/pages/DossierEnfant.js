@@ -1,3 +1,4 @@
+// DossierEnfant.js — v2026-05-11a — accès AF relais : vie quotidienne (lecture) + journal relais (J-2/J+2)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -134,10 +135,38 @@ export default function DossierEnfant({ profile }) {
   const [fratrieMode, setFratrieMode] = useState('question') // 'question', 'search', 'create', 'parents'
   const [newFratrie, setNewFratrie] = useState({ prenom:'', nom:'', ddn:'', sexe:'M', meme_af:false, type_placement:'non_place', lieu_type:'', lieu_nom:'', memes_parents: null })
 
+  const [isAfRelaisActif, setIsAfRelaisActif] = useState(false)
+  const [relaisInfo, setRelaisInfo] = useState(null) // { date_debut, date_fin } du relais en cours
+
   const nonPlace = enfant?.type_placement === 'non_place' || !enfant?.type_placement
-  const isReferent = ['referent','encadrant','rtase','admin'].includes(profile?.role)
+  const isReferent = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
   const isAF = profile?.role === 'af'
   const canEdit = isReferent
+
+  // ── Vérifier si l'AF connecté est AF relais actif pour cet enfant (fenêtre J-2/J+2) ──
+  const fetchRelaisActif = useCallback(async () => {
+    if (!isAF || !id || !profile?.id) return
+    const now = new Date()
+    const jMoins2 = new Date(now); jMoins2.setDate(jMoins2.getDate() - 2); jMoins2.setHours(0,0,0,0)
+    const jPlus2 = new Date(now); jPlus2.setDate(jPlus2.getDate() + 2); jPlus2.setHours(23,59,59,999)
+
+    const { data } = await supabase
+      .from('evenements')
+      .select('id, date_debut, date_fin, participants_ids, enfant_ids')
+      .eq('categorie', 'relais')
+      .contains('enfant_ids', [id])
+      .gte('date_fin', jMoins2.toISOString())
+      .lte('date_debut', jPlus2.toISOString())
+
+    if (data) {
+      const relais = data.find(e => e.participants_ids?.includes(profile.id))
+      if (relais) {
+        setIsAfRelaisActif(true)
+        setRelaisInfo({ date_debut: relais.date_debut, date_fin: relais.date_fin })
+      }
+    }
+  }, [isAF, id, profile?.id])
+
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2800) }
 
   // ── Chargement ──────────────────────────────────────────────────────────────
@@ -589,7 +618,8 @@ export default function DossierEnfant({ profile }) {
     fetchDocuments()
     fetchMaisonsDept()
     fetchDossiersEnfant()
-  }, [fetchEnfant, fetchCollegues, fetchJournal, fetchDocuments, fetchMaisonsDept])
+    fetchRelaisActif()
+  }, [fetchEnfant, fetchCollegues, fetchJournal, fetchDocuments, fetchMaisonsDept, fetchRelaisActif])
 
   // Charger docs parents quand pere/mere chargés
   const [docsPereFiche, setDocsPereFiche] = useState([])
@@ -792,13 +822,13 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
   const age = calcAge(enfant.date_naissance)
 
   const ONGLETS = [
-    { id:'identite', icon:'🪪', label:'Identité' },
-    { id:'famille', icon:'👨‍👩‍👧', label:'Famille' },
-    { id:'placement', icon:'🏠', label:'Placement', hidden: nonPlace },
-    { id:'judiciaire', icon:'⚖️', label:'Judiciaire', restricted: isAF, hidden: nonPlace },
-    { id:'quotidien', icon:'🌱', label:'Vie quotidienne', hidden: nonPlace },
-    { id:'docs', icon:'📂', label:'Docs', hidden: nonPlace },
-    { id:'journal', icon:'📝', label:'Journal', hidden: nonPlace, badge: journalNotes.length > 0 ? journalNotes.filter(n => {
+    { id:'identite',  icon:'🪪',  label:'Identité',         hidden: nonPlace || isAfRelaisActif },
+    { id:'famille',   icon:'👨‍👩‍👧', label:'Famille',          hidden: nonPlace || isAfRelaisActif },
+    { id:'placement', icon:'🏠',  label:'Placement',         hidden: nonPlace || isAfRelaisActif },
+    { id:'judiciaire',icon:'⚖️',  label:'Judiciaire',        restricted: isAF, hidden: nonPlace || isAfRelaisActif },
+    { id:'quotidien', icon:'🌱',  label:'Vie quotidienne',   hidden: nonPlace },
+    { id:'docs',      icon:'📂',  label:'Docs',              hidden: nonPlace || isAfRelaisActif },
+    { id:'journal',   icon:'📝',  label:'Journal',           hidden: nonPlace, badge: journalNotes.length > 0 ? journalNotes.filter(n => {
       const d = new Date(n.date); const now = new Date(); return (now - d) < 7 * 24 * 3600 * 1000
     }).length : 0 },
   ].filter(o => !o.hidden)
@@ -1584,6 +1614,18 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
             ══════════════════════════════════════════════════════════════ */}
             {onglet === 'quotidien' && (
               <>
+                {/* Bandeau AF relais */}
+                {isAfRelaisActif && (
+                  <div style={{ background:'#e0f2fe', border:'1px solid #7dd3fc', borderRadius:10, padding:'12px 16px', display:'flex', alignItems:'center', gap:10, marginBottom:16, fontSize:13, color:'#0369a1' }}>
+                    <span style={{ fontSize:18 }}>🔄</span>
+                    <div>
+                      <strong>Accès relais</strong> — Vous consultez les informations nécessaires à l'accueil de cet enfant.
+                      {relaisInfo && <span style={{ marginLeft:6, fontSize:11, color:'#0891b2' }}>
+                        Relais du {fmtDate(relaisInfo.date_debut?.slice(0,10))} au {fmtDate(relaisInfo.date_fin?.slice(0,10))}
+                      </span>}
+                    </div>
+                  </div>
+                )}
                 <SectionCard icon="🏥" title="Santé">
                   <FormGrid cols={3}>
                     <Field label="Médecin traitant" value={v('medecin')} onChange={F('medecin')} readOnly={!editMode} />
@@ -1668,16 +1710,21 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                   </div>
                 </SectionCard>
 
-                <SectionCard icon="👕" title="Vêture & Argent de poche">
-                  <FormGrid cols={3}>
-                    <Field label="Taille vêtements" value={v('taille_vetements')} onChange={F('taille_vetements')} readOnly={!editMode} placeholder="8 ans / 128 cm" />
-                    <Field label="Pointure chaussures" value={v('pointure')} onChange={F('pointure')} readOnly={!editMode} />
-                    <Field label="Allocation vêture mensuelle" value={v('allocation_veture')} onChange={F('allocation_veture')} readOnly={!editMode} placeholder="80 €" />
-                    <Field label="Argent de poche hebdo" value={v('argent_poche')} onChange={F('argent_poche')} readOnly={!editMode} placeholder="5 €" />
-                    <Field label="Solde actuel" value={v('solde_argent')} onChange={F('solde_argent')} readOnly={!editMode} />
-                  </FormGrid>
+                <SectionCard icon="👕" title="Vêture & Argent de poche" defaultOpen={!isAfRelaisActif}>
+                  {isAfRelaisActif ? (
+                    <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13 }}>Section non accessible en mode relais.</div>
+                  ) : (
+                    <FormGrid cols={3}>
+                      <Field label="Taille vêtements" value={v('taille_vetements')} onChange={F('taille_vetements')} readOnly={!editMode} placeholder="8 ans / 128 cm" />
+                      <Field label="Pointure chaussures" value={v('pointure')} onChange={F('pointure')} readOnly={!editMode} />
+                      <Field label="Allocation vêture mensuelle" value={v('allocation_veture')} onChange={F('allocation_veture')} readOnly={!editMode} placeholder="80 €" />
+                      <Field label="Argent de poche hebdo" value={v('argent_poche')} onChange={F('argent_poche')} readOnly={!editMode} placeholder="5 €" />
+                      <Field label="Solde actuel" value={v('solde_argent')} onChange={F('solde_argent')} readOnly={!editMode} />
+                    </FormGrid>
+                  )}
                 </SectionCard>
 
+                {!isAfRelaisActif && (
                 <SectionCard icon="🏫" title="Scolarité">
                   <FormGrid cols={3}>
                     <Field label="École / Établissement" value={v('ecole_nom')} onChange={F('ecole_nom')} readOnly={!editMode} />
@@ -1691,6 +1738,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                     <button onClick={() => showToast('🏊 Centre de loisirs...')} className="btn btn-secondary">🏊 Centre de loisirs</button>
                   </div>
                 </SectionCard>
+                )}
               </>
             )}
 
@@ -1715,16 +1763,29 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
               <>
                 {/* Barre actions */}
                 <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16, flexWrap:'wrap' }}>
-                  <button onClick={() => setShowNoteModal(true)} className="btn btn-primary">+ Nouvelle note</button>
+                  <button onClick={() => {
+                    // AF relais → forcer type_note = 'relais' et préremplir les dates
+                    if (isAfRelaisActif && relaisInfo) {
+                      setNewNote(n => ({
+                        ...n,
+                        type_note: 'relais',
+                        relais_debut: relaisInfo.date_debut?.slice(0,10) || '',
+                        relais_fin: relaisInfo.date_fin?.slice(0,10) || '',
+                      }))
+                    }
+                    setShowNoteModal(true)
+                  }} className="btn btn-primary">+ Nouvelle note</button>
                   <div style={{ display:'flex', gap:4 }}>
                     {['😊','😐','😢','⚠️'].map(m => (
                       <button key={m} style={{ fontSize:16, padding:'5px 9px', borderRadius:8, border:'1px solid #dde3f0', background:'#fff', cursor:'pointer' }}>{m}</button>
                     ))}
                   </div>
-                  <button onClick={() => { setRapportTexte(''); setShowRapportModal(true) }}
-                    style={{ marginLeft:'auto', padding:'8px 14px', borderRadius:8, border:'none', background:'#2e8b4a', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Sora,sans-serif' }}>
-                    📄 Rapport synthétique ASE
-                  </button>
+                  {!isAfRelaisActif && (
+                    <button onClick={() => { setRapportTexte(''); setShowRapportModal(true) }}
+                      style={{ marginLeft:'auto', padding:'8px 14px', borderRadius:8, border:'none', background:'#2e8b4a', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Sora,sans-serif' }}>
+                      📄 Rapport synthétique ASE
+                    </button>
+                  )}
                 </div>
 
                 {/* Légende */}
@@ -1748,7 +1809,14 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                 ) : journalNotes.map(note => {
                   const isRelais = note.type_note === 'relais'
                   const isOwner = profile?.id === note.auteur_id
-                  const canSee = isRelais || isOwner || isReferent
+                  // AF relais : voit uniquement les notes relais (les siennes + celles des autres relais)
+                  // AF principal : voit ses notes + notes relais (lecture seule)
+                  // Référent : voit tout
+                  const canSee = isReferent
+                    || (isAfRelaisActif && isRelais)
+                    || (!isAfRelaisActif && (isRelais || isOwner))
+                  // AF relais peut modifier uniquement ses propres notes
+                  const canEditNote = isReferent || (isOwner && (!isAfRelaisActif || isRelais))
                   if (!canSee) return null
                   return (
                     <div key={note.id} style={{
@@ -1768,7 +1836,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                           {isRelais ? '🔄 AF Relais' : '🏠 AF Principal'}
                         </span>
                         <span style={{ fontSize:18, marginLeft:'auto' }}>{note.humeur}</span>
-                        {(isOwner || isReferent) && (
+                        {canEditNote && (
                           <>
                             <button onClick={() => openEditNote(note)}
                               style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>✏️</button>
@@ -1811,6 +1879,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
             <div className="modal-title">{editNoteId ? '✏️ Modifier la note' : '📝 Nouvelle note journal'}</div>
 
             {/* Type de note */}
+            {!isAfRelaisActif && (
             <div className="form-group" style={{ marginBottom:14 }}>
               <label className="form-label">Type de note</label>
               <div style={{ display:'flex', gap:8 }}>
@@ -1826,6 +1895,12 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                 ))}
               </div>
             </div>
+            )}
+            {isAfRelaisActif && (
+              <div style={{ background:'#e8f5e9', border:'1px solid #a5d6a7', borderRadius:8, padding:'8px 14px', marginBottom:14, fontSize:12, color:'#2e7d32', fontWeight:600 }}>
+                🔄 Note de rapport relais — visible par l'AF principal et l'ASE
+              </div>
+            )}
 
             {/* Dates relais si type relais */}
             {newNote.type_note === 'relais' && (
