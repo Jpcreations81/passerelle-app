@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-05-11c — section Préconisations particulières + textarea width 100% + preconisations/notes_preconisations
+// DossierEnfant.js — v2026-05-11d — fix JSX ordonnances SectionCard + préconisations particulières
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1764,9 +1764,8 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                   </div>
                 </SectionCard>
 
-                  {/* Ordonnances */}
-                  <div style={{ marginTop:16 }}>
-                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:8 }}>💊 Ordonnances en cours</label>
+                <SectionCard icon="💊" title="Ordonnances en cours">
+                  <div>
                     {documents.filter(d => d.type_doc === 'ordonnance').map(d => {
                       const dateExpir = d.date_expiration ? new Date(d.date_expiration) : null
                       const joursRestants = dateExpir ? Math.ceil((dateExpir - new Date()) / (1000*60*60*24)) : null
