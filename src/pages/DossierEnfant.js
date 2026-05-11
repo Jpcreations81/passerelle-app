@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-05-11b — AF principal peut éditer santé (médecin, spécialiste, groupe, allergies, notes) sans editMode
+// DossierEnfant.js — v2026-05-11c — section Préconisations particulières + textarea width 100% + preconisations/notes_preconisations
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -674,8 +674,13 @@ export default function DossierEnfant({ profile }) {
       setForm(f => ({ ...f, conditions_sante: valeur }))
     } else if (champ === 'notes_sante') {
       payload = { notes_sante: valeur }
+    } else if (champ === 'preconisations') {
+      payload = { preconisations: valeur }
+      setForm(f => ({ ...f, preconisations: valeur }))
+    } else if (champ === 'notes_preconisations') {
+      payload = { notes_preconisations: valeur }
     } else if (champ === 'medecin_groupe') {
-      payload = valeur // { medecin, specialiste, groupe_sanguin }
+      payload = valeur
     }
     const { error } = await supabase.from('enfants').update(payload).eq('id', id)
     if (!error) showToast('✅ Enregistré !')
@@ -1695,7 +1700,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                       <div>
                         <textarea className="form-control" rows={3} value={v('notes_sante')} onChange={e => F('notes_sante')(e.target.value)}
                           placeholder="Traitements, comportements, précautions importantes..."
-                          style={{ resize:'vertical' }} />
+                          style={{ resize:'vertical', width:'100%', boxSizing:'border-box' }} />
                         <button onClick={() => saveSanteField('notes_sante', form.notes_sante)}
                           className="btn btn-primary" style={{ marginTop:6, fontSize:11 }}>
                           💾 Enregistrer
@@ -1707,6 +1712,57 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                       </div>
                     )}
                   </div>
+                </SectionCard>
+
+                {/* ── PRÉCONISATIONS PARTICULIÈRES ── */}
+                <SectionCard icon="🟡" title="Préconisations particulières">
+                  <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic', marginBottom:10 }}>
+                    Visibles par l'AF relais
+                  </div>
+
+                  {/* Tags préconisations */}
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
+                    {(form.preconisations || []).map((p, i) => (
+                      <span key={i} style={{ padding:'5px 12px', borderRadius:15, fontSize:12, fontWeight:600, background:'#fef9e7', color:'#d97706', border:'1px solid #f5dca4', display:'flex', alignItems:'center', gap:4 }}>
+                        {p}
+                        {canEditSante && <span onClick={() => saveSanteField('preconisations', (form.preconisations || []).filter((_,j) => j !== i))} style={{ cursor:'pointer', color:'#c0392b', marginLeft:3, fontSize:14 }}>×</span>}
+                      </span>
+                    ))}
+                    {canEditSante && (
+                      <button onClick={() => {
+                        const p = prompt('Préconisation (ex: 🛏️ Rituel du coucher important, 🚿 Douche obligatoire le soir, 📵 Pas d\'écrans après 20h)')
+                        if (p) saveSanteField('preconisations', [...(form.preconisations || []), p])
+                      }} style={{ padding:'5px 12px', borderRadius:15, fontSize:12, border:'1px dashed #f5dca4', background:'#fef9e7', color:'#d97706', cursor:'pointer', fontWeight:600 }}>
+                        + Ajouter
+                      </button>
+                    )}
+                    {(!form.preconisations || form.preconisations.length === 0) && !canEditSante && (
+                      <div style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Aucune préconisation renseignée</div>
+                    )}
+                  </div>
+
+                  {/* Résumé rédigé par l'AF principal */}
+                  <div style={{ marginTop:10 }}>
+                    <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:6 }}>
+                      Résumé <span style={{ fontSize:10, color:'#9aa3b8', fontWeight:400 }}>(rédigé par l'AF principal)</span>
+                    </label>
+                    {canEditSante ? (
+                      <div>
+                        <textarea className="form-control" rows={3} value={v('notes_preconisations')} onChange={e => F('notes_preconisations')(e.target.value)}
+                          placeholder="Décrivez les habitudes, rituels, besoins particuliers de l'enfant..."
+                          style={{ resize:'vertical', width:'100%', boxSizing:'border-box' }} />
+                        <button onClick={() => saveSanteField('notes_preconisations', form.notes_preconisations)}
+                          className="btn btn-primary" style={{ marginTop:6, fontSize:11 }}>
+                          💾 Enregistrer
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ padding:'10px 14px', background: v('notes_preconisations') ? '#fffbeb' : '#f4f6fb', borderRadius:8, border:`1px solid ${v('notes_preconisations') ? '#f5dca4' : '#dde3f0'}`, fontSize:13, color: v('notes_preconisations') ? '#1c2333' : '#9aa3b8', fontStyle: v('notes_preconisations') ? 'normal' : 'italic', minHeight:48, lineHeight:1.7 }}>
+                        {v('notes_preconisations') || 'Aucune note renseignée'}
+                      </div>
+                    )}
+                  </div>
+                </SectionCard>
 
                   {/* Ordonnances */}
                   <div style={{ marginTop:16 }}>
