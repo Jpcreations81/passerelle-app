@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-12h — encadrant peut créer des événements (relais pour ses AF)
+// Agenda.js — v2026-05-12i — formation : relais par enfant (mêmes dates) + encadrant voit formation + ⚠️ sans relais
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -563,7 +563,7 @@ export default function Agenda({ profile }) {
   function evtsFiltres() {
     let base = evenements
     // Encadrant : uniquement congés et relais des AF de son périmètre
-    if (isEncadrant) base = evenements.filter(e => ['relais', 'conge'].includes(e.categorie))
+    if (isEncadrant) base = evenements.filter(e => ['relais', 'conge', 'formation'].includes(e.categorie))
     if (filtres.includes('tous')) return base
     return base.filter(e => filtres.includes(e.categorie))
   }
@@ -636,12 +636,17 @@ export default function Agenda({ profile }) {
             }
           }
           // Encadrant : pour un congé, afficher les enfants en relais pendant cette période
-          if (isEncadrant && evt.categorie === 'conge') {
-            const debutConge = new Date(evt.date_debut)
-            const finConge = new Date(evt.date_fin || evt.date_debut)
-            const debutRecherche = new Date(debutConge); debutRecherche.setDate(debutRecherche.getDate() - 1)
-            const finRecherche = new Date(finConge); finRecherche.setDate(finRecherche.getDate() + 1)
-            const relaisConge = evenements.filter(r =>
+          if (isEncadrant && ['conge', 'formation'].includes(evt.categorie)) {
+            const debutEvt = new Date(evt.date_debut)
+            const finEvt = new Date(evt.date_fin || evt.date_debut)
+            // Congé : fenêtre J-1/J+1 — Formation : mêmes dates
+            const debutRecherche = new Date(debutEvt)
+            const finRecherche = new Date(finEvt)
+            if (evt.categorie === 'conge') {
+              debutRecherche.setDate(debutRecherche.getDate() - 1)
+              finRecherche.setDate(finRecherche.getDate() + 1)
+            }
+            const relaisEvt = evenements.filter(r =>
               r.categorie === 'relais' &&
               r.af_id === evt.af_id &&
               new Date(r.date_debut) <= finRecherche &&
@@ -653,7 +658,7 @@ export default function Agenda({ profile }) {
             })
             const enfantsAvecRelais = []
             const enfantsSansRelais = []
-            relaisConge.forEach(r => {
+            relaisEvt.forEach(r => {
               (r.enfant_ids || []).forEach(eid => {
                 const enf = enfants.find(e => e.id === eid)
                 if (enf && !enfantsAvecRelais.includes(enf.prenom)) enfantsAvecRelais.push(enf.prenom)
@@ -665,7 +670,9 @@ export default function Agenda({ profile }) {
             const afProfil = collegues.find(c => c.id === evt.af_id)
             const afNom = afProfil ? `${afProfil.nom} ${afProfil.prenom}` : ''
             const partieSansRelais = enfantsSansRelais.length > 0 ? ` · ⚠️ ${enfantsSansRelais.join(', ')} sans relais` : ''
-            titrePOV = `🏖️ Congé ${afNom}${partieSansRelais}`
+            const icone = evt.categorie === 'formation' ? '📚' : '🏖️'
+            const label = evt.categorie === 'formation' ? 'Formation' : 'Congé'
+            titrePOV = `${icone} ${label} ${afNom}${partieSansRelais}`
           }
           // AF : titre simplifié sans le nom (c'est son propre congé)
           if (!isEncadrant && evt.categorie === 'conge') {
@@ -760,23 +767,30 @@ export default function Agenda({ profile }) {
     const { error } = await supabase.from('evenements').insert(allRows)
     if (!error) {
       // Si congé → créer automatiquement les événements relais par enfant (J-1 à J+1)
-      if (newEvt.categorie === 'conge' && newEvt.congeRelais) {
+      if (['conge', 'formation'].includes(newEvt.categorie) && newEvt.congeRelais) {
         const relaisRows = []
-        const debutConge = new Date(`${newEvt.date_debut}T${newEvt.heure_debut}:00`)
-        const finConge = new Date(`${(newEvt.date_fin || newEvt.date_debut)}T${newEvt.heure_fin}:00`)
-        // J-1 : minuit du jour précédent, J+1 : 23:59 du jour suivant
-        const debutRelais = new Date(debutConge); debutRelais.setDate(debutRelais.getDate() - 1); debutRelais.setHours(0, 0, 0, 0)
-        const finRelais = new Date(finConge); finRelais.setDate(finRelais.getDate() + 1); finRelais.setHours(23, 59, 0, 0)
+        const debutEvt = new Date(`${newEvt.date_debut}T${newEvt.heure_debut}:00`)
+        const finEvt = new Date(`${(newEvt.date_fin || newEvt.date_debut)}T${newEvt.heure_fin}:00`)
+        let debutRelais, finRelais
+        if (newEvt.categorie === 'conge') {
+          // Congé : J-1 minuit → J+1 23:59
+          debutRelais = new Date(debutEvt); debutRelais.setDate(debutRelais.getDate() - 1); debutRelais.setHours(0, 0, 0, 0)
+          finRelais = new Date(finEvt); finRelais.setDate(finRelais.getDate() + 1); finRelais.setHours(23, 59, 0, 0)
+        } else {
+          // Formation : mêmes dates, rentre le soir → 08:00 → 18:00
+          debutRelais = new Date(debutEvt); debutRelais.setHours(8, 0, 0, 0)
+          finRelais = new Date(finEvt); finRelais.setHours(18, 0, 0, 0)
+        }
 
         Object.entries(newEvt.congeRelais).forEach(([enfantId, relais]) => {
-          if (!relais?.nom) return // Pas de structure choisie → skip
+          if (!relais?.nom) return
           relaisRows.push({
             titre: `Relais — famille ${relais.nom}`,
             categorie: 'relais',
             date_debut: debutRelais.toISOString(),
             date_fin: finRelais.toISOString(),
             lieu: relais.lieu || '',
-            notes: `Relais pendant congé AF`,
+            notes: `Relais pendant ${newEvt.categorie === 'formation' ? 'formation AF' : 'congé AF'}`,
             af_id: profile.id,
             cree_par: profile.id,
             visible_ase: true,
@@ -1965,12 +1979,12 @@ export default function Agenda({ profile }) {
                 <textarea className="form-control" rows={2} value={newEvt.notes} onChange={e => setNewEvt(n => ({...n, notes: e.target.value}))} placeholder="Observations..." style={{ resize:'vertical' }} />
               </div>
 
-              {/* ── Bloc relais automatique par enfant lors d'un congé ── */}
-              {newEvt.categorie === 'conge' && enfants.length > 0 && (
+              {/* ── Bloc relais automatique par enfant lors d'un congé ou formation ── */}
+              {['conge', 'formation'].includes(newEvt.categorie) && enfants.length > 0 && (
                 <div className="form-group col-span-2">
-                  <div style={{ background:'#fef3e2', borderRadius:9, padding:12, border:'1px solid #fcd34d' }}>
-                    <div style={{ fontSize:12, fontWeight:700, color:'#d97706', marginBottom:10 }}>
-                      🔄 Relais pendant le congé — du {newEvt.date_debut ? (() => { const [y,m,d] = newEvt.date_debut.split('-'); return new Date(y,m-1,d-1).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) })() : 'J-1'} au {newEvt.date_fin ? (() => { const [y,m,d] = newEvt.date_fin.split('-'); return new Date(y,m-1,parseInt(d)+1).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) })() : 'J+1'}
+                  <div style={{ background: newEvt.categorie === 'formation' ? '#e0f2fe' : '#fef3e2', borderRadius:9, padding:12, border:`1px solid ${newEvt.categorie === 'formation' ? '#7dd3fc' : '#fcd34d'}` }}>
+                    <div style={{ fontSize:12, fontWeight:700, color: newEvt.categorie === 'formation' ? '#0891b2' : '#d97706', marginBottom:10 }}>
+                      {newEvt.categorie === 'formation' ? '📚' : '🔄'} Relais pendant la {newEvt.categorie === 'formation' ? 'formation' : 'période de congé'} — du {newEvt.date_debut ? (() => { const [y,m,d] = newEvt.date_debut.split('-'); return new Date(y,m-1, newEvt.categorie === 'formation' ? d : d-1).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) })() : (newEvt.categorie === 'formation' ? 'date début' : 'J-1')} au {newEvt.date_fin ? (() => { const [y,m,d] = newEvt.date_fin.split('-'); return new Date(y,m-1, newEvt.categorie === 'formation' ? d : parseInt(d)+1).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) })() : (newEvt.categorie === 'formation' ? 'date fin' : 'J+1')}
                     </div>
                     {enfants.map(enfant => {
                       const relais = newEvt.congeRelais?.[enfant.id] || {}
