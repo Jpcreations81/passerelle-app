@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-12j — formulaire encadrant : sélection AF d'abord + enfants AF + catégories filtrées
+// Agenda.js — v2026-05-12l — filtres agenda encadrant (Relais/Congés/ASE/Formation/Personnel/Autre) + VM masqué
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1616,7 +1616,10 @@ export default function Agenda({ profile }) {
           {/* Filtres */}
           <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
             <span style={{ fontSize:10, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px' }}>Filtres :</span>
-            {[['tous','Tous','#1a4b8f','#e8eef8'], ...Object.entries(CATEGORIES).map(([k,v]) => [k, v.label, v.color, v.bg])].map(([k, l, c, bg]) => (
+            {[['tous','Tous','#1a4b8f','#e8eef8'], ...Object.entries(CATEGORIES)
+              .filter(([k]) => isEncadrant ? ['relais','conge','ase','formation','personnel','autre'].includes(k) : true)
+              .map(([k,v]) => [k, v.label, v.color, v.bg])
+            ].map(([k, l, c, bg]) => (
               <button key={k} onClick={() => toggleFiltre(k)}
                 style={{ padding:'5px 12px', borderRadius:20, border:`1.5px solid ${filtres.includes(k) ? c : '#dde3f0'}`, background: filtres.includes(k) ? bg : '#fff', fontSize:11, fontWeight: filtres.includes(k) ? 600 : 500, cursor:'pointer', color: filtres.includes(k) ? c : '#5a6478', fontFamily:'Sora,sans-serif', transition:'all .15s' }}>
                 {l}
@@ -1884,7 +1887,7 @@ export default function Agenda({ profile }) {
               </div>
 
               {/* ── 3a. SOUS-TYPE VM ── */}
-              {newEvt.categorie === 'vm' && (
+              {newEvt.categorie === 'vm' && !isEncadrant && (
                 <div className="form-group col-span-2">
                   <label className="form-label">👨‍👩‍👧 Présents</label>
                   <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
