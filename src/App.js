@@ -13,6 +13,7 @@ import Assfam from './pages/Assfam'
 import DossierAssfam from './pages/DossierAssfam'
 import Documents from './pages/Documents'
 import InterfaceASE from './pages/InterfaceASE'
+import Frais from './pages/Frais'
 import './App.css'
 
 export default function App() {
@@ -66,6 +67,7 @@ export default function App() {
         <Route path="/assfam/:id" element={session ? <DossierAssfam profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/documents" element={session ? <Documents profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/ase" element={session ? <InterfaceASE profile={profile} /> : <Navigate to="/login" />} />
+        <Route path="/frais" element={session ? <Frais profile={profile} /> : <Navigate to="/login" />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
