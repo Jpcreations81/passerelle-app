@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-12d — fix af_principal_id objet vs string + titre congé simplifié pour AF
+// Agenda.js — v2026-05-12e — debug encadrant congé enfantsDeLAF
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -635,7 +635,12 @@ export default function Agenda({ profile }) {
               new Date(r.date_debut) <= finRecherche &&
               new Date(r.date_fin || r.date_debut) >= debutRecherche
             )
-            // af_principal_id peut être un UUID string ou un objet jointure
+            console.log('[DEBUG encadrant congé]', {
+              af_id: evt.af_id,
+              enfantsTotal: enfants.length,
+              enfantsAfPrincipalIds: enfants.map(e => ({ id: e.id, af_principal_id: e.af_principal_id, prenom: e.prenom })),
+              relaisConge: relaisConge.length,
+            })
             const enfantsDeLAF = enfants.filter(e => {
               const afId = typeof e.af_principal_id === 'object' ? e.af_principal_id?.id : e.af_principal_id
               return afId === evt.af_id
