@@ -1,5 +1,4 @@
-
-// Frais.js — v2026-05-12a — fiche de frais kilométriques mensuelle avec calcul Google Maps + boucle + PDF
+// Frais.js — v2026-05-12b — barème officiel Tarn (arrêté 14/03/2022) : 3 catégories CV + 3 tranches km
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -7,18 +6,19 @@ import Sidebar from '../components/Sidebar'
 
 const GOOGLE_MAPS_KEY = process.env.REACT_APP_GOOGLE_MAPS_KEY
 
-// ── Barème kilométrique Tarn 2025 ─────────────────────────────────────────────
+// ── Barème kilométrique Tarn — arrêté ministériel 14 mars 2022 ───────────────
 function getTauxKm(cv, kmCumules) {
-  // Tranche 1 : ≤ 2000 km / Tranche 2 : 2001-10000 / Tranche 3 : > 10000
+  // Tranches : ≤2000 km / 2001-10000 km / >10000 km
   const baremes = {
-    3:  [0.502, 0.302, 0.356],
-    4:  [0.575, 0.345, 0.408],
-    5:  [0.603, 0.362, 0.428],
-    6:  [0.631, 0.378, 0.447],
-    7:  [0.661, 0.396, 0.468],
+    5:  [0.32, 0.40, 0.23], // 5 CV et moins
+    7:  [0.41, 0.51, 0.30], // 6 et 7 CV
+    99: [0.45, 0.55, 0.32], // 8 CV et plus
   }
-  const cvKey = Math.min(Math.max(cv || 5, 3), 7)
-  const b = baremes[cvKey] || baremes[5]
+  let b
+  if (cv <= 5) b = baremes[5]
+  else if (cv <= 7) b = baremes[7]
+  else b = baremes[99]
+
   if (kmCumules <= 2000) return b[0]
   if (kmCumules <= 10000) return b[1]
   return b[2]
@@ -297,7 +297,10 @@ export default function Frais({ profile }) {
                 <div>
                   <div style={{ fontSize:10, color:'#9aa3b8', marginBottom:3 }}>CV fiscaux</div>
                   <select className="form-control" value={cv} onChange={e => setCv(parseInt(e.target.value))}>
-                    {[3,4,5,6,7].map(c => <option key={c} value={c}>{c} CV{c===7?' et +'  :''}</option>)}
+                    <option value={5}>5 CV et moins</option>
+                    <option value={6}>6 CV</option>
+                    <option value={7}>7 CV</option>
+                    <option value={8}>8 CV et plus</option>
                   </select>
                 </div>
                 <div>
