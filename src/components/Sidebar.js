@@ -7,6 +7,7 @@ const navItems = [
   { icon: '👶', label: 'Enfants', path: '/enfants' },
   { icon: '👨‍👩‍👧', label: 'Assfam', path: '/assfam' },
   { icon: '📅', label: 'Agenda', path: '/agenda' },
+  { icon: '🚗', label: 'Frais', path: '/frais' },
   { icon: '📂', label: 'Docs', path: '/documents' },
   { icon: '📄', label: 'Rapports', path: '/rapports' },
   { icon: '🏛️', label: 'ASE', path: '/ase' },
@@ -40,6 +41,7 @@ export default function Sidebar({ profile }) {
         {navItems.filter(item => {
           if (item.path === '/enfants' && profile?.role === 'encadrant') return false
           if (item.path === '/assfam' && profile?.role === 'referent') return false
+          if (item.path === '/frais' && profile?.role === 'encadrant') return false
           return true
         }).map(item => (
           <button
