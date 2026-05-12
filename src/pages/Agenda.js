@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-12e — debug encadrant congé enfantsDeLAF
+// Agenda.js — v2026-05-12f — encadrant via encadrant_id (fetchCollegues + fetchEnfants) + suppression log debug
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -208,9 +208,22 @@ export default function Agenda({ profile }) {
 
   const fetchCollegues = useCallback(async () => {
     if (!profile) return
-    const { data } = await supabase
-      .from('profiles').select('id, nom, prenom, role, matricule')
-      .neq('id', profile.id).eq('territoire', profile.territoire)
+    let data
+    if (profile.role === 'encadrant') {
+      // Encadrant → ses AF directs via encadrant_id
+      const { data: afs } = await supabase
+        .from('profiles')
+        .select('id, nom, prenom, role, matricule, territoire')
+        .eq('encadrant_id', profile.id)
+      data = afs
+    } else {
+      const { data: collègues } = await supabase
+        .from('profiles')
+        .select('id, nom, prenom, role, matricule')
+        .neq('id', profile.id)
+        .eq('territoire', profile.territoire)
+      data = collègues
+    }
     if (data) setCollegues(data)
   }, [profile])
 
@@ -296,10 +309,9 @@ export default function Agenda({ profile }) {
       }
 
     } else if (profile.role === 'encadrant') {
-      // Encadrant → tous les AF de son territoire mais pas les enfants directement
-      // Dans l'agenda il voit les événements de ses AF — on charge juste les enfants de ses AF
+      // Encadrant → ses AF via encadrant_id (pas par territoire)
       const { data: afs } = await supabase
-        .from('profiles').select('id').eq('territoire', profile.territoire).eq('role', 'af')
+        .from('profiles').select('id').eq('encadrant_id', profile.id).eq('role', 'af')
       if (afs && afs.length > 0) {
         const afIds = afs.map(a => a.id)
         const { data: enfs } = await supabase
@@ -635,12 +647,6 @@ export default function Agenda({ profile }) {
               new Date(r.date_debut) <= finRecherche &&
               new Date(r.date_fin || r.date_debut) >= debutRecherche
             )
-            console.log('[DEBUG encadrant congé]', {
-              af_id: evt.af_id,
-              enfantsTotal: enfants.length,
-              enfantsAfPrincipalIds: enfants.map(e => ({ id: e.id, af_principal_id: e.af_principal_id, prenom: e.prenom })),
-              relaisConge: relaisConge.length,
-            })
             const enfantsDeLAF = enfants.filter(e => {
               const afId = typeof e.af_principal_id === 'object' ? e.af_principal_id?.id : e.af_principal_id
               return afId === evt.af_id
