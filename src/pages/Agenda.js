@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-06p — congé : relais automatique par enfant (J-1/J+1) avec sélection structure
+// Agenda.js — v2026-05-12a — encadrant : uniquement relais+congés + panneau statuts AF + pas de création
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -68,6 +68,7 @@ export default function Agenda({ profile }) {
   const [selectedDate, setSelectedDate] = useState(null)
   const [collegues, setCollegues] = useState([])
   const [afProfiles, setAfProfiles] = useState({})
+  const [statutsAF, setStatutsAF] = useState([]) // statut de chaque AF pour l'encadrant
   const [enfants, setEnfants] = useState([])
   const [couleursEnfants, setCouleursEnfants] = useState({})
   // Demandes de modif reçues (à valider) et retours sur mes demandes
@@ -117,6 +118,7 @@ export default function Agenda({ profile }) {
       fetchMesRetours(),
       fetchRelaisStructures(),
       fetchAfTousListe(),
+      ...(profile?.role === 'encadrant' ? [fetchStatutsAF()] : []),
     ]).finally(() => setLoading(false))
   }, [profile])
 
@@ -232,6 +234,53 @@ export default function Agenda({ profile }) {
       .order('nom', { ascending: true })
     if (data) setAfTousListe(data)
   }, [])
+
+  // Charger le statut de chaque AF du périmètre (pour l'encadrant)
+  const fetchStatutsAF = useCallback(async () => {
+    if (!profile || profile.role !== 'encadrant') return
+    const { data: afs } = await supabase
+      .from('profiles')
+      .select('id, nom, prenom, matricule, territoire')
+      .eq('role', 'af')
+      .eq('territoire', profile.territoire)
+      .order('nom', { ascending: true })
+    if (!afs) return
+
+    const today = new Date(); today.setHours(0,0,0,0)
+    const todayEnd = new Date(today); todayEnd.setHours(23,59,59,999)
+
+    const statuts = await Promise.all(afs.map(async af => {
+      // Chercher si l'AF est en congé aujourd'hui
+      const { data: conges } = await supabase.from('evenements')
+        .select('id, date_debut, date_fin, titre')
+        .eq('af_id', af.id)
+        .eq('categorie', 'conge')
+        .lte('date_debut', todayEnd.toISOString())
+        .gte('date_fin', today.toISOString())
+        .limit(1)
+
+      // Chercher si l'AF a un relais en cours aujourd'hui
+      const { data: relais } = await supabase.from('evenements')
+        .select('id, date_debut, date_fin, relais_nom_libre, relais_type')
+        .eq('af_id', af.id)
+        .eq('categorie', 'relais')
+        .lte('date_debut', todayEnd.toISOString())
+        .gte('date_fin', today.toISOString())
+        .limit(1)
+
+      let statut = 'disponible'
+      let detail = ''
+      if (conges && conges.length > 0) { statut = 'conge'; detail = 'En congé' }
+      else if (relais && relais.length > 0) {
+        statut = 'relais'
+        detail = `Relais${relais[0].relais_nom_libre ? ` famille ${relais[0].relais_nom_libre}` : ''}`
+      }
+
+      return { ...af, statut, detail }
+    }))
+
+    setStatutsAF(statuts)
+  }, [profile])
 
   // Créer une nouvelle structure relais
   async function saveRelaisStructure() {
@@ -546,9 +595,16 @@ export default function Agenda({ profile }) {
     })
   }
 
+  const isEncadrant = profile?.role === 'encadrant'
+
   function evtsFiltres() {
-    if (filtres.includes('tous')) return evenements
-    return evenements.filter(e => filtres.includes(e.categorie))
+    // Encadrant : uniquement relais et congés (pas les événements enfant)
+    let base = evenements
+    if (isEncadrant) {
+      base = evenements.filter(e => ['relais', 'conge'].includes(e.categorie))
+    }
+    if (filtres.includes('tous')) return base
+    return base.filter(e => filtres.includes(e.categorie))
   }
 
   // Map id → structure pour lookup rapide
@@ -1362,9 +1418,9 @@ export default function Agenda({ profile }) {
       const isToday = !isOther && sameDay(d, today)
       const evts = evtsDuJour(d)
       cells.push(
-        <div key={`d-${i}`} onClick={() => openAdd(d)}
-          style={{ minHeight:90, padding:3, borderRight:'1px solid #dde3f0', borderBottom:'1px solid #dde3f0', cursor:'pointer', background: (isToday && !isOther) ? '#f0f4ff' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff', transition:'background .1s' }}
-          onMouseOver={e => e.currentTarget.style.background = '#f0f4ff'}
+        <div key={`d-${i}`} onClick={() => !isEncadrant && openAdd(d)}
+          style={{ minHeight:90, padding:3, borderRight:'1px solid #dde3f0', borderBottom:'1px solid #dde3f0', cursor: isEncadrant ? 'default' : 'pointer', background: (isToday && !isOther) ? '#f0f4ff' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff', transition:'background .1s' }}
+          onMouseOver={e => !isEncadrant && (e.currentTarget.style.background = '#f0f4ff')}
           onMouseOut={e => e.currentTarget.style.background = (isToday && !isOther) ? '#f0f4ff' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff'}
         >
           <div style={{ width:22, height:22, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', margin:'1px auto 3px', background: (isToday && !isOther) ? '#1a4b8f' : 'none', color: (isToday && !isOther) ? '#fff' : isOther ? '#9aa3b8' : '#1c2333', fontSize:11, fontWeight:500 }}>
@@ -1435,7 +1491,7 @@ export default function Agenda({ profile }) {
             <div style={{ fontSize:16, fontWeight:700 }}>{currentDate.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</div>
             <div style={{ fontSize:12, color:'#9aa3b8', marginTop:2 }}>{evts.length} événement{evts.length > 1 ? 's' : ''}</div>
           </div>
-          <button className="btn btn-primary" onClick={() => openAdd(currentDate)}>+ Ajouter</button>
+          {!isEncadrant && <button className="btn btn-primary" onClick={() => openAdd(currentDate)}>+ Ajouter</button>}
         </div>
         {evts.length === 0 ? (
           <div style={{ padding:32, textAlign:'center', color:'#9aa3b8', fontSize:13 }}>Aucun événement ce jour</div>
@@ -1516,7 +1572,7 @@ export default function Agenda({ profile }) {
               onClick={() => setShowModifModal(true)}>
               📝 Modifier calendrier
             </button>
-            <button className="btn btn-primary" onClick={() => openAdd(null)}>+ Ajouter</button>
+            {!isEncadrant && <button className="btn btn-primary" onClick={() => openAdd(null)}>+ Ajouter</button>}
           </div>
         </PageHeader>
 
@@ -1542,10 +1598,13 @@ export default function Agenda({ profile }) {
             </button>
           </div>
 
-          {/* Filtres */}
+          {/* Filtres — encadrant : uniquement relais et congés */}
           <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
             <span style={{ fontSize:10, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px' }}>Filtres :</span>
-            {[['tous','Tous','#1a4b8f','#e8eef8'], ...Object.entries(CATEGORIES).map(([k,v]) => [k, v.label, v.color, v.bg])].map(([k, l, c, bg]) => (
+            {(isEncadrant
+              ? [['tous','Tous','#1a4b8f','#e8eef8'], ['relais', CATEGORIES.relais.label, CATEGORIES.relais.color, CATEGORIES.relais.bg], ['conge', CATEGORIES.conge.label, CATEGORIES.conge.color, CATEGORIES.conge.bg]]
+              : [['tous','Tous','#1a4b8f','#e8eef8'], ...Object.entries(CATEGORIES).map(([k,v]) => [k, v.label, v.color, v.bg])]
+            ).map(([k, l, c, bg]) => (
               <button key={k} onClick={() => toggleFiltre(k)}
                 style={{ padding:'5px 12px', borderRadius:20, border:`1.5px solid ${filtres.includes(k) ? c : '#dde3f0'}`, background: filtres.includes(k) ? bg : '#fff', fontSize:11, fontWeight: filtres.includes(k) ? 600 : 500, cursor:'pointer', color: filtres.includes(k) ? c : '#5a6478', fontFamily:'Sora,sans-serif', transition:'all .15s' }}>
                 {l}
@@ -1553,8 +1612,33 @@ export default function Agenda({ profile }) {
             ))}
           </div>
 
+          {/* Panneau statuts AF — encadrant uniquement */}
+          {isEncadrant && statutsAF.length > 0 && (
+            <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:10, padding:12, marginBottom:14, boxShadow:'0 2px 8px rgba(26,75,143,.06)' }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', marginBottom:8 }}>
+                👥 Statut AF — {profile?.territoire}
+              </div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                {statutsAF.map(af => {
+                  const cfg = {
+                    disponible: { bg:'#e6f5eb', color:'#2e8b4a', icon:'✅', label:'Disponible' },
+                    conge:      { bg:'#fef3e2', color:'#d97706', icon:'🏖️', label:'En congé' },
+                    relais:     { bg:'#e0f2fe', color:'#0891b2', icon:'🔄', label: af.detail || 'En relais' },
+                  }[af.statut] || { bg:'#f4f6fb', color:'#9aa3b8', icon:'❓', label:'—' }
+                  return (
+                    <div key={af.id} style={{ display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:20, background: cfg.bg, border:`1px solid ${cfg.color}30`, fontSize:11 }}>
+                      <span>{cfg.icon}</span>
+                      <span style={{ fontWeight:700, color:'#1c2333' }}>{af.nom} {af.prenom}</span>
+                      <span style={{ color: cfg.color, fontWeight:600 }}>· {cfg.label}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Partages actifs */}
-          {partages.filter(p => p.statut === 'accepte').length > 0 && (
+          {!isEncadrant && partages.filter(p => p.statut === 'accepte').length > 0 && (
             <div className="alert-info" style={{ marginBottom:12 }}>
               <span>🔗</span>
               <span>Agenda partagé avec : {partages.filter(p => p.statut === 'accepte').map(p => {
