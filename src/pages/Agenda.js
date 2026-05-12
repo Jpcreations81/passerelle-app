@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-12f — encadrant via encadrant_id (fetchCollegues + fetchEnfants) + suppression log debug
+// Agenda.js — v2026-05-12g — encadrant : congé affiche uniquement enfants sans relais (problèmes uniquement)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -665,8 +665,7 @@ export default function Agenda({ profile }) {
             const afProfil = collegues.find(c => c.id === evt.af_id)
             const afNom = afProfil ? `${afProfil.nom} ${afProfil.prenom}` : ''
             const partieSansRelais = enfantsSansRelais.length > 0 ? ` · ⚠️ ${enfantsSansRelais.join(', ')} sans relais` : ''
-            const partieAvecRelais = enfantsAvecRelais.length > 0 ? ` · ${enfantsAvecRelais.join(', ')} en relais` : ''
-            titrePOV = `🏖️ Congé ${afNom}${partieAvecRelais}${partieSansRelais}`
+            titrePOV = `🏖️ Congé ${afNom}${partieSansRelais}`
           }
           // AF : titre simplifié sans le nom (c'est son propre congé)
           if (!isEncadrant && evt.categorie === 'conge') {
