@@ -1,3 +1,4 @@
+// DocumentsEnfant.js — v2026-05-12a — version restaurée depuis historique GitHub
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
