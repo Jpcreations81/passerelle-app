@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-12b — encadrant : uniquement relais+congés, congé affiche enfants en relais, pas de création
+// Agenda.js — v2026-05-12c — encadrant congé : nommer enfants avec/sans relais + fenêtre J-1/J+1
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -627,23 +627,33 @@ export default function Agenda({ profile }) {
           if (isEncadrant && evt.categorie === 'conge') {
             const debutConge = new Date(evt.date_debut)
             const finConge = new Date(evt.date_fin || evt.date_debut)
-            // Chercher les relais de cet AF qui couvrent la période du congé
+            // Chercher les relais de cet AF qui couvrent la période du congé (J-1 / J+1)
+            const debutRecherche = new Date(debutConge); debutRecherche.setDate(debutRecherche.getDate() - 1)
+            const finRecherche = new Date(finConge); finRecherche.setDate(finRecherche.getDate() + 1)
             const relaisConge = evenements.filter(r =>
               r.categorie === 'relais' &&
               r.af_id === evt.af_id &&
-              new Date(r.date_debut) <= finConge &&
-              new Date(r.date_fin || r.date_debut) >= debutConge
+              new Date(r.date_debut) <= finRecherche &&
+              new Date(r.date_fin || r.date_debut) >= debutRecherche
             )
-            const enfantsEnRelais = []
+            // Enfants de cet AF
+            const enfantsDeLAF = enfants.filter(e => e.af_principal_id === evt.af_id)
+            const enfantsAvecRelais = []
+            const enfantsSansRelais = []
             relaisConge.forEach(r => {
               (r.enfant_ids || []).forEach(eid => {
                 const enf = enfants.find(e => e.id === eid)
-                if (enf && !enfantsEnRelais.includes(enf.prenom)) enfantsEnRelais.push(enf.prenom)
+                if (enf && !enfantsAvecRelais.includes(enf.prenom)) enfantsAvecRelais.push(enf.prenom)
               })
+            })
+            enfantsDeLAF.forEach(enf => {
+              if (!enfantsAvecRelais.includes(enf.prenom)) enfantsSansRelais.push(enf.prenom)
             })
             const afProfil = collegues.find(c => c.id === evt.af_id)
             const afNom = afProfil ? `${afProfil.nom} ${afProfil.prenom}` : ''
-            titrePOV = `🏖️ Congé ${afNom}${enfantsEnRelais.length > 0 ? ' · ' + enfantsEnRelais.join(', ') + ' en relais' : ' · ⚠️ relais non défini'}`
+            let partieSansRelais = enfantsSansRelais.length > 0 ? ` · ⚠️ ${enfantsSansRelais.join(', ')} sans relais` : ''
+            let partieAvecRelais = enfantsAvecRelais.length > 0 ? ` · ${enfantsAvecRelais.join(', ')} en relais` : ''
+            titrePOV = `🏖️ Congé ${afNom}${partieAvecRelais}${partieSansRelais}`
           }
           expanded.push({ ...evt, _couleur: baseColor, _titrePOV: titrePOV })
         }
