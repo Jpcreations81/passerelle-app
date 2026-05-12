@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-12i — formation : relais par enfant (mêmes dates) + encadrant voit formation + ⚠️ sans relais
+// Agenda.js — v2026-05-12j — formulaire encadrant : sélection AF d'abord + enfants AF + catégories filtrées
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -715,9 +715,13 @@ export default function Agenda({ profile }) {
     const isASE = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
 
     const rows = enfantsACree.map(enfantId => {
-      // Si ASE/référent → af_id = AF principal de l'enfant, sinon soi-même
+      // Si ASE/référent → af_id = AF principal de l'enfant
+      // Si encadrant → af_id = AF sélectionné (afEncadrantId)
+      // Sinon soi-même
       const enfantObj = enfantId ? enfants.find(e => e.id === enfantId) : null
-      const afId = isASE && enfantObj?.af_principal_id ? enfantObj.af_principal_id : profile.id
+      const afId = isEncadrant && newEvt.afEncadrantId ? newEvt.afEncadrantId
+        : isASE && enfantObj?.af_principal_id ? enfantObj.af_principal_id
+        : profile.id
       return {
         titre: newEvt.titre,
         categorie: newEvt.categorie,
@@ -791,7 +795,7 @@ export default function Agenda({ profile }) {
             date_fin: finRelais.toISOString(),
             lieu: relais.lieu || '',
             notes: `Relais pendant ${newEvt.categorie === 'formation' ? 'formation AF' : 'congé AF'}`,
-            af_id: profile.id,
+            af_id: isEncadrant && newEvt.afEncadrantId ? newEvt.afEncadrantId : profile.id,
             cree_par: profile.id,
             visible_ase: true,
             source: 'passerelle',
@@ -809,7 +813,7 @@ export default function Agenda({ profile }) {
       const nb = allRows.length
       showToast(nb > 1 ? `✅ ${nb} événements créés !` : '✅ Événement enregistré !')
       setShowModal(false)
-      setNewEvt({ titre:'', categorie:'vm', date_debut:'', heure_debut:'09:00', date_fin:'', heure_fin:'10:00', lieu:'', notes:'', enfantsSelectionnes:[], relais_type:'af', relais_structure_id:null, relais_af_id:null, relais_nom_libre:'', vm_presents:[], complement_titre:'', dates_sup:[], congeRelais:{} })
+      setNewEvt({ titre:'', categorie:'vm', date_debut:'', heure_debut:'09:00', date_fin:'', heure_fin:'10:00', lieu:'', notes:'', enfantsSelectionnes:[], relais_type:'af', relais_structure_id:null, relais_af_id:null, relais_nom_libre:'', vm_presents:[], complement_titre:'', dates_sup:[], congeRelais:{}, afEncadrantId:null })
       setRechercheAFConge({})
       fetchEvenements()
     } else showToast('❌ Erreur : ' + error.message)
@@ -1402,7 +1406,7 @@ export default function Agenda({ profile }) {
       heure_debut: '09:00', date_fin: dateLocale,
       heure_fin: '10:00', lieu: '', notes: '', enfantsSelectionnes: [],
       relais_type: 'af', relais_structure_id: null, relais_af_id: null, relais_nom_libre: '',
-      vm_presents: [], complement_titre: '', dates_sup: [], congeRelais: {}
+      vm_presents: [], complement_titre: '', dates_sup: [], congeRelais: {}, afEncadrantId: null
     })
     setRechercheAF('')
     setRelaisRecherche('')
@@ -1784,7 +1788,38 @@ export default function Agenda({ profile }) {
 
             <div className="form-grid-2">
 
-              {/* ── 1. ENFANTS ── */}
+              {/* ── ENCADRANT : sélection AF d'abord ── */}
+              {isEncadrant && (
+                <div className="form-group col-span-2">
+                  <label className="form-label">👨‍👩‍👧 AF concerné</label>
+                  {newEvt.afEncadrantId ? (() => {
+                    const af = collegues.find(c => c.id === newEvt.afEncadrantId)
+                    return af ? (
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 14px', background:'#e6f5eb', borderRadius:8, border:'1px solid #c4e8cc', fontSize:12, fontWeight:600 }}>
+                        <span>✅ {af.nom} {af.prenom}</span>
+                        <span style={{ cursor:'pointer', color:'#c0392b', fontSize:14, fontWeight:700 }}
+                          onClick={() => setNewEvt(n => ({ ...n, afEncadrantId: null, congeRelais: {} }))}>×</span>
+                      </div>
+                    ) : null
+                  })() : (
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                      {collegues.filter(c => c.role === 'af').map(af => (
+                        <div key={af.id}
+                          onClick={() => {
+                            const updated = { ...newEvt, afEncadrantId: af.id }
+                            setNewEvt({ ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants, af) })
+                          }}
+                          style={{ display:'flex', alignItems:'center', gap:7, padding:'6px 12px', borderRadius:20, cursor:'pointer', border:'2px solid #dde3f0', background:'#fff', color:'#5a6478', fontSize:12, fontWeight:600, transition:'all .15s', userSelect:'none' }}>
+                          👨‍👩‍👧 {af.nom} {af.prenom}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── AF : sélection enfants ── */}
+              {!isEncadrant && (
               <div className="form-group col-span-2">
                 <label className="form-label">👶 Enfant(s) concerné(s)</label>
                 <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:4 }}>
@@ -1806,7 +1841,6 @@ export default function Agenda({ profile }) {
                       </div>
                     )
                   })}
-                  {/* Bouton Personnel — toujours visible */}
                   <div
                     onClick={() => {
                       const updated = { ...newEvt, enfantsSelectionnes: [], categorie: 'personnel' }
@@ -1828,12 +1862,15 @@ export default function Agenda({ profile }) {
                   </div>
                 )}
               </div>
+              )}
 
               {/* ── 2. CATÉGORIE ── */}
               <div className="form-group col-span-2">
                 <label className="form-label">📋 Catégorie</label>
                 <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-                  {Object.entries(CATEGORIES).map(([k, v]) => (
+                  {Object.entries(CATEGORIES)
+                    .filter(([k]) => isEncadrant ? ['conge','formation','relais','ase','personnel','autre'].includes(k) : true)
+                    .map(([k, v]) => (
                     <button key={k} type="button"
                       onClick={() => {
                         const updated = { ...newEvt, categorie: k, enfantsSelectionnes: k === 'personnel' ? [] : newEvt.enfantsSelectionnes, vm_presents: [], complement_titre: '' }
@@ -1980,13 +2017,23 @@ export default function Agenda({ profile }) {
               </div>
 
               {/* ── Bloc relais automatique par enfant lors d'un congé ou formation ── */}
-              {['conge', 'formation'].includes(newEvt.categorie) && enfants.length > 0 && (
+              {['conge', 'formation'].includes(newEvt.categorie) && (
+                isEncadrant ? newEvt.afEncadrantId : enfants.length > 0
+              ) && (() => {
+                // Encadrant → enfants de l'AF sélectionné, AF → ses propres enfants
+                const enfantsCibles = isEncadrant
+                  ? enfants.filter(e => {
+                      const afId = typeof e.af_principal_id === 'object' ? e.af_principal_id?.id : e.af_principal_id
+                      return afId === newEvt.afEncadrantId
+                    })
+                  : enfants
+                return enfantsCibles.length > 0 ? (
                 <div className="form-group col-span-2">
                   <div style={{ background: newEvt.categorie === 'formation' ? '#e0f2fe' : '#fef3e2', borderRadius:9, padding:12, border:`1px solid ${newEvt.categorie === 'formation' ? '#7dd3fc' : '#fcd34d'}` }}>
                     <div style={{ fontSize:12, fontWeight:700, color: newEvt.categorie === 'formation' ? '#0891b2' : '#d97706', marginBottom:10 }}>
                       {newEvt.categorie === 'formation' ? '📚' : '🔄'} Relais pendant la {newEvt.categorie === 'formation' ? 'formation' : 'période de congé'} — du {newEvt.date_debut ? (() => { const [y,m,d] = newEvt.date_debut.split('-'); return new Date(y,m-1, newEvt.categorie === 'formation' ? d : d-1).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) })() : (newEvt.categorie === 'formation' ? 'date début' : 'J-1')} au {newEvt.date_fin ? (() => { const [y,m,d] = newEvt.date_fin.split('-'); return new Date(y,m-1, newEvt.categorie === 'formation' ? d : parseInt(d)+1).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}) })() : (newEvt.categorie === 'formation' ? 'date fin' : 'J+1')}
                     </div>
-                    {enfants.map(enfant => {
+                    {enfantsCibles.map(enfant => {
                       const relais = newEvt.congeRelais?.[enfant.id] || {}
                       const couleur = couleursEnfants[enfant.id] || '#1a4b8f'
                       const recherche = rechercheAFConge[enfant.id] || ''
@@ -2077,11 +2124,12 @@ export default function Agenda({ profile }) {
                       )
                     })}
                     <div style={{ fontSize:10, color:'#9aa3b8', fontStyle:'italic', marginTop:4 }}>
-                      Les événements relais seront créés automatiquement à l'enregistrement du congé.
+                      Les événements relais seront créés automatiquement à l'enregistrement.
                     </div>
                   </div>
                 </div>
-              )}
+                ) : null
+              })()}
 
               {/* ── Bloc relais — affiché uniquement si catégorie relais ── */}
               {newEvt.categorie === 'relais' && (
