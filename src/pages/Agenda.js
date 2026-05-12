@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-12g — encadrant : congé affiche uniquement enfants sans relais (problèmes uniquement)
+// Agenda.js — v2026-05-12h — encadrant peut créer des événements (relais pour ses AF)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1415,7 +1415,7 @@ export default function Agenda({ profile }) {
       const isToday = !isOther && sameDay(d, today)
       const evts = evtsDuJour(d)
       cells.push(
-        <div key={`d-${i}`} onClick={() => !isEncadrant && openAdd(d)}
+        <div key={`d-${i}`} onClick={() => openAdd(d)}
           style={{ minHeight:90, padding:3, borderRight:'1px solid #dde3f0', borderBottom:'1px solid #dde3f0', cursor:'pointer', background: (isToday && !isOther) ? '#f0f4ff' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff', transition:'background .1s' }}
           onMouseOver={e => e.currentTarget.style.background = '#f0f4ff'}
           onMouseOut={e => e.currentTarget.style.background = (isToday && !isOther) ? '#f0f4ff' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff'}
@@ -1488,7 +1488,7 @@ export default function Agenda({ profile }) {
             <div style={{ fontSize:16, fontWeight:700 }}>{currentDate.toLocaleDateString('fr-FR', { weekday:'long', day:'numeric', month:'long', year:'numeric' })}</div>
             <div style={{ fontSize:12, color:'#9aa3b8', marginTop:2 }}>{evts.length} événement{evts.length > 1 ? 's' : ''}</div>
           </div>
-          {!isEncadrant && <button className="btn btn-primary" onClick={() => openAdd(currentDate)}>+ Ajouter</button>}
+          <button className="btn btn-primary" onClick={() => openAdd(currentDate)}>+ Ajouter</button>
         </div>
         {evts.length === 0 ? (
           <div style={{ padding:32, textAlign:'center', color:'#9aa3b8', fontSize:13 }}>Aucun événement ce jour</div>
@@ -1569,7 +1569,7 @@ export default function Agenda({ profile }) {
               onClick={() => setShowModifModal(true)}>
               📝 Modifier calendrier
             </button>
-            {!isEncadrant && <button className="btn btn-primary" onClick={() => openAdd(null)}>+ Ajouter</button>}
+            <button className="btn btn-primary" onClick={() => openAdd(null)}>+ Ajouter</button>
           </div>
         </PageHeader>
 
