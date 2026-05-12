@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-12c — encadrant congé : nommer enfants avec/sans relais + fenêtre J-1/J+1
+// Agenda.js — v2026-05-12d — fix af_principal_id objet vs string + titre congé simplifié pour AF
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -627,7 +627,6 @@ export default function Agenda({ profile }) {
           if (isEncadrant && evt.categorie === 'conge') {
             const debutConge = new Date(evt.date_debut)
             const finConge = new Date(evt.date_fin || evt.date_debut)
-            // Chercher les relais de cet AF qui couvrent la période du congé (J-1 / J+1)
             const debutRecherche = new Date(debutConge); debutRecherche.setDate(debutRecherche.getDate() - 1)
             const finRecherche = new Date(finConge); finRecherche.setDate(finRecherche.getDate() + 1)
             const relaisConge = evenements.filter(r =>
@@ -636,8 +635,11 @@ export default function Agenda({ profile }) {
               new Date(r.date_debut) <= finRecherche &&
               new Date(r.date_fin || r.date_debut) >= debutRecherche
             )
-            // Enfants de cet AF
-            const enfantsDeLAF = enfants.filter(e => e.af_principal_id === evt.af_id)
+            // af_principal_id peut être un UUID string ou un objet jointure
+            const enfantsDeLAF = enfants.filter(e => {
+              const afId = typeof e.af_principal_id === 'object' ? e.af_principal_id?.id : e.af_principal_id
+              return afId === evt.af_id
+            })
             const enfantsAvecRelais = []
             const enfantsSansRelais = []
             relaisConge.forEach(r => {
@@ -651,9 +653,13 @@ export default function Agenda({ profile }) {
             })
             const afProfil = collegues.find(c => c.id === evt.af_id)
             const afNom = afProfil ? `${afProfil.nom} ${afProfil.prenom}` : ''
-            let partieSansRelais = enfantsSansRelais.length > 0 ? ` · ⚠️ ${enfantsSansRelais.join(', ')} sans relais` : ''
-            let partieAvecRelais = enfantsAvecRelais.length > 0 ? ` · ${enfantsAvecRelais.join(', ')} en relais` : ''
+            const partieSansRelais = enfantsSansRelais.length > 0 ? ` · ⚠️ ${enfantsSansRelais.join(', ')} sans relais` : ''
+            const partieAvecRelais = enfantsAvecRelais.length > 0 ? ` · ${enfantsAvecRelais.join(', ')} en relais` : ''
             titrePOV = `🏖️ Congé ${afNom}${partieAvecRelais}${partieSansRelais}`
+          }
+          // AF : titre simplifié sans le nom (c'est son propre congé)
+          if (!isEncadrant && evt.categorie === 'conge') {
+            titrePOV = '🏖️ Congé'
           }
           expanded.push({ ...evt, _couleur: baseColor, _titrePOV: titrePOV })
         }
