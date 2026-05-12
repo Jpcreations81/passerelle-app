@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-12b — barème officiel Tarn (arrêté 14/03/2022) : 3 catégories CV + 3 tranches km
+// Frais.js — v2026-05-12c — debug calcul distance
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -27,11 +27,11 @@ function getTauxKm(cv, kmCumules) {
 // ── Calcul distance Google Maps ───────────────────────────────────────────────
 async function calculerDistance(origine, destination) {
   try {
-    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${encodeURIComponent(origine)}&destinations=${encodeURIComponent(destination)}&mode=driving&language=fr&key=${GOOGLE_MAPS_KEY}`
-    // Via proxy Vercel pour éviter CORS
     const resp = await fetch(`/api/distance?origine=${encodeURIComponent(origine)}&destination=${encodeURIComponent(destination)}`)
-    if (!resp.ok) throw new Error('Erreur API')
+    console.log('[distance] status:', resp.status)
+    if (!resp.ok) throw new Error('Erreur API ' + resp.status)
     const data = await resp.json()
+    console.log('[distance] data:', JSON.stringify(data))
     if (data.km) return data.km
     return null
   } catch (e) {
