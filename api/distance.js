@@ -1,4 +1,3 @@
-
 // api/distance.js — Proxy Vercel pour Google Maps Distance Matrix API
 export default async function handler(req, res) {
   const { origine, destination } = req.query
@@ -6,7 +5,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Paramètres manquants' })
   }
 
-  const key = process.env.REACT_APP_GOOGLE_MAPS_KEY
+  const key = process.env.GOOGLE_MAPS_KEY || process.env.REACT_APP_GOOGLE_MAPS_KEY
+  console.log('[distance] clé présente:', !!key, '| longueur:', key?.length)
   if (!key) return res.status(500).json({ error: 'Clé API manquante' })
 
   try {
