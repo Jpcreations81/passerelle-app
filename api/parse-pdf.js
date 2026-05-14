@@ -1,4 +1,4 @@
-// parse-pdf.js — v2026-05-07d — vm_presents + lieu dans titre VM:ok
+// parse-pdf.js — v2026-05-13a — modèle claude-haiku-4-5-20251001
 // api/parse-pdf.js
 // Vercel Serverless Function — lit un PDF et extrait les événements via Claude API
 // Variables d'environnement requises dans Vercel :
@@ -88,7 +88,7 @@ Si aucun événement n'est trouvé : {"evenements": []}`
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 4096,
         messages: [{
           role: 'user',
