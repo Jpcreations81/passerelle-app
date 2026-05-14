@@ -1,4 +1,4 @@
-// parse-pdf.js — v2026-05-13a — modèle claude-haiku-4-5-20251001
+// parse-pdf.js — v2026-05-13b — modèle dynamique via API Anthropic (fallback haiku-4-5-20251001)
 // api/parse-pdf.js
 // Vercel Serverless Function — lit un PDF et extrait les événements via Claude API
 // Variables d'environnement requises dans Vercel :
@@ -76,8 +76,19 @@ Réponds UNIQUEMENT avec un JSON valide, rien d'autre, pas de markdown :
 
 Si aucun événement n'est trouvé : {"evenements": []}`
 
-  // Log pour debug
-  console.log('ANTHROPIC_API_KEY présente:', !!apiKey, '| Taille PDF:', pdf?.length)
+  // Récupérer le dernier modèle Haiku disponible
+  let model = 'claude-haiku-4-5-20251001' // fallback
+  try {
+    const modelsResp = await fetch('https://api.anthropic.com/v1/models', {
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+    })
+    if (modelsResp.ok) {
+      const modelsData = await modelsResp.json()
+      const haiku = modelsData.data?.find(m => m.id.includes('haiku'))
+      if (haiku) model = haiku.id
+    }
+  } catch(e) { /* utilise le fallback */ }
+  console.log('Modèle utilisé:', model)
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -88,7 +99,7 @@ Si aucun événement n'est trouvé : {"evenements": []}`
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: model,
         max_tokens: 4096,
         messages: [{
           role: 'user',
