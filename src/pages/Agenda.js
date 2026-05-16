@@ -2151,8 +2151,7 @@ export default function Agenda({ profile }) {
                               </div>
                             )}
                           </div>
-                        </div>
-                          )} {/* fin !pasDeRelais */}
+                          </>) /* fin !pasDeRelais */}
                         </div>
                       )
                     })}
