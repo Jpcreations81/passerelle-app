@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-12c — debug calcul distance
+// Frais.js — v2026-05-13c — barème SNCF formation (aller seulement) + pro (AR kilométrique)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -18,20 +18,35 @@ function getTauxKm(cv, kmCumules) {
   if (cv <= 5) b = baremes[5]
   else if (cv <= 7) b = baremes[7]
   else b = baremes[99]
-
   if (kmCumules <= 2000) return b[0]
   if (kmCumules <= 10000) return b[1]
   return b[2]
 }
 
+// ── Barème SNCF 2ème classe — formation (aller seulement) ────────────────────
+// Formule : montant = a + (distance × b)
+function getMontantSNCF(distanceKm) {
+  const d = Math.round(distanceKm)
+  if (d <= 0) return 0
+  if (d <= 16)  return Math.round((0.7781 + d * 0.1944) * 100) / 100
+  if (d <= 32)  return Math.round((0.2503 + d * 0.2165) * 100) / 100
+  if (d <= 64)  return Math.round((2.0706 + d * 0.1597) * 100) / 100
+  if (d <= 109) return Math.round((2.8891 + d * 0.1489) * 100) / 100
+  if (d <= 149) return Math.round((4.0864 + d * 0.1425) * 100) / 100
+  return Math.round((8.0871 + d * 0.1193) * 100) / 100
+}
+
+// Catégories formation (aller seulement, barème SNCF)
+const CATS_FORMATION = ['formation']
+// Catégories pro (AR, barème kilométrique Tarn)
+const CATS_PRO = ['vm', 'medical', 'scolaire', 'ase', 'relais', 'autre']
+
 // ── Calcul distance Google Maps ───────────────────────────────────────────────
 async function calculerDistance(origine, destination) {
   try {
     const resp = await fetch(`/api/distance?origine=${encodeURIComponent(origine)}&destination=${encodeURIComponent(destination)}`)
-    console.log('[distance] status:', resp.status)
     if (!resp.ok) throw new Error('Erreur API ' + resp.status)
     const data = await resp.json()
-    console.log('[distance] data:', JSON.stringify(data))
     if (data.km) return data.km
     return null
   } catch (e) {
@@ -140,23 +155,51 @@ export default function Frais({ profile }) {
     const nouvLignes = []
     for (const [jour, evtsDuJour] of Object.entries(parJour)) {
       const evtsAvecLieu = evtsDuJour.filter(e => e.lieu)
-
       if (evtsAvecLieu.length === 0) continue
 
-      if (evtsAvecLieu.length === 1) {
-        // AR simple
-        const e = evtsAvecLieu[0]
+      // Séparer formations et déplacements pro
+      const evtsFormation = evtsAvecLieu.filter(e => CATS_FORMATION.includes(e.categorie))
+      const evtsPro = evtsAvecLieu.filter(e => CATS_PRO.includes(e.categorie))
+
+      // Formations → aller seulement (barème SNCF)
+      evtsFormation.forEach(e => {
+        nouvLignes.push({
+          id: e.id,
+          date: jour,
+          type: 'formation',
+          typeLabel: '🎓 Formation (aller SNCF)',
+          evenements: [e],
+          etapes: [
+            { adresse: domicile, label: 'Domicile' },
+            { adresse: e.lieu, label: e.titre },
+          ],
+          km: null,
+          montantSNCF: null, // calculé après km
+          taux: null, // pas de taux km pour formation
+          repas: false,
+          repas_montant: '',
+          peage: false,
+          peage_montant: '',
+          notes: '',
+          editable: true,
+        })
+      })
+
+      // Déplacements pro → AR (barème kilométrique Tarn)
+      if (evtsPro.length === 1) {
+        const e = evtsPro[0]
         nouvLignes.push({
           id: e.id,
           date: jour,
           type: 'ar',
+          typeLabel: '↔️ Aller-Retour',
           evenements: [e],
           etapes: [
             { adresse: domicile, label: 'Domicile' },
             { adresse: e.lieu, label: e.titre },
             { adresse: domicile, label: 'Domicile' },
           ],
-          km: null, // à calculer
+          km: null,
           taux: getTauxKm(cv, kmCumules),
           repas: false,
           repas_montant: '',
@@ -165,18 +208,19 @@ export default function Frais({ profile }) {
           notes: '',
           editable: true,
         })
-      } else {
-        // Boucle — plusieurs événements le même jour
+      } else if (evtsPro.length > 1) {
+        // Boucle
         const etapes = [
           { adresse: domicile, label: 'Domicile (départ)' },
-          ...evtsAvecLieu.map(e => ({ adresse: e.lieu, label: e.titre, evtId: e.id })),
+          ...evtsPro.map(e => ({ adresse: e.lieu, label: e.titre, evtId: e.id })),
           { adresse: domicile, label: 'Domicile (retour)' },
         ]
         nouvLignes.push({
           id: `boucle-${jour}`,
           date: jour,
           type: 'boucle',
-          evenements: evtsAvecLieu,
+          typeLabel: '🔄 Boucle',
+          evenements: evtsPro,
           etapes,
           km: null,
           taux: getTauxKm(cv, kmCumules),
@@ -186,8 +230,9 @@ export default function Frais({ profile }) {
           peage_montant: '',
           notes: '',
           editable: true,
-          ordreEditable: true, // pour réordonner les étapes
+          ordreEditable: true,
         })
+      }
       }
     }
 
@@ -199,8 +244,13 @@ export default function Frais({ profile }) {
   async function calculerTout() {
     setCalcul(true)
     const updated = await Promise.all(lignes.map(async ligne => {
-      if (ligne.km !== null) return ligne // déjà calculé
+      if (ligne.km !== null) return ligne
       const km = await calculerBoucle(ligne.etapes)
+      if (ligne.type === 'formation') {
+        // Formation : aller seulement → montant SNCF
+        const montantSNCF = km ? getMontantSNCF(km) : null
+        return { ...ligne, km, montantSNCF }
+      }
       return { ...ligne, km }
     }))
     setLignes(updated)
@@ -236,8 +286,12 @@ export default function Frais({ profile }) {
   }
 
   // ── Totaux ────────────────────────────────────────────────────────────────
-  const totalKm = lignes.reduce((s, l) => s + (l.km || 0), 0)
-  const totalIndemnite = lignes.reduce((s, l) => s + ((l.km || 0) * (l.taux || 0)), 0)
+  const totalKmPro = lignes.filter(l => l.type !== 'formation').reduce((s, l) => s + (l.km || 0), 0)
+  const totalKmFormation = lignes.filter(l => l.type === 'formation').reduce((s, l) => s + (l.km || 0), 0)
+  const totalKm = totalKmPro + totalKmFormation
+  const totalIndemnitePro = lignes.filter(l => l.type !== 'formation').reduce((s, l) => s + ((l.km || 0) * (l.taux || 0)), 0)
+  const totalIndemniteFormation = lignes.filter(l => l.type === 'formation').reduce((s, l) => s + (l.montantSNCF || 0), 0)
+  const totalIndemnite = totalIndemnitePro + totalIndemniteFormation
   const totalRepas = lignes.reduce((s, l) => l.repas && l.repas_montant ? s + parseFloat(l.repas_montant || 0) : s, 0)
   const totalPeage = lignes.reduce((s, l) => l.peage && l.peage_montant ? s + parseFloat(l.peage_montant || 0) : s, 0)
   const totalGeneral = totalIndemnite + totalRepas + totalPeage
@@ -400,13 +454,22 @@ export default function Frais({ profile }) {
 
                   {/* Options repas + péage + montant */}
                   <div style={{ padding:'10px 16px', display:'flex', gap:16, alignItems:'center', flexWrap:'wrap' }}>
-                    {/* Indemnité km */}
-                    <div style={{ fontSize:12, color:'#1a4b8f', fontWeight:600 }}>
-                      💶 {ligne.km ? (ligne.km * ligne.taux).toFixed(2) : '—'} €
-                      <span style={{ fontSize:10, color:'#9aa3b8', fontWeight:400, marginLeft:4 }}>
-                        ({ligne.km || '—'} km × {ligne.taux.toFixed(3)} €)
-                      </span>
-                    </div>
+                    {/* Indemnité */}
+                    {ligne.type === 'formation' ? (
+                      <div style={{ fontSize:12, color:'#6b21a8', fontWeight:600 }}>
+                        🎓 {ligne.montantSNCF !== null ? ligne.montantSNCF.toFixed(2) : '—'} €
+                        <span style={{ fontSize:10, color:'#9aa3b8', fontWeight:400, marginLeft:4 }}>
+                          (SNCF 2ème cl. · aller {ligne.km || '—'} km)
+                        </span>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize:12, color:'#1a4b8f', fontWeight:600 }}>
+                        💶 {ligne.km ? (ligne.km * ligne.taux).toFixed(2) : '—'} €
+                        <span style={{ fontSize:10, color:'#9aa3b8', fontWeight:400, marginLeft:4 }}>
+                          ({ligne.km || '—'} km × {ligne.taux?.toFixed(3)} €)
+                        </span>
+                      </div>
+                    )}
 
                     {/* Repas */}
                     <label style={{ display:'flex', alignItems:'center', gap:6, cursor:'pointer', fontSize:12 }}>
@@ -457,12 +520,13 @@ export default function Frais({ profile }) {
               <div style={{ fontSize:13, fontWeight:700, color:'#1a4b8f', marginBottom:14 }}>
                 📊 Récapitulatif — {MOIS_FR[mois]} {annee}
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:12, marginBottom:16 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:12, marginBottom:16 }}>
                 {[
-                  { label:'Total km', value:`${Math.round(totalKm * 10) / 10} km`, icon:'🛣️', color:'#1a4b8f', bg:'#e8eef8' },
-                  { label:'Indemnité km', value:`${totalIndemnite.toFixed(2)} €`, icon:'💶', color:'#2e8b4a', bg:'#e6f5eb' },
+                  { label:'Km pro', value:`${Math.round(totalKmPro * 10) / 10} km`, icon:'🚗', color:'#1a4b8f', bg:'#e8eef8' },
+                  { label:'Indemnité pro', value:`${totalIndemnitePro.toFixed(2)} €`, icon:'💶', color:'#2e8b4a', bg:'#e6f5eb' },
+                  { label:'Formation SNCF', value:`${totalIndemniteFormation.toFixed(2)} €`, icon:'🎓', color:'#6b21a8', bg:'#f0ebfb' },
                   { label:'Repas', value:`${totalRepas.toFixed(2)} €`, icon:'🍽️', color:'#d97706', bg:'#fef3e2' },
-                  { label:'Péages', value:`${totalPeage.toFixed(2)} €`, icon:'🛣️', color:'#6b21a8', bg:'#f0ebfb' },
+                  { label:'Péages', value:`${totalPeage.toFixed(2)} €`, icon:'🛣️', color:'#0891b2', bg:'#e0f2fe' },
                 ].map(({ label, value, icon, color, bg }) => (
                   <div key={label} style={{ background: bg, borderRadius:10, padding:14, textAlign:'center' }}>
                     <div style={{ fontSize:20, marginBottom:4 }}>{icon}</div>
