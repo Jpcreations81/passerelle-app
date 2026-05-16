@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-12l — filtres agenda encadrant (Relais/Congés/ASE/Formation/Personnel/Autre) + VM masqué
+// Agenda.js — v2026-05-13a — champ Lieu pour formation/ase/medical + case Pas de relais par enfant
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1961,6 +1961,22 @@ export default function Agenda({ profile }) {
                 </div>
               )}
 
+              {/* ── LIEU (formation, ase, medical, scolaire, autre) ── */}
+              {['formation', 'ase', 'medical', 'scolaire', 'autre'].includes(newEvt.categorie) && (
+                <div className="form-group col-span-2">
+                  <label className="form-label">📍 Lieu</label>
+                  <input className="form-control" value={newEvt.lieu || ''}
+                    onChange={e => setNewEvt(n => ({ ...n, lieu: e.target.value }))}
+                    placeholder={newEvt.categorie === 'formation' ? 'Ex: Albi, Gaillac, Castres...' : 'Ex: Cabinet Dr Dupont, Albi...'}
+                  />
+                  {newEvt.categorie === 'formation' && (
+                    <div style={{ fontSize:10, color:'#9aa3b8', marginTop:3, fontStyle:'italic' }}>
+                      ⚠️ Le lieu est nécessaire pour le calcul des frais kilométriques
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── DATE DÉBUT + HEURE DÉBUT ── */}
               <div className="form-group">
                 <label className="form-label">📅 Date début</label>
@@ -2040,12 +2056,24 @@ export default function Agenda({ profile }) {
                       const relais = newEvt.congeRelais?.[enfant.id] || {}
                       const couleur = couleursEnfants[enfant.id] || '#1a4b8f'
                       const recherche = rechercheAFConge[enfant.id] || ''
+                      const pasDeRelais = relais.pasDeRelais === true
                       return (
                         <div key={enfant.id} style={{ marginBottom:12, padding:'10px 12px', background:'#fff', borderRadius:8, border:`2px solid ${couleur}20` }}>
-                          <div style={{ fontSize:12, fontWeight:700, color: couleur, marginBottom:8 }}>
-                            👶 {enfant.prenom} {enfant.nom}
+                          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                            <div style={{ fontSize:12, fontWeight:700, color: couleur }}>
+                              👶 {enfant.prenom} {enfant.nom}
+                            </div>
+                            {/* Case Pas de relais */}
+                            <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', fontSize:11, color:'#5a6478' }}>
+                              <input type="checkbox" checked={pasDeRelais}
+                                onChange={e => setNewEvt(n => ({ ...n, congeRelais: { ...n.congeRelais, [enfant.id]: e.target.checked ? { pasDeRelais: true } : {} } }))}
+                              />
+                              🏫 Pas de relais (école / crèche / conjoint)
+                            </label>
                           </div>
 
+                          {!pasDeRelais && (
+                            <>
                           {/* AF sélectionné */}
                           {relais.nom ? (
                             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'6px 12px', background:'#e6f5eb', borderRadius:7, fontSize:11, color:'#2e8b4a', fontWeight:600, marginBottom:6 }}>
@@ -2123,6 +2151,8 @@ export default function Agenda({ profile }) {
                               </div>
                             )}
                           </div>
+                        </div>
+                          )} {/* fin !pasDeRelais */}
                         </div>
                       )
                     })}
