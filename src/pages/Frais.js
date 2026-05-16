@@ -233,7 +233,6 @@ export default function Frais({ profile }) {
           ordreEditable: true,
         })
       }
-      }
     }
 
     setLignes(nouvLignes)
