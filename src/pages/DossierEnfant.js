@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-05-11h — fix crash preconisations parseArr + section préconisations + ordonnances SectionCard
+// DossierEnfant.js — v2026-05-13a — professionnels de santé dans encart Santé + modal ajout/édition
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -138,6 +138,10 @@ export default function DossierEnfant({ profile }) {
   const [isAfRelaisActif, setIsAfRelaisActif] = useState(false)
   const [relaisInfo, setRelaisInfo] = useState(null) // { date_debut, date_fin } du relais en cours
 
+  const [showProfModal, setShowProfModal] = useState(false)
+  const [newProf, setNewProf] = useState({ nom:'', specialite:'', adresse:'', telephone:'', email:'', notes:'' })
+  const [editProfIdx, setEditProfIdx] = useState(null)
+
   const nonPlace = enfant?.type_placement === 'non_place' || !enfant?.type_placement
   const isReferent = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
   const isAF = profile?.role === 'af'
@@ -205,6 +209,7 @@ export default function DossierEnfant({ profile }) {
         conditions_sante: parseArr(data.conditions_sante),
         preconisations: parseArr(data.preconisations),
         fratrie: parseArr(data.fratrie),
+        professionnels_sante: parseArr(data.professionnels_sante),
       }
       setEnfant(safeData)
       setForm(safeData)
@@ -694,6 +699,9 @@ export default function DossierEnfant({ profile }) {
       setForm(f => ({ ...f, preconisations: valeur }))
     } else if (champ === 'notes_preconisations') {
       payload = { notes_preconisations: valeur }
+    } else if (champ === 'professionnels_sante') {
+      payload = { professionnels_sante: valeur }
+      setForm(f => ({ ...f, professionnels_sante: valeur }))
     } else if (champ === 'medecin_groupe') {
       payload = valeur
     }
@@ -709,7 +717,7 @@ export default function DossierEnfant({ profile }) {
       setForm(f => ({ ...f, [key]: cleaned }))
     }
   }
-  const ARRAY_KEYS = ['conditions_sante', 'preconisations', 'fratrie']
+  const ARRAY_KEYS = ['conditions_sante', 'preconisations', 'fratrie', 'professionnels_sante']
   function v(key) {
     if (ARRAY_KEYS.includes(key)) return form[key] || []
     return form[key] || ''
@@ -1685,6 +1693,46 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                     </div>
                   )}
 
+                  {/* ── Professionnels de santé ── */}
+                  <div style={{ marginTop:16, borderTop:'1px solid #eef1f8', paddingTop:14 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', marginBottom:10 }}>
+                      👩‍⚕️ Professionnels de santé
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:10 }}>
+                      {(form.professionnels_sante || []).map((p, i) => (
+                        <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'#f4f6fb', borderRadius:10, border:'1px solid #dde3f0' }}>
+                          <div style={{ width:36, height:36, borderRadius:8, background:'#e0f2fe', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>👩‍⚕️</div>
+                          <div style={{ flex:1 }}>
+                            <div style={{ fontSize:13, fontWeight:700 }}>{p.nom}</div>
+                            <div style={{ fontSize:11, color:'#0891b2', fontWeight:600 }}>{p.specialite}</div>
+                            {p.adresse && <div style={{ fontSize:11, color:'#9aa3b8' }}>📍 {p.adresse}</div>}
+                            {p.telephone && <div style={{ fontSize:11, color:'#9aa3b8' }}>📞 <a href={`tel:${p.telephone}`} style={{ color:'#1a4b8f' }}>{p.telephone}</a></div>}
+                            {p.notes && <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic' }}>{p.notes}</div>}
+                          </div>
+                          {canEditSante && (
+                            <div style={{ display:'flex', gap:4 }}>
+                              <button onClick={() => { setEditProfIdx(i); setNewProf({ ...p }); setShowProfModal(true) }}
+                                style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>✏️</button>
+                              <button onClick={() => {
+                                const updated = (form.professionnels_sante || []).filter((_,j) => j !== i)
+                                saveSanteField('professionnels_sante', updated)
+                              }} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #fde8e8', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      {(!form.professionnels_sante || form.professionnels_sante.length === 0) && (
+                        <div style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Aucun professionnel renseigné</div>
+                      )}
+                    </div>
+                    {canEditSante && (
+                      <button onClick={() => { setEditProfIdx(null); setNewProf({ nom:'', specialite:'Médecin traitant', adresse:'', telephone:'', email:'', notes:'' }); setShowProfModal(true) }}
+                        className="btn btn-secondary" style={{ fontSize:11 }}>
+                        + Ajouter un professionnel
+                      </button>
+                    )}
+                  </div>
+
                   {/* Allergies & Conditions */}
                   <div style={{ marginTop:16 }}>
                     <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:8 }}>Allergies & Conditions</label>
@@ -2526,6 +2574,61 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                 </div>
               </>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal professionnel de santé ── */}
+      {showProfModal && (
+        <div className="modal-overlay" onClick={() => setShowProfModal(false)}>
+          <div className="modal-box" style={{ maxWidth:480 }} onClick={e => e.stopPropagation()}>
+            <div className="modal-title">{editProfIdx !== null ? '✏️ Modifier le professionnel' : '👩‍⚕️ Nouveau professionnel de santé'}</div>
+            <div className="form-grid-2">
+              <div className="form-group col-span-2">
+                <label className="form-label">Nom *</label>
+                <input className="form-control" value={newProf.nom} autoFocus
+                  onChange={e => setNewProf(p => ({...p, nom: e.target.value}))} placeholder="Dr. Dupont, Cabinet Brun..." />
+              </div>
+              <div className="form-group col-span-2">
+                <label className="form-label">Spécialité</label>
+                <input className="form-control" value={newProf.specialite}
+                  onChange={e => setNewProf(p => ({...p, specialite: e.target.value}))}
+                  placeholder="Médecin traitant, Orthophoniste, Pédopsychiatre..." />
+              </div>
+              <div className="form-group col-span-2">
+                <label className="form-label">Adresse</label>
+                <input className="form-control" value={newProf.adresse}
+                  onChange={e => setNewProf(p => ({...p, adresse: e.target.value}))}
+                  placeholder="1 bis place du foirail 81500 Lavaur" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Téléphone</label>
+                <input type="tel" className="form-control" value={newProf.telephone}
+                  onChange={e => setNewProf(p => ({...p, telephone: e.target.value}))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input type="email" className="form-control" value={newProf.email}
+                  onChange={e => setNewProf(p => ({...p, email: e.target.value}))} />
+              </div>
+              <div className="form-group col-span-2">
+                <label className="form-label">Notes</label>
+                <textarea className="form-control" rows={2} value={newProf.notes}
+                  onChange={e => setNewProf(p => ({...p, notes: e.target.value}))}
+                  placeholder="Fréquence des rendez-vous, informations utiles..." style={{ resize:'vertical' }} />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowProfModal(false)}>Annuler</button>
+              <button className="btn btn-primary" onClick={() => {
+                if (!newProf.nom) { showToast('⚠️ Nom requis'); return }
+                const liste = [...(form.professionnels_sante || [])]
+                if (editProfIdx !== null) liste[editProfIdx] = newProf
+                else liste.push(newProf)
+                saveSanteField('professionnels_sante', liste)
+                setShowProfModal(false)
+              }}>💾 Enregistrer</button>
+            </div>
           </div>
         </div>
       )}
