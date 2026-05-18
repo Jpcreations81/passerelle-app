@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-13b — Pas de relais formation uniquement (sans parenthèse)
+// Agenda.js — v2026-05-13c — transport relais (aller/retour AF principal ou relais) dans modal détail
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2610,6 +2610,42 @@ export default function Agenda({ profile }) {
                       {selectedEvt.categorie === 'relais' && !selectedEvt.relais_structure_id && selectedEvt.relais_nom_libre && selectedEvt.relais_type !== 'af' && (
                         <div style={{ marginTop:10, padding:'8px 12px', background:'#fef3e2', borderRadius:8, border:'1px solid #f5dca4' }}>
                           <div style={{ fontSize:11, color:'#d97706' }}>⚠️ Structure relais : <strong>{selectedEvt.relais_nom_libre}</strong> — non encore référencée</div>
+                        </div>
+                      )}
+
+                      {/* ── Transport relais ── */}
+                      {selectedEvt.categorie === 'relais' && (
+                        <div style={{ marginTop:12, padding:'10px 14px', background:'#f4f6fb', borderRadius:9, border:'1px solid #dde3f0' }}>
+                          <div style={{ fontSize:11, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', marginBottom:10 }}>
+                            🚗 Transport assuré par
+                          </div>
+                          {['aller', 'retour'].map(sens => {
+                            const field = `transport_${sens}_af_principal`
+                            const valeur = selectedEvt[field] !== false // true par défaut
+                            return (
+                              <div key={sens} style={{ display:'flex', alignItems:'center', gap:16, marginBottom:8 }}>
+                                <span style={{ fontSize:12, fontWeight:600, color:'#1c2333', minWidth:50, textTransform:'capitalize' }}>{sens} :</span>
+                                <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', fontSize:12 }}>
+                                  <input type="radio" name={`transport_${sens}_${selectedEvt.id}`}
+                                    checked={valeur}
+                                    onChange={() => {
+                                      supabase.from('evenements').update({ [field]: true }).eq('id', selectedEvt.id)
+                                        .then(() => setSelectedEvt(e => ({ ...e, [field]: true })))
+                                    }} />
+                                  AF principal
+                                </label>
+                                <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', fontSize:12 }}>
+                                  <input type="radio" name={`transport_${sens}_${selectedEvt.id}`}
+                                    checked={!valeur}
+                                    onChange={() => {
+                                      supabase.from('evenements').update({ [field]: false }).eq('id', selectedEvt.id)
+                                        .then(() => setSelectedEvt(e => ({ ...e, [field]: false })))
+                                    }} />
+                                  <span style={{ color:'#0891b2' }}>AF relais — {selectedEvt.relais_nom_libre || 'famille relais'}</span>
+                                </label>
+                              </div>
+                            )
+                          })}
                         </div>
                       )}
                       {/* Masquer le dernier div fermant dupliqué */}
