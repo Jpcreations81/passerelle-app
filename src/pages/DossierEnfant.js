@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-05-13a — professionnels de santé dans encart Santé + modal ajout/édition
+// DossierEnfant.js — v2026-05-18a — professionnels santé en grille + suppression médecin/spécialiste texte
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1678,15 +1678,12 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                 )}
                 <SectionCard icon="🏥" title="Santé">
                   <FormGrid cols={3}>
-                    <Field label="Médecin traitant" value={v('medecin')} onChange={F('medecin')} readOnly={!canEditSante && !editMode} />
-                    <Field label="Pédopsychiatre / Spécialiste" value={v('specialiste')} onChange={F('specialiste')} readOnly={!canEditSante && !editMode} />
                     <Field label="Groupe sanguin" value={v('groupe_sanguin')} onChange={F('groupe_sanguin')} readOnly={!canEditSante && !editMode}
                       options={['A+','A-','B+','B-','AB+','AB-','O+','O-']} />
                   </FormGrid>
-                  {/* Bouton enregistrer médecin/spécialiste/groupe pour AF principal (hors editMode) */}
                   {canEditSante && !editMode && (
                     <div style={{ marginTop:8 }}>
-                      <button onClick={() => saveSanteField('medecin_groupe', { medecin: form.medecin, specialiste: form.specialiste, groupe_sanguin: form.groupe_sanguin })}
+                      <button onClick={() => saveSanteField('medecin_groupe', { groupe_sanguin: form.groupe_sanguin })}
                         className="btn btn-primary" style={{ fontSize:11 }}>
                         💾 Enregistrer
                       </button>
@@ -1698,38 +1695,37 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                     <div style={{ fontSize:11, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', marginBottom:10 }}>
                       👩‍⚕️ Professionnels de santé
                     </div>
-                    <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:10 }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:10, marginBottom:10 }}>
                       {(form.professionnels_sante || []).map((p, i) => (
-                        <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'#f4f6fb', borderRadius:10, border:'1px solid #dde3f0' }}>
-                          <div style={{ width:36, height:36, borderRadius:8, background:'#e0f2fe', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>👩‍⚕️</div>
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontSize:13, fontWeight:700 }}>{p.nom}</div>
-                            <div style={{ fontSize:11, color:'#0891b2', fontWeight:600 }}>{p.specialite}</div>
-                            {p.adresse && <div style={{ fontSize:11, color:'#9aa3b8' }}>📍 {p.adresse}</div>}
-                            {p.telephone && <div style={{ fontSize:11, color:'#9aa3b8' }}>📞 <a href={`tel:${p.telephone}`} style={{ color:'#1a4b8f' }}>{p.telephone}</a></div>}
-                            {p.notes && <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic' }}>{p.notes}</div>}
-                          </div>
+                        <div key={i} style={{ background:'#f4f6fb', borderRadius:10, padding:14, border:'1px solid #dde3f0', position:'relative' }}>
+                          <div style={{ fontSize:10, fontWeight:700, color:'#0891b2', textTransform:'uppercase', letterSpacing:'.3px', marginBottom:4 }}>{p.specialite}</div>
+                          <div style={{ fontSize:13, fontWeight:700, marginBottom:4 }}>{p.nom}</div>
+                          {p.adresse && <div style={{ fontSize:11, color:'#9aa3b8' }}>📍 {p.adresse}</div>}
+                          {p.telephone && <div style={{ fontSize:11, color:'#9aa3b8', marginTop:2 }}>📞 <a href={`tel:${p.telephone}`} style={{ color:'#1a4b8f' }}>{p.telephone}</a></div>}
+                          {p.notes && <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic', marginTop:2 }}>{p.notes}</div>}
                           {canEditSante && (
-                            <div style={{ display:'flex', gap:4 }}>
+                            <div style={{ display:'flex', gap:4, marginTop:8 }}>
                               <button onClick={() => { setEditProfIdx(i); setNewProf({ ...p }); setShowProfModal(true) }}
-                                style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>✏️</button>
+                                style={{ padding:'3px 7px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>✏️</button>
                               <button onClick={() => {
                                 const updated = (form.professionnels_sante || []).filter((_,j) => j !== i)
                                 saveSanteField('professionnels_sante', updated)
-                              }} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #fde8e8', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>
+                              }} style={{ padding:'3px 7px', borderRadius:6, border:'1px solid #fde8e8', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>
                             </div>
                           )}
                         </div>
                       ))}
-                      {(!form.professionnels_sante || form.professionnels_sante.length === 0) && (
-                        <div style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Aucun professionnel renseigné</div>
+                      {canEditSante && (
+                        <div onClick={() => { setEditProfIdx(null); setNewProf({ nom:'', specialite:'Médecin traitant', adresse:'', telephone:'', email:'', notes:'' }); setShowProfModal(true) }}
+                          style={{ background:'#fff', borderRadius:10, padding:14, border:'2px dashed #dde3f0', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', color:'#9aa3b8', fontSize:12, minHeight:80 }}
+                          onMouseOver={e => e.currentTarget.style.borderColor='#1a4b8f'}
+                          onMouseOut={e => e.currentTarget.style.borderColor='#dde3f0'}>
+                          + Ajouter
+                        </div>
                       )}
                     </div>
-                    {canEditSante && (
-                      <button onClick={() => { setEditProfIdx(null); setNewProf({ nom:'', specialite:'Médecin traitant', adresse:'', telephone:'', email:'', notes:'' }); setShowProfModal(true) }}
-                        className="btn btn-secondary" style={{ fontSize:11 }}>
-                        + Ajouter un professionnel
-                      </button>
+                    {(!form.professionnels_sante || form.professionnels_sante.length === 0) && !canEditSante && (
+                      <div style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Aucun professionnel renseigné</div>
                     )}
                   </div>
 
