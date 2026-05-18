@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-13a — champ Lieu pour formation/ase/medical + case Pas de relais par enfant
+// Agenda.js — v2026-05-13b — Pas de relais formation uniquement (sans parenthèse)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2063,13 +2063,15 @@ export default function Agenda({ profile }) {
                             <div style={{ fontSize:12, fontWeight:700, color: couleur }}>
                               👶 {enfant.prenom} {enfant.nom}
                             </div>
-                            {/* Case Pas de relais */}
+                            {/* Case Pas de relais — formation uniquement */}
+                            {newEvt.categorie === 'formation' && (
                             <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', fontSize:11, color:'#5a6478' }}>
                               <input type="checkbox" checked={pasDeRelais}
                                 onChange={e => setNewEvt(n => ({ ...n, congeRelais: { ...n.congeRelais, [enfant.id]: e.target.checked ? { pasDeRelais: true } : {} } }))}
                               />
-                              🏫 Pas de relais (école / crèche / conjoint)
+                              🏫 Pas de relais
                             </label>
+                            )}
                           </div>
 
                           {!pasDeRelais && (
