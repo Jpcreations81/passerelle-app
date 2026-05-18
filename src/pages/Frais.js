@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-13c — barème SNCF formation (aller seulement) + pro (AR kilométrique)
+// Frais.js — v2026-05-18a — fix relais participant : charger événements où AF est dans participants_ids + transport
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -132,7 +132,8 @@ export default function Frais({ profile }) {
     const debut = new Date(annee, mois, 1)
     const fin = new Date(annee, mois + 1, 0, 23, 59, 59)
 
-    const { data: evts } = await supabase
+    // 1. Événements de l'AF principal
+    const { data: evtsPrincipaux } = await supabase
       .from('evenements')
       .select('*')
       .eq('af_id', profile.id)
@@ -141,11 +142,33 @@ export default function Frais({ profile }) {
       .lte('date_debut', fin.toISOString())
       .order('date_debut', { ascending: true })
 
-    if (!evts || evts.length === 0) { setLoading(false); return }
+    // 2. Relais où l'AF est participant (AF relais) avec transport assuré par lui
+    const { data: evtsRelaisParticipant } = await supabase
+      .from('evenements')
+      .select('*')
+      .eq('categorie', 'relais')
+      .contains('participants_ids', [profile.id])
+      .gte('date_debut', debut.toISOString())
+      .lte('date_debut', fin.toISOString())
+      .order('date_debut', { ascending: true })
+
+    // Filtrer les relais participant selon le transport
+    const relaisAvecTransport = (evtsRelaisParticipant || []).filter(e =>
+      e.transport_aller_af_principal === false || e.transport_retour_af_principal === false
+    )
+
+    // Fusionner sans doublons
+    const tousEvts = [...(evtsPrincipaux || [])]
+    relaisAvecTransport.forEach(e => {
+      if (!tousEvts.find(x => x.id === e.id)) tousEvts.push(e)
+    })
+    tousEvts.sort((a, b) => new Date(a.date_debut) - new Date(b.date_debut))
+
+    if (tousEvts.length === 0) { setLoading(false); return }
 
     // Grouper par jour
     const parJour = {}
-    evts.forEach(e => {
+    tousEvts.forEach(e => {
       const jour = e.date_debut.slice(0, 10)
       if (!parJour[jour]) parJour[jour] = []
       parJour[jour].push(e)
@@ -161,7 +184,42 @@ export default function Frais({ profile }) {
       const evtsFormation = evtsAvecLieu.filter(e => CATS_FORMATION.includes(e.categorie))
       const evtsPro = evtsAvecLieu.filter(e => CATS_PRO.includes(e.categorie))
 
-      // Formations → aller seulement (barème SNCF)
+      // Pour les relais où l'AF est participant (pas af_id), adapter selon transport
+      const evtsRelaisParticipantJour = evtsAvecLieu.filter(e =>
+        e.categorie === 'relais' &&
+        e.af_id !== profile.id &&
+        e.participants_ids?.includes(profile.id)
+      )
+      // Retirer ces relais des evtsPro pour traitement séparé
+      const evtsProFiltres = evtsPro.filter(e => !evtsRelaisParticipantJour.find(r => r.id === e.id))
+
+      // Relais participant → ligne aller ou retour selon transport
+      evtsRelaisParticipantJour.forEach(e => {
+        const alier = e.transport_aller_af_principal === false
+        const retour = e.transport_retour_af_principal === false
+        if (!alier && !retour) return // pas de transport pour cet AF
+        nouvLignes.push({
+          id: `relais-participant-${e.id}`,
+          date: jour,
+          type: 'ar',
+          typeLabel: `🔄 Relais${alier && retour ? ' (AR)' : alier ? ' (aller)' : ' (retour)'}`,
+          evenements: [e],
+          etapes: alier && retour ? [
+            { adresse: domicile, label: 'Domicile' },
+            { adresse: e.lieu, label: e.titre },
+            { adresse: domicile, label: 'Domicile' },
+          ] : alier ? [
+            { adresse: domicile, label: 'Domicile' },
+            { adresse: e.lieu, label: e.titre },
+          ] : [
+            { adresse: e.lieu, label: e.titre },
+            { adresse: domicile, label: 'Domicile' },
+          ],
+          km: null,
+          taux: getTauxKm(cv, kmCumules),
+          repas: false, repas_montant: '', peage: false, peage_montant: '', notes: '', editable: true,
+        })
+      })
       evtsFormation.forEach(e => {
         nouvLignes.push({
           id: e.id,
@@ -186,8 +244,8 @@ export default function Frais({ profile }) {
       })
 
       // Déplacements pro → AR (barème kilométrique Tarn)
-      if (evtsPro.length === 1) {
-        const e = evtsPro[0]
+      if (evtsProFiltres.length === 1) {
+        const e = evtsProFiltres[0]
         nouvLignes.push({
           id: e.id,
           date: jour,
@@ -208,11 +266,11 @@ export default function Frais({ profile }) {
           notes: '',
           editable: true,
         })
-      } else if (evtsPro.length > 1) {
+      } else if (evtsProFiltres.length > 1) {
         // Boucle
         const etapes = [
           { adresse: domicile, label: 'Domicile (départ)' },
-          ...evtsPro.map(e => ({ adresse: e.lieu, label: e.titre, evtId: e.id })),
+          ...evtsProFiltres.map(e => ({ adresse: e.lieu, label: e.titre, evtId: e.id })),
           { adresse: domicile, label: 'Domicile (retour)' },
         ]
         nouvLignes.push({
@@ -220,7 +278,7 @@ export default function Frais({ profile }) {
           date: jour,
           type: 'boucle',
           typeLabel: '🔄 Boucle',
-          evenements: evtsPro,
+          evenements: evtsProFiltres,
           etapes,
           km: null,
           taux: getTauxKm(cv, kmCumules),
