@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-19f — sauvegarde fiche frais_mois + statut brouillon/soumis/validé + km_cumules
+// Frais.js — v2026-05-19g — fix cumul km + historique fiches sauvegardées
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -105,10 +105,22 @@ export default function Frais({ profile }) {
   const [kmCumules, setKmCumules] = useState(0)
   const [onglet, setOnglet] = useState('pro')
   const [saving, setSaving] = useState(false)
-  const [fraisId, setFraisId] = useState(null) // id de la fiche sauvegardée
+  const [fraisId, setFraisId] = useState(null)
   const [statut, setStatut] = useState('brouillon')
+  const [historique, setHistorique] = useState([])
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
+  // ── Charger historique des fiches ─────────────────────────────────────────
+  useEffect(() => {
+    if (!profile) return
+    supabase.from('frais_mois')
+      .select('id, mois, annee, total_general, total_km_pro, statut, updated_at')
+      .eq('af_id', profile.id)
+      .order('annee', { ascending: false })
+      .order('mois', { ascending: false })
+      .then(({ data }) => { if (data) setHistorique(data) })
+  }, [profile])
 
   // ── Charger fiche sauvegardée pour ce mois ────────────────────────────────
   useEffect(() => {
@@ -139,16 +151,26 @@ export default function Frais({ profile }) {
   async function sauvegarder(nouveauStatut = statut) {
     if (!profile || lignes.length === 0) return
     setSaving(true)
+
+    // Recalculer les totaux directement depuis lignes
+    const kmPro = lignes.filter(l => l.type !== 'formation').reduce((s, l) => s + (l.km || 0), 0)
+    const kmForm = lignes.filter(l => l.type === 'formation').reduce((s, l) => s + (l.km || 0), 0)
+    const indPro = lignes.filter(l => l.type !== 'formation').reduce((s, l) => s + ((l.km || 0) * (l.taux || 0)), 0)
+    const indForm = lignes.filter(l => l.type === 'formation').reduce((s, l) => s + (l.montantSNCF || 0), 0)
+    const repas = lignes.reduce((s, l) => l.repas && l.repas_montant ? s + parseFloat(l.repas_montant || 0) : s, 0)
+    const peage = lignes.reduce((s, l) => l.peage && l.peage_montant ? s + parseFloat(l.peage_montant || 0) : s, 0)
+    const general = indPro + indForm + repas + peage
+
     const payload = {
       af_id: profile.id,
       mois, annee,
       lignes,
-      total_km_pro: Math.round(totalKmPro * 10) / 10,
-      total_indemnite_pro: Math.round(totalIndemnitePro * 100) / 100,
-      total_indemnite_formation: Math.round(totalIndemniteFormation * 100) / 100,
-      total_repas: Math.round(totalRepas * 100) / 100,
-      total_peage: Math.round(totalPeage * 100) / 100,
-      total_general: Math.round(totalGeneral * 100) / 100,
+      total_km_pro: Math.round(kmPro * 10) / 10,
+      total_indemnite_pro: Math.round(indPro * 100) / 100,
+      total_indemnite_formation: Math.round(indForm * 100) / 100,
+      total_repas: Math.round(repas * 100) / 100,
+      total_peage: Math.round(peage * 100) / 100,
+      total_general: Math.round(general * 100) / 100,
       statut: nouveauStatut,
       updated_at: new Date().toISOString(),
     }
@@ -163,8 +185,9 @@ export default function Frais({ profile }) {
     if (!error) {
       setStatut(nouveauStatut)
       // Mettre à jour km_cumules_annee dans le profil
-      const kmTotaux = totalKmPro + totalKmFormation
-      await supabase.from('profiles').update({ km_cumules_annee: kmCumules + kmTotaux }).eq('id', profile.id)
+      const kmTotaux = Math.round((kmPro + kmForm) * 10) / 10
+      await supabase.from('profiles').update({ km_cumules_annee: (profile.km_cumules_annee || 0) + kmTotaux }).eq('id', profile.id)
+      setKmCumules(k => k + kmTotaux)
       showToast(nouveauStatut === 'soumis' ? '📤 Fiche soumise !' : '✅ Sauvegardé !')
     } else {
       showToast('❌ Erreur : ' + error.message)
@@ -543,6 +566,27 @@ export default function Frais({ profile }) {
               </div>
             </div>
           </div>
+
+          {/* ── Historique fiches ── */}
+          {historique.length > 0 && (
+            <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:12, padding:16, marginBottom:20, boxShadow:'0 2px 8px rgba(26,75,143,.06)' }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', marginBottom:10 }}>📂 Fiches sauvegardées</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                {historique.map(f => (
+                  <button key={f.id} onClick={() => { setMois(f.mois); setAnnee(f.annee) }}
+                    style={{ padding:'6px 12px', borderRadius:8, border:`1.5px solid ${f.mois === mois && f.annee === annee ? '#1a4b8f' : '#dde3f0'}`,
+                      background: f.mois === mois && f.annee === annee ? '#e8eef8' : '#f4f6fb',
+                      fontSize:11, cursor:'pointer', fontFamily:'Sora,sans-serif', textAlign:'left' }}>
+                    <div style={{ fontWeight:700, color:'#1c2333' }}>{MOIS_FR[f.mois]} {f.annee}</div>
+                    <div style={{ fontSize:10, color:'#9aa3b8' }}>{f.total_km_pro} km · {f.total_general?.toFixed(2)} €</div>
+                    <div style={{ fontSize:10, color: f.statut === 'soumis' ? '#2e8b4a' : f.statut === 'valide' ? '#1a4b8f' : '#d97706', fontWeight:600 }}>
+                      {f.statut === 'soumis' ? '📤 Soumis' : f.statut === 'valide' ? '✅ Validé' : '📝 Brouillon'}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Bouton calculer distances ── */}
           {lignes.length > 0 && (
