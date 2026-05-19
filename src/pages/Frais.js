@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-19h — cumul km depuis toutes fiches année + ordre chronologique historique
+// Frais.js — v2026-05-19i — fix cumul : attente 500ms + parseFloat + log debug
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -184,13 +184,17 @@ export default function Frais({ profile }) {
     }
     if (!error) {
       setStatut(nouveauStatut)
+      // Attendre que Supabase ait bien enregistré avant de recalculer
+      await new Promise(r => setTimeout(r, 500))
       // Recalculer km_cumules_annee depuis TOUTES les fiches de l'année
       const { data: toutesLignes } = await supabase
         .from('frais_mois')
         .select('total_km_pro')
         .eq('af_id', profile.id)
         .eq('annee', annee)
-      const kmTotal = (toutesLignes || []).reduce((s, f) => s + (f.total_km_pro || 0), 0)
+      console.log('[cumul] fiches trouvées:', toutesLignes)
+      const kmTotal = (toutesLignes || []).reduce((s, f) => s + (parseFloat(f.total_km_pro) || 0), 0)
+      console.log('[cumul] total km:', kmTotal)
       await supabase.from('profiles').update({ km_cumules_annee: Math.round(kmTotal * 10) / 10 }).eq('id', profile.id)
       setKmCumules(Math.round(kmTotal * 10) / 10)
       // Rafraîchir historique
