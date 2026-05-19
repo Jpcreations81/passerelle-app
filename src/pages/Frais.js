@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-19g — fix cumul km + historique fiches sauvegardées
+// Frais.js — v2026-05-19h — cumul km depuis toutes fiches année + ordre chronologique historique
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -117,8 +117,8 @@ export default function Frais({ profile }) {
     supabase.from('frais_mois')
       .select('id, mois, annee, total_general, total_km_pro, statut, updated_at')
       .eq('af_id', profile.id)
-      .order('annee', { ascending: false })
-      .order('mois', { ascending: false })
+      .order('annee', { ascending: true })
+      .order('mois', { ascending: true })
       .then(({ data }) => { if (data) setHistorique(data) })
   }, [profile])
 
@@ -184,10 +184,22 @@ export default function Frais({ profile }) {
     }
     if (!error) {
       setStatut(nouveauStatut)
-      // Mettre à jour km_cumules_annee dans le profil
-      const kmTotaux = Math.round((kmPro + kmForm) * 10) / 10
-      await supabase.from('profiles').update({ km_cumules_annee: (profile.km_cumules_annee || 0) + kmTotaux }).eq('id', profile.id)
-      setKmCumules(k => k + kmTotaux)
+      // Recalculer km_cumules_annee depuis TOUTES les fiches de l'année
+      const { data: toutesLignes } = await supabase
+        .from('frais_mois')
+        .select('total_km_pro')
+        .eq('af_id', profile.id)
+        .eq('annee', annee)
+      const kmTotal = (toutesLignes || []).reduce((s, f) => s + (f.total_km_pro || 0), 0)
+      await supabase.from('profiles').update({ km_cumules_annee: Math.round(kmTotal * 10) / 10 }).eq('id', profile.id)
+      setKmCumules(Math.round(kmTotal * 10) / 10)
+      // Rafraîchir historique
+      const { data: hist } = await supabase.from('frais_mois')
+        .select('id, mois, annee, total_general, total_km_pro, statut, updated_at')
+        .eq('af_id', profile.id)
+        .order('annee', { ascending: true })
+        .order('mois', { ascending: true })
+      if (hist) setHistorique(hist)
       showToast(nouveauStatut === 'soumis' ? '📤 Fiche soumise !' : '✅ Sauvegardé !')
     } else {
       showToast('❌ Erreur : ' + error.message)
