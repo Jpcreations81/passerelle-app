@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-19d — select CV 3 catégories barème (5/7/8+)
+// Frais.js — v2026-05-19e — onglets pro/formation dans tableau des trajets
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -353,7 +353,7 @@ export default function Frais({ profile }) {
   }
 
   // ── Mettre à jour une ligne ───────────────────────────────────────────────
-  function updateLigne(id, champ, valeur) {
+  const [onglet, setOnglet] = useState('pro') // 'pro' | 'formation'
     setLignes(prev => prev.map(l => l.id === id ? { ...l, [champ]: valeur } : l))
   }
 
@@ -477,6 +477,23 @@ export default function Frais({ profile }) {
             </div>
           )}
 
+          {/* ── Onglets pro / formation ── */}
+          {lignes.length > 0 && (
+            <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+              {[
+                { key:'pro', label:'🚗 Déplacements pro', count: lignes.filter(l => l.type !== 'formation').length },
+                { key:'formation', label:'🎓 Formation', count: lignes.filter(l => l.type === 'formation').length },
+              ].map(({ key, label, count }) => (
+                <button key={key} onClick={() => setOnglet(key)}
+                  style={{ padding:'8px 18px', borderRadius:20, border:`2px solid ${onglet === key ? '#1a4b8f' : '#dde3f0'}`,
+                    background: onglet === key ? '#1a4b8f' : '#fff', color: onglet === key ? '#fff' : '#5a6478',
+                    fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:'Sora,sans-serif' }}>
+                  {label} {count > 0 && <span style={{ marginLeft:4, background: onglet === key ? 'rgba(255,255,255,.25)' : '#e8eef8', borderRadius:10, padding:'1px 7px', fontSize:11 }}>{count}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* ── Tableau des trajets ── */}
           {loading ? (
             <div style={{ textAlign:'center', padding:60, color:'#9aa3b8' }}>
@@ -490,7 +507,7 @@ export default function Frais({ profile }) {
             </div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              {lignes.map((ligne, idx) => (
+              {lignes.filter(l => onglet === 'formation' ? l.type === 'formation' : l.type !== 'formation').map((ligne, idx) => (
                 <div key={ligne.id} style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:12, overflow:'hidden', boxShadow:'0 2px 8px rgba(26,75,143,.06)' }}>
 
                   {/* En-tête ligne */}
