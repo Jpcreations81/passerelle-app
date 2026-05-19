@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-18a — fix relais participant : charger événements où AF est dans participants_ids + transport
+// Frais.js — v2026-05-19a — transport relais renommé debut/fin + fix relais participant
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -154,7 +154,7 @@ export default function Frais({ profile }) {
 
     // Filtrer les relais participant selon le transport
     const relaisAvecTransport = (evtsRelaisParticipant || []).filter(e =>
-      e.transport_aller_af_principal === false || e.transport_retour_af_principal === false
+      e.transport_debut_af_principal === false || e.transport_fin_af_principal === false
     )
 
     // Fusionner sans doublons
@@ -195,8 +195,8 @@ export default function Frais({ profile }) {
 
       // Relais participant → ligne aller ou retour selon transport
       evtsRelaisParticipantJour.forEach(e => {
-        const alier = e.transport_aller_af_principal === false
-        const retour = e.transport_retour_af_principal === false
+        const alier = e.transport_debut_af_principal === false
+        const retour = e.transport_fin_af_principal === false
         if (!alier && !retour) return // pas de transport pour cet AF
         nouvLignes.push({
           id: `relais-participant-${e.id}`,
