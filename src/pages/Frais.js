@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-19i — fix cumul : attente 500ms + parseFloat + log debug
+// Frais.js — v2026-05-19j — fix cumul integer + CV barème auto depuis profil + affichage CV réel
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -192,11 +192,10 @@ export default function Frais({ profile }) {
         .select('total_km_pro')
         .eq('af_id', profile.id)
         .eq('annee', annee)
-      console.log('[cumul] fiches trouvées:', toutesLignes)
       const kmTotal = (toutesLignes || []).reduce((s, f) => s + (parseFloat(f.total_km_pro) || 0), 0)
-      console.log('[cumul] total km:', kmTotal)
-      await supabase.from('profiles').update({ km_cumules_annee: Math.round(kmTotal * 10) / 10 }).eq('id', profile.id)
-      setKmCumules(Math.round(kmTotal * 10) / 10)
+      const kmTotalArrondi = Math.round(kmTotal)
+      await supabase.from('profiles').update({ km_cumules_annee: kmTotalArrondi }).eq('id', profile.id)
+      setKmCumules(kmTotalArrondi)
       // Rafraîchir historique
       const { data: hist } = await supabase.from('frais_mois')
         .select('id, mois, annee, total_general, total_km_pro, statut, updated_at')
@@ -214,7 +213,10 @@ export default function Frais({ profile }) {
     if (!profile) return
     const adresse = [profile.adresse, profile.code_postal, profile.ville].filter(Boolean).join(' ')
     setDomicile(adresse)
-    setCv(profile.vehicule_cv || 5)
+    // Mapper vehicule_cv vers catégorie barème : ≤5 → 5, 6-7 → 7, ≥8 → 8
+    const cvReel = profile.vehicule_cv || 5
+    const cvBareme = cvReel <= 5 ? 5 : cvReel <= 7 ? 7 : 8
+    setCv(cvBareme)
     setKmCumules(profile.km_cumules_annee || 0)
   }, [profile])
 
@@ -567,6 +569,11 @@ export default function Frais({ profile }) {
                     <option value={7}>6 et 7 CV</option>
                     <option value={8}>8 CV et plus</option>
                   </select>
+                  {profile?.vehicule_cv && (
+                    <div style={{ fontSize:10, color:'#0891b2', marginTop:3 }}>
+                      Véhicule : {profile.vehicule_cv} CV
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div style={{ fontSize:10, color:'#9aa3b8', marginBottom:3 }}>Km cumulés 2026</div>
