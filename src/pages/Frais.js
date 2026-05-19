@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-19b — relais participant : destination = domicile AF principal (pas lieu relais)
+// Frais.js — v2026-05-19c — calcul automatique distances au chargement + bouton Recalculer
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -317,6 +317,21 @@ export default function Frais({ profile }) {
 
     setLignes(nouvLignes)
     setLoading(false)
+
+    // Calcul automatique des distances
+    if (nouvLignes.length > 0) {
+      setCalcul(true)
+      const updated = await Promise.all(nouvLignes.map(async ligne => {
+        const km = await calculerBoucle(ligne.etapes)
+        if (ligne.type === 'formation') {
+          const montantSNCF = km ? getMontantSNCF(km) : null
+          return { ...ligne, km, montantSNCF }
+        }
+        return { ...ligne, km }
+      }))
+      setLignes(updated)
+      setCalcul(false)
+    }
   }, [profile, domicile, mois, annee, cv, kmCumules])
 
   // ── Calculer toutes les distances ─────────────────────────────────────────
@@ -454,11 +469,11 @@ export default function Frais({ profile }) {
           {/* ── Bouton calculer distances ── */}
           {lignes.length > 0 && (
             <div style={{ marginBottom:16, display:'flex', gap:10, alignItems:'center' }}>
-              <button onClick={calculerTout} className="btn btn-primary" disabled={calcul}>
-                {calcul ? '⏳ Calcul en cours...' : '📍 Calculer les distances'}
+              <button onClick={calculerTout} className="btn btn-secondary" disabled={calcul} style={{ fontSize:12 }}>
+                {calcul ? '⏳ Calcul en cours...' : '🔄 Recalculer les distances'}
               </button>
               <span style={{ fontSize:11, color:'#9aa3b8' }}>
-                Via Google Maps — trajet le plus court
+                Calcul automatique via Google Maps
               </span>
             </div>
           )}
