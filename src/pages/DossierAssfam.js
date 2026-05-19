@@ -1,3 +1,4 @@
+// DossierAssfam.js — v2026-05-19a — vehicule_cv converti en entier avant sauvegarde
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -561,7 +562,14 @@ export default function DossierAssfam({ profile }) {
                 <FG>
                   <Field label="Marque / Modèle" value={v('vehicule_marque')} onChange={F('vehicule_marque')} readOnly={!editMode} />
                   <Field label="Immatriculation" value={v('vehicule_immat')} onChange={F('vehicule_immat')} readOnly={!editMode} />
-                  <Field label="Puissance fiscale" value={String(v('vehicule_cv')||'5 CV et moins')} onChange={val=>F('vehicule_cv')(val)} readOnly={!editMode} options={['5 CV et moins','6-7 CV','8 CV et plus']} />
+                  <Field label="Puissance fiscale" value={String(v('vehicule_cv')||'5')} readOnly={!editMode}
+                    onChange={val => {
+                      const cvInt = val === '5 CV et moins' || val === '5' ? 5
+                        : val === '6-7 CV' || val === '6 et 7 CV' || val === '7' ? 7
+                        : 8
+                      F('vehicule_cv')(cvInt)
+                    }}
+                    options={['5 CV et moins','6-7 CV','8 CV et plus']} />
                   <Field label="Expiration assurance" type="date" value={v('vehicule_assurance_exp')} onChange={F('vehicule_assurance_exp')} readOnly={!editMode} />
                   <Field label="Contrôle technique" type="date" value={v('vehicule_ct_exp')} onChange={F('vehicule_ct_exp')} readOnly={!editMode} />
                 </FG>
