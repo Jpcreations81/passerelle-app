@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-19a — transport relais renommé debut/fin + fix relais participant
+// Frais.js — v2026-05-19b — relais participant : destination = domicile AF principal (pas lieu relais)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -157,6 +157,24 @@ export default function Frais({ profile }) {
       e.transport_debut_af_principal === false || e.transport_fin_af_principal === false
     )
 
+    // Charger les adresses des AF principaux pour les relais participant
+    const afIds = [...new Set(relaisAvecTransport.map(e => e.af_id).filter(Boolean))]
+    const afAdresses = {}
+    if (afIds.length > 0) {
+      const { data: afProfiles } = await supabase
+        .from('profiles')
+        .select('id, nom, prenom, adresse, code_postal, ville')
+        .in('id', afIds)
+      if (afProfiles) {
+        afProfiles.forEach(af => {
+          afAdresses[af.id] = {
+            adresse: [af.adresse, af.code_postal, af.ville].filter(Boolean).join(' '),
+            label: `Domicile ${af.nom} ${af.prenom}`
+          }
+        })
+      }
+    }
+
     // Fusionner sans doublons
     const tousEvts = [...(evtsPrincipaux || [])]
     relaisAvecTransport.forEach(e => {
@@ -193,26 +211,30 @@ export default function Frais({ profile }) {
       // Retirer ces relais des evtsPro pour traitement séparé
       const evtsProFiltres = evtsPro.filter(e => !evtsRelaisParticipantJour.find(r => r.id === e.id))
 
-      // Relais participant → ligne aller ou retour selon transport
+      // Relais participant → trajet AR vers domicile AF principal
       evtsRelaisParticipantJour.forEach(e => {
-        const alier = e.transport_debut_af_principal === false
-        const retour = e.transport_fin_af_principal === false
-        if (!alier && !retour) return // pas de transport pour cet AF
+        const debutParRelais = e.transport_debut_af_principal === false
+        const finParRelais = e.transport_fin_af_principal === false
+        if (!debutParRelais && !finParRelais) return
+        
+        // Destination = domicile AF principal (pas le lieu du relais)
+        const afPrincipal = afAdresses[e.af_id]
+        const destAdresse = afPrincipal?.adresse || e.lieu || ''
+        const destLabel = afPrincipal?.label || 'Domicile AF principal'
+        
+        const typeLabel = debutParRelais && finParRelais ? '🔄 Relais (début + fin)' 
+          : debutParRelais ? '🔄 Relais (début)' 
+          : '🔄 Relais (fin)'
+
         nouvLignes.push({
           id: `relais-participant-${e.id}`,
           date: jour,
           type: 'ar',
-          typeLabel: `🔄 Relais${alier && retour ? ' (AR)' : alier ? ' (aller)' : ' (retour)'}`,
+          typeLabel,
           evenements: [e],
-          etapes: alier && retour ? [
+          etapes: [
             { adresse: domicile, label: 'Domicile' },
-            { adresse: e.lieu, label: e.titre },
-            { adresse: domicile, label: 'Domicile' },
-          ] : alier ? [
-            { adresse: domicile, label: 'Domicile' },
-            { adresse: e.lieu, label: e.titre },
-          ] : [
-            { adresse: e.lieu, label: e.titre },
+            { adresse: destAdresse, label: destLabel },
             { adresse: domicile, label: 'Domicile' },
           ],
           km: null,
