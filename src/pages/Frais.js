@@ -97,12 +97,13 @@ export default function Frais({ profile }) {
   const [annee, setAnnee] = useState(now.getFullYear())
   const [loading, setLoading] = useState(false)
   const [calcul, setCalcul] = useState(false)
-  const [lignes, setLignes] = useState([]) // une ligne par trajet
+  const [lignes, setLignes] = useState([])
   const [enfants, setEnfants] = useState([])
   const [toast, setToast] = useState('')
   const [domicile, setDomicile] = useState('')
   const [cv, setCv] = useState(5)
   const [kmCumules, setKmCumules] = useState(0)
+  const [onglet, setOnglet] = useState('pro')
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -353,7 +354,7 @@ export default function Frais({ profile }) {
   }
 
   // ── Mettre à jour une ligne ───────────────────────────────────────────────
-  const [onglet, setOnglet] = useState('pro') // 'pro' | 'formation'
+  function updateLigne(id, champ, valeur) {
     setLignes(prev => prev.map(l => l.id === id ? { ...l, [champ]: valeur } : l))
   }
 
