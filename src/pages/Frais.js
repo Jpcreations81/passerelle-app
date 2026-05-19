@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-19c — calcul automatique distances au chargement + bouton Recalculer
+// Frais.js — v2026-05-19d — select CV 3 catégories barème (5/7/8+)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -446,8 +446,7 @@ export default function Frais({ profile }) {
                   <div style={{ fontSize:10, color:'#9aa3b8', marginBottom:3 }}>CV fiscaux</div>
                   <select className="form-control" value={cv} onChange={e => setCv(parseInt(e.target.value))}>
                     <option value={5}>5 CV et moins</option>
-                    <option value={6}>6 CV</option>
-                    <option value={7}>7 CV</option>
+                    <option value={7}>6 et 7 CV</option>
                     <option value={8}>8 CV et plus</option>
                   </select>
                 </div>
