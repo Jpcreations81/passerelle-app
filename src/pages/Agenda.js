@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-13d — transport relais via demande de modif + AVANT/APRÈS dans validation
+// Agenda.js — v2026-05-19a — transport relais renommé debut/fin (au lieu de aller/retour)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -371,8 +371,8 @@ export default function Agenda({ profile }) {
       lieu: nv.lieu, notes: nv.notes,
     }
     // Inclure transport si présent dans les nouvelles valeurs
-    if (nv.transport_aller_af_principal !== undefined) updateData.transport_aller_af_principal = nv.transport_aller_af_principal
-    if (nv.transport_retour_af_principal !== undefined) updateData.transport_retour_af_principal = nv.transport_retour_af_principal
+    if (nv.transport_debut_af_principal !== undefined) updateData.transport_debut_af_principal = nv.transport_debut_af_principal
+    if (nv.transport_fin_af_principal !== undefined) updateData.transport_fin_af_principal = nv.transport_fin_af_principal
 
     const { error: errEvt } = await supabase.from('evenements').update(updateData).eq('id', demande.evenement_id)
     if (errEvt) { showToast('❌ Erreur : ' + errEvt.message); return }
@@ -1689,8 +1689,8 @@ export default function Agenda({ profile }) {
                             <div>📅 {av.date_debut ? fmtDate(av.date_debut) : '—'}</div>
                             <div>🕐 {av.date_debut ? fmtHeure(av.date_debut) : '—'}{av.date_fin ? ' → ' + fmtHeure(av.date_fin) : ''}</div>
                             {av.lieu && <div>📍 {av.lieu}</div>}
-                            {av.transport_aller_af_principal !== undefined && <div>🚗 Aller : {av.transport_aller_af_principal !== false ? 'AF principal' : 'AF relais'}</div>}
-                            {av.transport_retour_af_principal !== undefined && <div>🚗 Retour : {av.transport_retour_af_principal !== false ? 'AF principal' : 'AF relais'}</div>}
+                            {av.transport_debut_af_principal !== undefined && <div>🚗 Début : {av.transport_debut_af_principal !== false ? 'AF principal' : 'AF relais'}</div>}
+                            {av.transport_fin_af_principal !== undefined && <div>🚗 Fin : {av.transport_fin_af_principal !== false ? 'AF principal' : 'AF relais'}</div>}
                           </div>
                         </div>
                         <div style={{ background:'#e6f5eb', borderRadius:8, padding:10, border:'1px solid #c4e8cc' }}>
@@ -1700,8 +1700,8 @@ export default function Agenda({ profile }) {
                             <div style={{ fontWeight: nv.date_debut !== av.date_debut ? 700 : 400, color: nv.date_debut !== av.date_debut ? '#1c2333' : '#5a6478' }}>📅 {nv.date_debut ? fmtDate(nv.date_debut) : '—'}</div>
                             <div style={{ fontWeight: nv.date_debut !== av.date_debut ? 700 : 400, color: nv.date_debut !== av.date_debut ? '#1c2333' : '#5a6478' }}>🕐 {nv.date_debut ? fmtHeure(nv.date_debut) : '—'}{nv.date_fin ? ' → ' + fmtHeure(nv.date_fin) : ''}</div>
                             {nv.lieu && <div style={{ fontWeight: nv.lieu !== av.lieu ? 700 : 400, color: nv.lieu !== av.lieu ? '#1c2333' : '#5a6478' }}>📍 {nv.lieu}</div>}
-                            {nv.transport_aller_af_principal !== undefined && <div style={{ fontWeight: nv.transport_aller_af_principal !== av.transport_aller_af_principal ? 700 : 400, color: nv.transport_aller_af_principal !== av.transport_aller_af_principal ? '#c0392b' : '#5a6478' }}>🚗 Aller : {nv.transport_aller_af_principal !== false ? 'AF principal' : 'AF relais'}</div>}
-                            {nv.transport_retour_af_principal !== undefined && <div style={{ fontWeight: nv.transport_retour_af_principal !== av.transport_retour_af_principal ? 700 : 400, color: nv.transport_retour_af_principal !== av.transport_retour_af_principal ? '#c0392b' : '#5a6478' }}>🚗 Retour : {nv.transport_retour_af_principal !== false ? 'AF principal' : 'AF relais'}</div>}
+                            {nv.transport_debut_af_principal !== undefined && <div style={{ fontWeight: nv.transport_debut_af_principal !== av.transport_debut_af_principal ? 700 : 400, color: nv.transport_debut_af_principal !== av.transport_debut_af_principal ? '#c0392b' : '#5a6478' }}>🚗 Début : {nv.transport_debut_af_principal !== false ? 'AF principal' : 'AF relais'}</div>}
+                            {nv.transport_fin_af_principal !== undefined && <div style={{ fontWeight: nv.transport_fin_af_principal !== av.transport_fin_af_principal ? 700 : 400, color: nv.transport_fin_af_principal !== av.transport_fin_af_principal ? '#c0392b' : '#5a6478' }}>🚗 Fin : {nv.transport_fin_af_principal !== false ? 'AF principal' : 'AF relais'}</div>}
                           </div>
                         </div>
                       </div>
@@ -2628,13 +2628,13 @@ export default function Agenda({ profile }) {
                           <div style={{ fontSize:11, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', marginBottom:10 }}>
                             🚗 Transport assuré par
                           </div>
-                          {['aller', 'retour'].map(sens => {
+                          {['debut', 'fin'].map(sens => {
                             const field = `transport_${sens}_af_principal`
                             const valeur = selectedEvt[field] !== false // true par défaut
                             const nomRelais = selectedEvt.relais_nom_libre || 'famille relais'
                             return (
                               <div key={sens} style={{ display:'flex', alignItems:'center', gap:16, marginBottom:8 }}>
-                                <span style={{ fontSize:12, fontWeight:600, color:'#1c2333', minWidth:50, textTransform:'capitalize' }}>{sens} :</span>
+                                <span style={{ fontSize:12, fontWeight:600, color:'#1c2333', minWidth:50 }}>{sens === 'debut' ? 'Début' : 'Fin'} :</span>
                                 <label style={{ display:'flex', alignItems:'center', gap:5, cursor:'pointer', fontSize:12 }}>
                                   <input type="radio" name={`transport_${sens}_${selectedEvt.id}`}
                                     checked={valeur}
@@ -2649,7 +2649,7 @@ export default function Agenda({ profile }) {
                                           anciennes_valeurs: { titre: selectedEvt.titre, date_debut: selectedEvt.date_debut, date_fin: selectedEvt.date_fin, lieu: selectedEvt.lieu, notes: selectedEvt.notes, [field]: !valeur },
                                           nouvelles_valeurs: { titre: selectedEvt.titre, date_debut: selectedEvt.date_debut, date_fin: selectedEvt.date_fin, lieu: selectedEvt.lieu, notes: selectedEvt.notes, [field]: true },
                                           statut: 'en_attente',
-                                          message: `Transport ${sens} : AF principal`,
+                                          message: `Transport ${sens === 'debut' ? 'début' : 'fin'} : AF principal`,
                                           vu_par_demandeur: false,
                                         })
                                         showToast('📤 Demande envoyée — en attente de validation')
@@ -2675,7 +2675,7 @@ export default function Agenda({ profile }) {
                                           anciennes_valeurs: { titre: selectedEvt.titre, date_debut: selectedEvt.date_debut, date_fin: selectedEvt.date_fin, lieu: selectedEvt.lieu, notes: selectedEvt.notes, [field]: valeur },
                                           nouvelles_valeurs: { titre: selectedEvt.titre, date_debut: selectedEvt.date_debut, date_fin: selectedEvt.date_fin, lieu: selectedEvt.lieu, notes: selectedEvt.notes, [field]: false },
                                           statut: 'en_attente',
-                                          message: `Transport ${sens} : AF relais (${nomRelais})`,
+                                          message: `Transport ${sens === 'debut' ? 'début' : 'fin'} : AF relais (${nomRelais})`,
                                           vu_par_demandeur: false,
                                         })
                                         showToast('📤 Demande envoyée — en attente de validation')
