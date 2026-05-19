@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-05-19a — vehicule_cv converti en entier avant sauvegarde
+// DossierAssfam.js — v2026-05-19b — vehicule_cv champ numérique libre + barème auto affiché
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -562,14 +562,26 @@ export default function DossierAssfam({ profile }) {
                 <FG>
                   <Field label="Marque / Modèle" value={v('vehicule_marque')} onChange={F('vehicule_marque')} readOnly={!editMode} />
                   <Field label="Immatriculation" value={v('vehicule_immat')} onChange={F('vehicule_immat')} readOnly={!editMode} />
-                  <Field label="Puissance fiscale" value={String(v('vehicule_cv')||'5')} readOnly={!editMode}
-                    onChange={val => {
-                      const cvInt = val === '5 CV et moins' || val === '5' ? 5
-                        : val === '6-7 CV' || val === '6 et 7 CV' || val === '7' ? 7
-                        : 8
-                      F('vehicule_cv')(cvInt)
-                    }}
-                    options={['5 CV et moins','6-7 CV','8 CV et plus']} />
+                  <div className="form-group">
+                    <label className="form-label">Puissance fiscale (CV)</label>
+                    {editMode ? (
+                      <div>
+                        <input type="number" className="form-control" min="1" max="20"
+                          value={v('vehicule_cv') || ''}
+                          onChange={e => F('vehicule_cv')(parseInt(e.target.value) || null)}
+                          placeholder="Ex: 6" />
+                        {v('vehicule_cv') && (
+                          <div style={{ fontSize:10, color:'#0891b2', marginTop:3, fontWeight:600 }}>
+                            → Barème : {v('vehicule_cv') <= 5 ? '5 CV et moins (0,32€/km)' : v('vehicule_cv') <= 7 ? '6-7 CV (0,41€/km)' : '8 CV et plus (0,45€/km)'}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ padding:'10px 12px', background:'#f4f6fb', borderRadius:8, fontSize:13 }}>
+                        {v('vehicule_cv') ? `${v('vehicule_cv')} CV` : '—'}
+                      </div>
+                    )}
+                  </div>
                   <Field label="Expiration assurance" type="date" value={v('vehicule_assurance_exp')} onChange={F('vehicule_assurance_exp')} readOnly={!editMode} />
                   <Field label="Contrôle technique" type="date" value={v('vehicule_ct_exp')} onChange={F('vehicule_ct_exp')} readOnly={!editMode} />
                 </FG>
