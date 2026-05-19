@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-19e — onglets pro/formation dans tableau des trajets
+// Frais.js — v2026-05-19f — sauvegarde fiche frais_mois + statut brouillon/soumis/validé + km_cumules
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -104,10 +104,73 @@ export default function Frais({ profile }) {
   const [cv, setCv] = useState(5)
   const [kmCumules, setKmCumules] = useState(0)
   const [onglet, setOnglet] = useState('pro')
+  const [saving, setSaving] = useState(false)
+  const [fraisId, setFraisId] = useState(null) // id de la fiche sauvegardée
+  const [statut, setStatut] = useState('brouillon')
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
-  // ── Charger profil AF ─────────────────────────────────────────────────────
+  // ── Charger fiche sauvegardée pour ce mois ────────────────────────────────
+  useEffect(() => {
+    if (!profile) return
+    supabase.from('frais_mois')
+      .select('*')
+      .eq('af_id', profile.id)
+      .eq('mois', mois)
+      .eq('annee', annee)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          setFraisId(data.id)
+          setStatut(data.statut || 'brouillon')
+          if (data.lignes && data.lignes.length > 0) {
+            setLignes(data.lignes)
+            showToast('📂 Fiche chargée depuis la sauvegarde')
+          }
+        } else {
+          setFraisId(null)
+          setStatut('brouillon')
+          setLignes([])
+        }
+      })
+  }, [profile, mois, annee])
+
+  // ── Sauvegarder la fiche ──────────────────────────────────────────────────
+  async function sauvegarder(nouveauStatut = statut) {
+    if (!profile || lignes.length === 0) return
+    setSaving(true)
+    const payload = {
+      af_id: profile.id,
+      mois, annee,
+      lignes,
+      total_km_pro: Math.round(totalKmPro * 10) / 10,
+      total_indemnite_pro: Math.round(totalIndemnitePro * 100) / 100,
+      total_indemnite_formation: Math.round(totalIndemniteFormation * 100) / 100,
+      total_repas: Math.round(totalRepas * 100) / 100,
+      total_peage: Math.round(totalPeage * 100) / 100,
+      total_general: Math.round(totalGeneral * 100) / 100,
+      statut: nouveauStatut,
+      updated_at: new Date().toISOString(),
+    }
+    let error
+    if (fraisId) {
+      ({ error } = await supabase.from('frais_mois').update(payload).eq('id', fraisId))
+    } else {
+      const { data, error: err } = await supabase.from('frais_mois').insert(payload).select().single()
+      error = err
+      if (data) setFraisId(data.id)
+    }
+    if (!error) {
+      setStatut(nouveauStatut)
+      // Mettre à jour km_cumules_annee dans le profil
+      const kmTotaux = totalKmPro + totalKmFormation
+      await supabase.from('profiles').update({ km_cumules_annee: kmCumules + kmTotaux }).eq('id', profile.id)
+      showToast(nouveauStatut === 'soumis' ? '📤 Fiche soumise !' : '✅ Sauvegardé !')
+    } else {
+      showToast('❌ Erreur : ' + error.message)
+    }
+    setSaving(false)
+  }
   useEffect(() => {
     if (!profile) return
     const adresse = [profile.adresse, profile.code_postal, profile.ville].filter(Boolean).join(' ')
@@ -412,6 +475,21 @@ export default function Frais({ profile }) {
             <div className="page-subtitle">{profile.nom} {profile.prenom} · {profile.matricule}</div>
           </div>
           <div className="header-actions">
+            {lignes.length > 0 && (
+              <>
+                <div style={{ fontSize:11, padding:'4px 10px', borderRadius:10, background: statut === 'soumis' ? '#e6f5eb' : statut === 'valide' ? '#1a4b8f' : '#fef3e2', color: statut === 'soumis' ? '#2e8b4a' : statut === 'valide' ? '#fff' : '#d97706', fontWeight:600 }}>
+                  {statut === 'soumis' ? '📤 Soumis' : statut === 'valide' ? '✅ Validé' : '📝 Brouillon'}
+                </div>
+                <button onClick={() => sauvegarder('brouillon')} className="btn btn-secondary" disabled={saving} style={{ fontSize:12 }}>
+                  {saving ? '⏳...' : '💾 Sauvegarder'}
+                </button>
+                {statut !== 'soumis' && statut !== 'valide' && (
+                  <button onClick={() => sauvegarder('soumis')} className="btn btn-primary" disabled={saving} style={{ fontSize:12 }}>
+                    📤 Soumettre
+                  </button>
+                )}
+              </>
+            )}
             <button onClick={imprimerPDF} className="btn btn-secondary" style={{ fontSize:12 }}>
               🖨️ Imprimer / PDF
             </button>
