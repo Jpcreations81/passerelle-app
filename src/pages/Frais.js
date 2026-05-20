@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-20a — lieu_remise : destination alternative pour relais (AF principal et relais)
+// Frais.js — v2026-05-20b — fix timezone : grouper par jour en heure locale Paris
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -289,10 +289,13 @@ export default function Frais({ profile }) {
 
     if (tousEvts.length === 0) { setLoading(false); return }
 
-    // Grouper par jour
+    // Grouper par jour en heure locale Paris
     const parJour = {}
     tousEvts.forEach(e => {
-      const jour = e.date_debut.slice(0, 10)
+      const jourLocal = new Date(e.date_debut).toLocaleDateString('fr-FR', { timeZone:'Europe/Paris', year:'numeric', month:'2-digit', day:'2-digit' })
+      // Convertir DD/MM/YYYY → YYYY-MM-DD
+      const [d, m, y] = jourLocal.split('/')
+      const jour = `${y}-${m}-${d}`
       if (!parJour[jour]) parJour[jour] = []
       parJour[jour].push(e)
     })
