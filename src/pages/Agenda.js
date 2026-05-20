@@ -2736,7 +2736,6 @@ export default function Agenda({ profile }) {
                             </div>
                           )}
                         </div>
-                      </div>
                       )}
                       {/* Masquer le dernier div fermant dupliqué */}
                       <div style={{display:'none'}}>
