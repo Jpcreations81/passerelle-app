@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-19a — transport relais renommé debut/fin (au lieu de aller/retour)
+// Agenda.js — v2026-05-20a — fix dates_sup : onBlur au lieu de onChange pour éviter ajout auto
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2028,9 +2028,8 @@ export default function Agenda({ profile }) {
                   ))}
                 </div>
                 <input className="form-control" type="date"
-                  onChange={e => {
+                  onBlur={e => {
                     const d = e.target.value
-                    // Vérifier que c'est une date complète au format YYYY-MM-DD
                     if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return
                     if ((newEvt.dates_sup || []).includes(d)) return
                     if (d === newEvt.date_debut) return
