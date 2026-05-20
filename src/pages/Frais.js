@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-20d — relais : 2 lignes séparées début/fin + AF principal filtré selon transport
+// Frais.js — v2026-05-20e — fix ligne fin relais au jour date_fin (pas date_debut)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -322,24 +322,27 @@ export default function Frais({ profile }) {
       const evtsRelaisPrincipalJour = evtsPro.filter(e => e.categorie === 'relais')
       const evtsRelaisPrincipalLignes = []
       evtsRelaisPrincipalJour.forEach(e => {
-        const debutParJP = e.transport_debut_af_principal !== false // true par défaut
-        const finParJP = e.transport_fin_af_principal !== false // true par défaut
+        const debutParJP = e.transport_debut_af_principal !== false
+        const finParJP = e.transport_fin_af_principal !== false
         if (debutParJP) {
           const dest = e.lieu_remise_debut || e.lieu || ''
           const destLabel = e.lieu_remise_debut ? `📍 ${e.lieu_remise_debut}` : e.titre
-          evtsRelaisPrincipalLignes.push({ evt: e, dest, destLabel, typeLabel: '🔄 Relais (début)' })
+          evtsRelaisPrincipalLignes.push({ evt: e, dest, destLabel, typeLabel: '🔄 Relais (début)', jourOverride: null })
         }
         if (finParJP) {
           const dest = e.lieu_remise_fin || e.lieu || ''
           const destLabel = e.lieu_remise_fin ? `📍 ${e.lieu_remise_fin}` : e.titre
-          evtsRelaisPrincipalLignes.push({ evt: e, dest, destLabel, typeLabel: '🔄 Relais (fin)' })
+          const jourFinLocal = new Date(e.date_fin || e.date_debut).toLocaleDateString('fr-FR', { timeZone:'Europe/Paris', year:'numeric', month:'2-digit', day:'2-digit' })
+          const [df, mf, yf] = jourFinLocal.split('/')
+          const jourFin = `${yf}-${mf}-${df}`
+          evtsRelaisPrincipalLignes.push({ evt: e, dest, destLabel, typeLabel: '🔄 Relais (fin)', jourOverride: jourFin })
         }
       })
       // Ajouter les lignes relais principal
-      evtsRelaisPrincipalLignes.forEach(({ evt, dest, destLabel, typeLabel }, i) => {
+      evtsRelaisPrincipalLignes.forEach(({ evt, dest, destLabel, typeLabel, jourOverride }, i) => {
         nouvLignes.push({
           id: `relais-principal-${evt.id}-${i}`,
-          date: jour,
+          date: jourOverride || jour,
           type: 'ar',
           typeLabel,
           evenements: [evt],
@@ -376,7 +379,7 @@ export default function Frais({ profile }) {
         if (debutParRelais) {
           nouvLignes.push({
             id: `relais-participant-debut-${e.id}`,
-            date: jour,
+            date: jour, // jour du date_debut = 22 mai ✅
             type: 'ar',
             typeLabel: '🔄 Relais (début)',
             evenements: [e],
@@ -390,9 +393,13 @@ export default function Frais({ profile }) {
           })
         }
         if (finParRelais) {
+          // Jour de la fin = date_fin en heure locale Paris
+          const jourFinLocal = new Date(e.date_fin || e.date_debut).toLocaleDateString('fr-FR', { timeZone:'Europe/Paris', year:'numeric', month:'2-digit', day:'2-digit' })
+          const [df, mf, yf] = jourFinLocal.split('/')
+          const jourFin = `${yf}-${mf}-${df}`
           nouvLignes.push({
             id: `relais-participant-fin-${e.id}`,
-            date: jour,
+            date: jourFin, // jour du date_fin = 24 mai ✅
             type: 'ar',
             typeLabel: '🔄 Relais (fin)',
             evenements: [e],
