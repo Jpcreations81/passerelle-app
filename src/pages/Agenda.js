@@ -2708,38 +2708,35 @@ export default function Agenda({ profile }) {
                               </div>
                             )
                           })}
-                        </div>
 
-                        {/* ── Lieu de remise optionnel ── */}
-                        <div style={{ marginTop:10 }}>
-                          <div style={{ fontSize:11, color:'#5a6478', marginBottom:4, fontWeight:600 }}>
-                            📍 Lieu de remise <span style={{ fontWeight:400, color:'#9aa3b8' }}>(optionnel — si différent des domiciles)</span>
-                          </div>
-                          <div style={{ display:'flex', gap:8 }}>
-                            <input className="form-control" style={{ flex:1, fontSize:12 }}
-                              value={selectedEvt.lieu_remise || ''}
-                              placeholder="Ex: 10 rue Carlesse 81500 Lavaur (lieu VM)"
-                              onChange={e => setSelectedEvt(ev => ({ ...ev, lieu_remise: e.target.value }))}
-                            />
-                            <button className="btn btn-primary" style={{ fontSize:11, whiteSpace:'nowrap' }}
-                              onClick={async () => {
-                                await supabase.from('evenements').update({ lieu_remise: selectedEvt.lieu_remise || null }).eq('id', selectedEvt.id)
-                                showToast('✅ Lieu de remise enregistré')
-                                fetchEvenements()
-                              }}>
-                              💾
-                            </button>
-                          </div>
-                          {selectedEvt.lieu_remise && (
-                            <div style={{ fontSize:10, color:'#0891b2', marginTop:3, fontStyle:'italic' }}>
-                              ↳ Les frais de transport utiliseront cette adresse au lieu des domiciles
+                          {/* ── Lieu de remise optionnel ── */}
+                          <div style={{ marginTop:10, borderTop:'1px solid #eef1f8', paddingTop:10 }}>
+                            <div style={{ fontSize:11, color:'#5a6478', marginBottom:4, fontWeight:600 }}>
+                              📍 Lieu de remise <span style={{ fontWeight:400, color:'#9aa3b8' }}>(optionnel — si différent des domiciles)</span>
                             </div>
-                          )}
+                            <div style={{ display:'flex', gap:8 }}>
+                              <input className="form-control" style={{ flex:1, fontSize:12 }}
+                                value={selectedEvt.lieu_remise || ''}
+                                placeholder="Ex: 10 rue Carlesse 81500 Lavaur (lieu VM)"
+                                onChange={e => setSelectedEvt(ev => ({ ...ev, lieu_remise: e.target.value }))}
+                              />
+                              <button className="btn btn-primary" style={{ fontSize:11, whiteSpace:'nowrap' }}
+                                onClick={async () => {
+                                  await supabase.from('evenements').update({ lieu_remise: selectedEvt.lieu_remise || null }).eq('id', selectedEvt.id)
+                                  showToast('✅ Lieu de remise enregistré')
+                                  fetchEvenements()
+                                }}>
+                                💾
+                              </button>
+                            </div>
+                            {selectedEvt.lieu_remise && (
+                              <div style={{ fontSize:10, color:'#0891b2', marginTop:3, fontStyle:'italic' }}>
+                                ↳ Les frais utiliseront cette adresse au lieu des domiciles
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
-                      {/* Masquer le dernier div fermant dupliqué */}
-                      <div style={{display:'none'}}>
-                      </div>
                     </div>
                   )
                 })()}
