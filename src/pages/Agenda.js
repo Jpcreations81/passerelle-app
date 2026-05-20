@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-20e — lieu_remise dans fiche détail relais (VM, transport différent domicile)
+// Agenda.js — v2026-05-20f — lieu_remise_debut + lieu_remise_fin séparés dans fiche détail relais
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -373,7 +373,8 @@ export default function Agenda({ profile }) {
     // Inclure transport si présent dans les nouvelles valeurs
     if (nv.transport_debut_af_principal !== undefined) updateData.transport_debut_af_principal = nv.transport_debut_af_principal
     if (nv.transport_fin_af_principal !== undefined) updateData.transport_fin_af_principal = nv.transport_fin_af_principal
-    if (nv.lieu_remise !== undefined) updateData.lieu_remise = nv.lieu_remise
+    if (nv.lieu_remise_debut !== undefined) updateData.lieu_remise_debut = nv.lieu_remise_debut
+    if (nv.lieu_remise_fin !== undefined) updateData.lieu_remise_fin = nv.lieu_remise_fin
 
     const { error: errEvt } = await supabase.from('evenements').update(updateData).eq('id', demande.evenement_id)
     if (errEvt) { showToast('❌ Erreur : ' + errEvt.message); return }
@@ -2711,27 +2712,33 @@ export default function Agenda({ profile }) {
 
                           {/* ── Lieu de remise optionnel ── */}
                           <div style={{ marginTop:10, borderTop:'1px solid #eef1f8', paddingTop:10 }}>
-                            <div style={{ fontSize:11, color:'#5a6478', marginBottom:4, fontWeight:600 }}>
+                            <div style={{ fontSize:11, color:'#5a6478', marginBottom:8, fontWeight:600 }}>
                               📍 Lieu de remise <span style={{ fontWeight:400, color:'#9aa3b8' }}>(optionnel — si différent des domiciles)</span>
                             </div>
-                            <div style={{ display:'flex', gap:8 }}>
-                              <input className="form-control" style={{ flex:1, fontSize:12 }}
-                                value={selectedEvt.lieu_remise || ''}
-                                placeholder="Ex: 10 rue Carlesse 81500 Lavaur (lieu VM)"
-                                onChange={e => setSelectedEvt(ev => ({ ...ev, lieu_remise: e.target.value }))}
-                              />
-                              <button className="btn btn-primary" style={{ fontSize:11, whiteSpace:'nowrap' }}
-                                onClick={async () => {
-                                  await supabase.from('evenements').update({ lieu_remise: selectedEvt.lieu_remise || null }).eq('id', selectedEvt.id)
-                                  showToast('✅ Lieu de remise enregistré')
-                                  fetchEvenements()
-                                }}>
-                                💾
-                              </button>
-                            </div>
-                            {selectedEvt.lieu_remise && (
+                            {[
+                              { key:'lieu_remise_debut', label:'Début du relais', placeholder:'Ex: 10 rue Carlesse 81500 Lavaur' },
+                              { key:'lieu_remise_fin', label:'Fin du relais', placeholder:'Ex: AID 14 rue de la mégisserie Graulhet' },
+                            ].map(({ key, label, placeholder }) => (
+                              <div key={key} style={{ marginBottom:8 }}>
+                                <div style={{ fontSize:10, color:'#9aa3b8', marginBottom:3 }}>{label}</div>
+                                <div style={{ display:'flex', gap:6 }}>
+                                  <input className="form-control" style={{ flex:1, fontSize:11 }}
+                                    value={selectedEvt[key] || ''}
+                                    placeholder={placeholder}
+                                    onChange={e => setSelectedEvt(ev => ({ ...ev, [key]: e.target.value }))}
+                                  />
+                                  <button className="btn btn-primary" style={{ fontSize:11, padding:'4px 8px' }}
+                                    onClick={async () => {
+                                      await supabase.from('evenements').update({ [key]: selectedEvt[key] || null }).eq('id', selectedEvt.id)
+                                      showToast('✅ Enregistré')
+                                      fetchEvenements()
+                                    }}>💾</button>
+                                </div>
+                              </div>
+                            ))}
+                            {(selectedEvt.lieu_remise_debut || selectedEvt.lieu_remise_fin) && (
                               <div style={{ fontSize:10, color:'#0891b2', marginTop:3, fontStyle:'italic' }}>
-                                ↳ Les frais utiliseront cette adresse au lieu des domiciles
+                                ↳ Les frais utiliseront ces adresses au lieu des domiciles
                               </div>
                             )}
                           </div>
