@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-20b — fix timezone : grouper par jour en heure locale Paris
+// Frais.js — v2026-05-20c — lieu_remise_debut + lieu_remise_fin pour relais AF principal et participant
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -325,10 +325,16 @@ export default function Frais({ profile }) {
         const finParRelais = e.transport_fin_af_principal === false
         if (!debutParRelais && !finParRelais) return
         
-        // Destination = lieu_remise si renseigné, sinon domicile AF principal
+        // Destination = lieu_remise selon sens, sinon domicile AF principal
         const afPrincipal = afAdresses[e.af_id]
-        const destAdresse = e.lieu_remise || afPrincipal?.adresse || e.lieu || ''
-        const destLabel = e.lieu_remise ? `📍 ${e.lieu_remise}` : (afPrincipal?.label || 'Domicile AF principal')
+        const lieuDebut = e.lieu_remise_debut || afPrincipal?.adresse || e.lieu || ''
+        const lieuFin = e.lieu_remise_fin || afPrincipal?.adresse || e.lieu || ''
+        const labelDebut = e.lieu_remise_debut ? `📍 ${e.lieu_remise_debut}` : (afPrincipal?.label || 'Domicile AF principal')
+        const labelFin = e.lieu_remise_fin ? `📍 ${e.lieu_remise_fin}` : (afPrincipal?.label || 'Domicile AF principal')
+
+        // Déterminer quelle adresse utiliser selon quel transport Farès assure
+        const destAdresse = debutParRelais ? lieuDebut : lieuFin
+        const destLabel = debutParRelais ? labelDebut : labelFin
         
         const typeLabel = debutParRelais && finParRelais ? '🔄 Relais (début + fin)' 
           : debutParRelais ? '🔄 Relais (début)' 
@@ -376,9 +382,12 @@ export default function Frais({ profile }) {
       // Déplacements pro → AR (barème kilométrique Tarn)
       if (evtsProFiltres.length === 1) {
         const e = evtsProFiltres[0]
-        // Pour les relais : utiliser lieu_remise si renseigné
-        const destAdresse = (e.categorie === 'relais' && e.lieu_remise) ? e.lieu_remise : e.lieu
-        const destLabel = (e.categorie === 'relais' && e.lieu_remise) ? `📍 ${e.lieu_remise}` : e.titre
+        // Pour les relais : utiliser lieu_remise_debut ou lieu_remise_fin selon le transport
+        const destAdresse = (e.categorie === 'relais' && e.lieu_remise_fin) ? e.lieu_remise_fin
+          : (e.categorie === 'relais' && e.lieu_remise_debut) ? e.lieu_remise_debut
+          : e.lieu
+        const destLabel = (e.categorie === 'relais' && (e.lieu_remise_fin || e.lieu_remise_debut))
+          ? `📍 ${e.lieu_remise_fin || e.lieu_remise_debut}` : e.titre
         nouvLignes.push({
           id: e.id,
           date: jour,
