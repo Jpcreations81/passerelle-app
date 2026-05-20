@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-20a — fix dates_sup : onBlur au lieu de onChange pour éviter ajout auto
+// Agenda.js — v2026-05-20b — fix dates_sup : input + bouton Ajouter pour confirmer
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2027,16 +2027,26 @@ export default function Agenda({ profile }) {
                     </div>
                   ))}
                 </div>
-                <input className="form-control" type="date"
-                  onBlur={e => {
-                    const d = e.target.value
-                    if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return
-                    if ((newEvt.dates_sup || []).includes(d)) return
-                    if (d === newEvt.date_debut) return
-                    setNewEvt(n => ({ ...n, dates_sup: [...(n.dates_sup || []), d] }))
-                    e.target.value = ''
-                  }}
-                />
+                <div style={{ display:'flex', gap:8 }}>
+                  <input className="form-control" type="date" id="input-date-sup"
+                    style={{ flex:1 }}
+                    onChange={e => {
+                      // Ne rien faire ici — juste garder la valeur dans le champ
+                    }}
+                  />
+                  <button type="button" className="btn btn-secondary" style={{ whiteSpace:'nowrap', fontSize:12 }}
+                    onClick={() => {
+                      const input = document.getElementById('input-date-sup')
+                      const d = input?.value
+                      if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return
+                      if ((newEvt.dates_sup || []).includes(d)) return
+                      if (d === newEvt.date_debut) return
+                      setNewEvt(n => ({ ...n, dates_sup: [...(n.dates_sup || []), d] }))
+                      input.value = ''
+                    }}>
+                    + Ajouter
+                  </button>
+                </div>
               </div>
               <div className="form-group col-span-2">
                 <label className="form-label">Notes</label>
