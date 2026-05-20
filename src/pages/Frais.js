@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-19j — fix cumul integer + CV barème auto depuis profil + affichage CV réel
+// Frais.js — v2026-05-20a — lieu_remise : destination alternative pour relais (AF principal et relais)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -322,10 +322,10 @@ export default function Frais({ profile }) {
         const finParRelais = e.transport_fin_af_principal === false
         if (!debutParRelais && !finParRelais) return
         
-        // Destination = domicile AF principal (pas le lieu du relais)
+        // Destination = lieu_remise si renseigné, sinon domicile AF principal
         const afPrincipal = afAdresses[e.af_id]
-        const destAdresse = afPrincipal?.adresse || e.lieu || ''
-        const destLabel = afPrincipal?.label || 'Domicile AF principal'
+        const destAdresse = e.lieu_remise || afPrincipal?.adresse || e.lieu || ''
+        const destLabel = e.lieu_remise ? `📍 ${e.lieu_remise}` : (afPrincipal?.label || 'Domicile AF principal')
         
         const typeLabel = debutParRelais && finParRelais ? '🔄 Relais (début + fin)' 
           : debutParRelais ? '🔄 Relais (début)' 
@@ -373,6 +373,9 @@ export default function Frais({ profile }) {
       // Déplacements pro → AR (barème kilométrique Tarn)
       if (evtsProFiltres.length === 1) {
         const e = evtsProFiltres[0]
+        // Pour les relais : utiliser lieu_remise si renseigné
+        const destAdresse = (e.categorie === 'relais' && e.lieu_remise) ? e.lieu_remise : e.lieu
+        const destLabel = (e.categorie === 'relais' && e.lieu_remise) ? `📍 ${e.lieu_remise}` : e.titre
         nouvLignes.push({
           id: e.id,
           date: jour,
@@ -381,7 +384,7 @@ export default function Frais({ profile }) {
           evenements: [e],
           etapes: [
             { adresse: domicile, label: 'Domicile' },
-            { adresse: e.lieu, label: e.titre },
+            { adresse: destAdresse, label: destLabel },
             { adresse: domicile, label: 'Domicile' },
           ],
           km: null,
