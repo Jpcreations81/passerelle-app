@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-20d — fix 20 bleu : key dynamique sur input dates_sup pour reset
+// Agenda.js — v2026-05-20e — lieu_remise dans fiche détail relais (VM, transport différent domicile)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -373,6 +373,7 @@ export default function Agenda({ profile }) {
     // Inclure transport si présent dans les nouvelles valeurs
     if (nv.transport_debut_af_principal !== undefined) updateData.transport_debut_af_principal = nv.transport_debut_af_principal
     if (nv.transport_fin_af_principal !== undefined) updateData.transport_fin_af_principal = nv.transport_fin_af_principal
+    if (nv.lieu_remise !== undefined) updateData.lieu_remise = nv.lieu_remise
 
     const { error: errEvt } = await supabase.from('evenements').update(updateData).eq('id', demande.evenement_id)
     if (errEvt) { showToast('❌ Erreur : ' + errEvt.message); return }
@@ -2708,6 +2709,34 @@ export default function Agenda({ profile }) {
                             )
                           })}
                         </div>
+
+                        {/* ── Lieu de remise optionnel ── */}
+                        <div style={{ marginTop:10 }}>
+                          <div style={{ fontSize:11, color:'#5a6478', marginBottom:4, fontWeight:600 }}>
+                            📍 Lieu de remise <span style={{ fontWeight:400, color:'#9aa3b8' }}>(optionnel — si différent des domiciles)</span>
+                          </div>
+                          <div style={{ display:'flex', gap:8 }}>
+                            <input className="form-control" style={{ flex:1, fontSize:12 }}
+                              value={selectedEvt.lieu_remise || ''}
+                              placeholder="Ex: 10 rue Carlesse 81500 Lavaur (lieu VM)"
+                              onChange={e => setSelectedEvt(ev => ({ ...ev, lieu_remise: e.target.value }))}
+                            />
+                            <button className="btn btn-primary" style={{ fontSize:11, whiteSpace:'nowrap' }}
+                              onClick={async () => {
+                                await supabase.from('evenements').update({ lieu_remise: selectedEvt.lieu_remise || null }).eq('id', selectedEvt.id)
+                                showToast('✅ Lieu de remise enregistré')
+                                fetchEvenements()
+                              }}>
+                              💾
+                            </button>
+                          </div>
+                          {selectedEvt.lieu_remise && (
+                            <div style={{ fontSize:10, color:'#0891b2', marginTop:3, fontStyle:'italic' }}>
+                              ↳ Les frais de transport utiliseront cette adresse au lieu des domiciles
+                            </div>
+                          )}
+                        </div>
+                      </div>
                       )}
                       {/* Masquer le dernier div fermant dupliqué */}
                       <div style={{display:'none'}}>
