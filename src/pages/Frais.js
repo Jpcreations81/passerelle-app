@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-20c — lieu_remise_debut + lieu_remise_fin pour relais AF principal et participant
+// Frais.js — v2026-05-20d — relais : 2 lignes séparées début/fin + AF principal filtré selon transport
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -316,45 +316,95 @@ export default function Frais({ profile }) {
         e.af_id !== profile.id &&
         e.participants_ids?.includes(profile.id)
       )
-      // Retirer ces relais des evtsPro pour traitement séparé
-      const evtsProFiltres = evtsPro.filter(e => !evtsRelaisParticipantJour.find(r => r.id === e.id))
 
-      // Relais participant → trajet AR vers domicile AF principal
-      evtsRelaisParticipantJour.forEach(e => {
-        const debutParRelais = e.transport_debut_af_principal === false
-        const finParRelais = e.transport_fin_af_principal === false
-        if (!debutParRelais && !finParRelais) return
-        
-        // Destination = lieu_remise selon sens, sinon domicile AF principal
-        const afPrincipal = afAdresses[e.af_id]
-        const lieuDebut = e.lieu_remise_debut || afPrincipal?.adresse || e.lieu || ''
-        const lieuFin = e.lieu_remise_fin || afPrincipal?.adresse || e.lieu || ''
-        const labelDebut = e.lieu_remise_debut ? `📍 ${e.lieu_remise_debut}` : (afPrincipal?.label || 'Domicile AF principal')
-        const labelFin = e.lieu_remise_fin ? `📍 ${e.lieu_remise_fin}` : (afPrincipal?.label || 'Domicile AF principal')
-
-        // Déterminer quelle adresse utiliser selon quel transport Farès assure
-        const destAdresse = debutParRelais ? lieuDebut : lieuFin
-        const destLabel = debutParRelais ? labelDebut : labelFin
-        
-        const typeLabel = debutParRelais && finParRelais ? '🔄 Relais (début + fin)' 
-          : debutParRelais ? '🔄 Relais (début)' 
-          : '🔄 Relais (fin)'
-
+      // Pour les relais de l'AF principal : filtrer selon transport_debut/fin
+      // Un relais AF principal peut générer 0, 1 ou 2 lignes de frais
+      const evtsRelaisPrincipalJour = evtsPro.filter(e => e.categorie === 'relais')
+      const evtsRelaisPrincipalLignes = []
+      evtsRelaisPrincipalJour.forEach(e => {
+        const debutParJP = e.transport_debut_af_principal !== false // true par défaut
+        const finParJP = e.transport_fin_af_principal !== false // true par défaut
+        if (debutParJP) {
+          const dest = e.lieu_remise_debut || e.lieu || ''
+          const destLabel = e.lieu_remise_debut ? `📍 ${e.lieu_remise_debut}` : e.titre
+          evtsRelaisPrincipalLignes.push({ evt: e, dest, destLabel, typeLabel: '🔄 Relais (début)' })
+        }
+        if (finParJP) {
+          const dest = e.lieu_remise_fin || e.lieu || ''
+          const destLabel = e.lieu_remise_fin ? `📍 ${e.lieu_remise_fin}` : e.titre
+          evtsRelaisPrincipalLignes.push({ evt: e, dest, destLabel, typeLabel: '🔄 Relais (fin)' })
+        }
+      })
+      // Ajouter les lignes relais principal
+      evtsRelaisPrincipalLignes.forEach(({ evt, dest, destLabel, typeLabel }, i) => {
         nouvLignes.push({
-          id: `relais-participant-${e.id}`,
+          id: `relais-principal-${evt.id}-${i}`,
           date: jour,
           type: 'ar',
           typeLabel,
-          evenements: [e],
+          evenements: [evt],
           etapes: [
             { adresse: domicile, label: 'Domicile' },
-            { adresse: destAdresse, label: destLabel },
+            { adresse: dest, label: destLabel },
             { adresse: domicile, label: 'Domicile' },
           ],
           km: null,
           taux: getTauxKm(cv, kmCumules),
           repas: false, repas_montant: '', peage: false, peage_montant: '', notes: '', editable: true,
         })
+      })
+
+      // Retirer les relais principaux ET participants des evtsPro pour traitement séparé
+      const evtsProFiltres = evtsPro.filter(e =>
+        e.categorie !== 'relais' &&
+        !evtsRelaisParticipantJour.find(r => r.id === e.id)
+      )
+
+      // Relais participant → trajet AR vers domicile AF principal (ou lieu_remise)
+      evtsRelaisParticipantJour.forEach(e => {
+        const debutParRelais = e.transport_debut_af_principal === false
+        const finParRelais = e.transport_fin_af_principal === false
+        if (!debutParRelais && !finParRelais) return
+
+        const afPrincipal = afAdresses[e.af_id]
+        const lieuDebut = e.lieu_remise_debut || afPrincipal?.adresse || e.lieu || ''
+        const lieuFin = e.lieu_remise_fin || afPrincipal?.adresse || e.lieu || ''
+        const labelDebut = e.lieu_remise_debut ? `📍 ${e.lieu_remise_debut}` : (afPrincipal?.label || 'Domicile AF principal')
+        const labelFin = e.lieu_remise_fin ? `📍 ${e.lieu_remise_fin}` : (afPrincipal?.label || 'Domicile AF principal')
+
+        // Créer 1 ligne par transport (début et/ou fin)
+        if (debutParRelais) {
+          nouvLignes.push({
+            id: `relais-participant-debut-${e.id}`,
+            date: jour,
+            type: 'ar',
+            typeLabel: '🔄 Relais (début)',
+            evenements: [e],
+            etapes: [
+              { adresse: domicile, label: 'Domicile' },
+              { adresse: lieuDebut, label: labelDebut },
+              { adresse: domicile, label: 'Domicile' },
+            ],
+            km: null, taux: getTauxKm(cv, kmCumules),
+            repas: false, repas_montant: '', peage: false, peage_montant: '', notes: '', editable: true,
+          })
+        }
+        if (finParRelais) {
+          nouvLignes.push({
+            id: `relais-participant-fin-${e.id}`,
+            date: jour,
+            type: 'ar',
+            typeLabel: '🔄 Relais (fin)',
+            evenements: [e],
+            etapes: [
+              { adresse: domicile, label: 'Domicile' },
+              { adresse: lieuFin, label: labelFin },
+              { adresse: domicile, label: 'Domicile' },
+            ],
+            km: null, taux: getTauxKm(cv, kmCumules),
+            repas: false, repas_montant: '', peage: false, peage_montant: '', notes: '', editable: true,
+          })
+        }
       })
       evtsFormation.forEach(e => {
         nouvLignes.push({
@@ -382,12 +432,6 @@ export default function Frais({ profile }) {
       // Déplacements pro → AR (barème kilométrique Tarn)
       if (evtsProFiltres.length === 1) {
         const e = evtsProFiltres[0]
-        // Pour les relais : utiliser lieu_remise_debut ou lieu_remise_fin selon le transport
-        const destAdresse = (e.categorie === 'relais' && e.lieu_remise_fin) ? e.lieu_remise_fin
-          : (e.categorie === 'relais' && e.lieu_remise_debut) ? e.lieu_remise_debut
-          : e.lieu
-        const destLabel = (e.categorie === 'relais' && (e.lieu_remise_fin || e.lieu_remise_debut))
-          ? `📍 ${e.lieu_remise_fin || e.lieu_remise_debut}` : e.titre
         nouvLignes.push({
           id: e.id,
           date: jour,
@@ -396,7 +440,7 @@ export default function Frais({ profile }) {
           evenements: [e],
           etapes: [
             { adresse: domicile, label: 'Domicile' },
-            { adresse: destAdresse, label: destLabel },
+            { adresse: e.lieu, label: e.titre },
             { adresse: domicile, label: 'Domicile' },
           ],
           km: null,
