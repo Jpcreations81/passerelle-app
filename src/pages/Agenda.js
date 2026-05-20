@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-20b — fix dates_sup : input + bouton Ajouter pour confirmer
+// Agenda.js — v2026-05-20d — fix 20 bleu : key dynamique sur input dates_sup pour reset
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -694,6 +694,13 @@ export default function Agenda({ profile }) {
 
   async function saveEvt() {
     if (!newEvt.titre || !newEvt.date_debut) { showToast('⚠️ Titre et date requis'); return }
+
+    // Catégories qui ne nécessitent pas d'enfant
+    const catsShansEnfant = ['conge', 'formation', 'personnel', 'autre']
+    if (!catsShansEnfant.includes(newEvt.categorie) && !isEncadrant && newEvt.enfantsSelectionnes.length === 0) {
+      showToast('⚠️ Sélectionnez au moins un enfant'); return
+    }
+
     const debut = new Date(`${newEvt.date_debut}T${newEvt.heure_debut}:00`)
     const fin = new Date(`${(newEvt.date_fin || newEvt.date_debut)}T${newEvt.heure_fin}:00`)
     const isPersonnel = newEvt.categorie === 'personnel'
@@ -2028,11 +2035,11 @@ export default function Agenda({ profile }) {
                   ))}
                 </div>
                 <div style={{ display:'flex', gap:8 }}>
-                  <input className="form-control" type="date" id="input-date-sup"
+                  <input className="form-control" type="date"
+                    key={`date-sup-${(newEvt.dates_sup || []).length}`}
+                    ref={el => { if (el) el._dateSup = el }}
+                    id="input-date-sup"
                     style={{ flex:1 }}
-                    onChange={e => {
-                      // Ne rien faire ici — juste garder la valeur dans le champ
-                    }}
                   />
                   <button type="button" className="btn btn-secondary" style={{ whiteSpace:'nowrap', fontSize:12 }}
                     onClick={() => {
