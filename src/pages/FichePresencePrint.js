@@ -1,3 +1,4 @@
+// FichePresencePrint.js — v2026-05-21a — fiche intermittente : en-tête AF relais/principal + case Intermittent
 import React from 'react'
 
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -24,7 +25,7 @@ function getDaysInMonth(year, month) {
   return days
 }
 
-export default function FichePresencePrint({ enfant, profile, mois, annee, presences, moisComplet, onClose }) {
+export default function FichePresencePrint({ enfant, profile, mois, annee, presences, moisComplet, onClose, typeFiche, afPrincipal }) {
   const days = getDaysInMonth(annee, mois)
   const nbJours = Object.values(presences).filter(p => p.present).length
   const nbFeries = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
@@ -67,14 +68,20 @@ export default function FichePresencePrint({ enfant, profile, mois, annee, prese
                     <tbody>
                       <tr>
                         <td style={{ padding:'4px 8px', borderBottom:'1px solid #333', fontSize:10 }}>
-                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle', background: moisComplet ? '#333' : '#fff', textAlign:'center', lineHeight:'12px', color:'#fff', fontSize:9 }}>{moisComplet ? '✓' : ''}</span>
-                          Temps complet
+                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle', background: typeFiche === 'formation' ? '#333' : '#fff', textAlign:'center', lineHeight:'12px', color:'#fff', fontSize:9 }}>{typeFiche === 'formation' ? '✓' : ''}</span>
+                          Formation
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding:'4px 8px', borderBottom:'1px solid #333', fontSize:10 }}>
+                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle', background: typeFiche === 'adaptation' ? '#333' : '#fff', textAlign:'center', lineHeight:'12px', color:'#fff', fontSize:9 }}>{typeFiche === 'adaptation' ? '✓' : ''}</span>
+                          Adaptation (Nbrs d'heures)
                         </td>
                       </tr>
                       <tr>
                         <td style={{ padding:'4px 8px', fontSize:10 }}>
-                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle' }}></span>
-                          Continu week-end
+                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle', background: typeFiche === 'intermittent' ? '#333' : '#fff', textAlign:'center', lineHeight:'12px', color:'#fff', fontSize:9 }}>{typeFiche === 'intermittent' ? '✓' : ''}</span>
+                          Intermittent
                         </td>
                       </tr>
                     </tbody>
@@ -89,11 +96,22 @@ export default function FichePresencePrint({ enfant, profile, mois, annee, prese
             <div style={{ fontSize:11, marginBottom:4 }}>
               Nom et prénom de l'enfant (obligatoire) : <span style={{ borderBottom:'1px solid #000', paddingBottom:1, paddingRight:80 }}><strong>{enfant.prenom} {enfant.nom}</strong></span>
             </div>
-            <div style={{ fontSize:11, marginBottom:4 }}>
-              Nom et Prénom de l'Assistant(e) familial(e) : <span style={{ borderBottom:'1px solid #000', paddingBottom:1, paddingRight:40 }}><strong>{profile.prenom} {profile.nom}</strong></span>
-            </div>
+            {typeFiche === 'intermittent' ? (
+              <>
+                <div style={{ fontSize:11, marginBottom:4 }}>
+                  Nom et Prénom de l'Assistant(e) familial(e) <strong>qui fait le Relais</strong> : <span style={{ borderBottom:'1px solid #000', paddingBottom:1, paddingRight:40 }}><strong>{profile.prenom} {profile.nom}</strong></span>
+                </div>
+                <div style={{ fontSize:11, marginBottom:4 }}>
+                  Nom et Prénom de l'Assistant(e) familial(e) <strong>Principal(e)</strong> : <span style={{ borderBottom:'1px solid #000', paddingBottom:1, paddingRight:40 }}><strong>{afPrincipal?.prenom} {afPrincipal?.nom}</strong></span>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize:11, marginBottom:4 }}>
+                Nom et Prénom de l'Assistant(e) familial(e) : <span style={{ borderBottom:'1px solid #000', paddingBottom:1, paddingRight:40 }}><strong>{profile.prenom} {profile.nom}</strong></span>
+              </div>
+            )}
             <div style={{ fontSize:11 }}>
-              Territoire : <strong>MD Gaillac – Graulhet</strong>
+              Territoire : <strong>{enfant?.territoire || profile?.territoire || 'MD Gaillac – Graulhet'}</strong>
             </div>
           </div>
 
