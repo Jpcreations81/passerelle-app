@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-05-18a — professionnels santé en grille + suppression médecin/spécialiste texte
+// DossierEnfant.js — v2026-05-21a — bouton modifier parent visible sans editMode pour référents
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1146,12 +1146,19 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                           {label} masqué (famille monoparentale ou pupille de l'état)
                         </div>
                       ) : !data ? (
-                        <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13 }}>
-                          Aucune information renseignée — utilisez ✏️ Modifier pour renseigner
+                        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                          <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13 }}>
+                            Aucune information renseignée
+                          </div>
+                          {(editMode || isReferent) && (
+                            <button onClick={() => openParentModal(type)} className="btn btn-primary" style={{ fontSize:11 }}>
+                              + Renseigner {label.toLowerCase() === 'père' ? 'le père' : 'la mère'}
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <>
-                        {editMode && (
+                        {(editMode || isReferent) && (
                           <div style={{ marginBottom:12 }}>
                             <button onClick={() => openParentModal(type)} className="btn btn-secondary" style={{ fontSize:11 }}>
                               ✏️ Modifier les infos {label.toLowerCase()}
