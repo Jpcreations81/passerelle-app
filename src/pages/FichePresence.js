@@ -172,11 +172,26 @@ export default function FichePresence({ profile }) {
       .gte('date_fin', debutPerm.toISOString())
 
     if (evts) {
+      // Charger les profils AF relais pour avoir nom/prénom
+      const relaisProfiles = {}
+      for (const evt of evts) {
+        for (const pid of (evt.participants_ids || [])) {
+          if (!relaisProfiles[pid]) {
+            const { data: af } = await supabase.from('profiles').select('id, nom, prenom, civilite').eq('id', pid).single()
+            if (af) relaisProfiles[pid] = af
+          }
+        }
+      }
+
       evts.forEach(evt => {
         const dDebut = new Date(evt.date_debut)
         const dFin = new Date(evt.date_fin)
         const premierJour = fmtDate(evt.date_debut)
         const dernierJour = fmtDate(evt.date_fin)
+        // Nom AF relais depuis le profil
+        const afRelaisId = (evt.participants_ids || [])[0]
+        const afRelais = relaisProfiles[afRelaisId]
+        const nomRelais = afRelais ? `${afRelais.prenom} ${afRelais.nom}` : (evt.titre?.replace(/^Relais\s*—\s*/i, '') || 'AF Relais')
         // Parcourir tous les jours du relais
         const cur = new Date(dDebut)
         cur.setHours(0,0,0,0)
@@ -186,27 +201,23 @@ export default function FichePresence({ profile }) {
           const key = fmt(cur)
           if (p[key]) {
             if (key === premierJour && key === dernierJour) {
-              // Relais sur 1 seul jour
               p[key].present = true
               p[key].heure_depart = fmtHeure(evt.date_debut)
               p[key].heure_arrivee = fmtHeure(evt.date_fin)
-              p[key].motif = evt.titre || 'Relais'
+              p[key].motif = `Relais chez un(e) ASSFAM — ${nomRelais}`
             } else if (key === premierJour) {
-              // Premier jour : coché, heure de départ
               p[key].present = true
               p[key].heure_depart = fmtHeure(evt.date_debut)
-              p[key].motif = 'Départ en relais — ' + (evt.titre || 'AF Relais')
+              p[key].motif = `Début accueil relais chez un(e) ASSFAM — ${nomRelais}`
             } else if (key === dernierJour) {
-              // Dernier jour : coché, heure d'arrivée
               p[key].present = true
               p[key].heure_arrivee = fmtHeure(evt.date_fin)
-              p[key].motif = 'Retour de relais — ' + (evt.titre || 'AF Relais')
+              p[key].motif = 'Retour'
             } else {
-              // Jours intermédiaires : absent avec motif
               p[key].present = false
               p[key].heure_depart = ''
               p[key].heure_arrivee = ''
-              p[key].motif = 'Relais — ' + (evt.titre || '')
+              p[key].motif = `Relais chez un(e) ASSFAM — ${nomRelais}`
             }
           }
           cur.setDate(cur.getDate() + 1)
@@ -461,7 +472,7 @@ export default function FichePresence({ profile }) {
                             <input type="time" value={p.heure_arrivee || ''} onChange={e => setField(key, 'heure_arrivee', e.target.value)}
                               style={{ border:'none', background:'none', fontSize:11, fontFamily:'Sora,sans-serif', outline:'none', textAlign:'center', width:75 }} />
                           </td>
-                          <td style={{ padding:'3px 8px', borderBottom:'1px solid #dde3f0', minWidth:200 }}>
+                          <td style={{ padding:'3px 8px', borderBottom:'1px solid #dde3f0', minWidth:280 }}>
                             <input type="text" value={p.motif || ''} onChange={e => setField(key, 'motif', e.target.value)}
                               placeholder={!p.present ? 'Motif absence...' : ''}
                               style={{ border:'none', background:'none', fontSize:11, fontFamily:'Sora,sans-serif', outline:'none', width:'100%', color: !p.present ? '#d97706' : '#1c2333' }} />
