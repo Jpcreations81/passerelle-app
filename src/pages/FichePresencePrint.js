@@ -158,7 +158,9 @@ export default function FichePresencePrint({ enfant, profile, mois, annee, prese
             <tbody>
               {days.map((d, i) => {
                 const key = fmt(d)
-                const p = presences[key] || { present: typeFiche !== 'intermittent', heure_depart:'', heure_arrivee:'', motif:'' }
+                // Permanent : présent par défaut / Intermittent : absent par défaut sauf si renseigné
+                const defaultPresent = typeFiche === 'intermittent' ? false : true
+                const p = presences[key] || { present: defaultPresent, heure_depart:'', heure_arrivee:'', motif:'' }
                 const fe = isFerie(d)
                 const dim = isDimanche(d)
                 const isRelaisDebut = p.motif && p.motif.startsWith('Début accueil relais')
