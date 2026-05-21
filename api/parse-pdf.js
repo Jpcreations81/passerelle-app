@@ -1,4 +1,4 @@
-// parse-pdf.js — v2026-05-13b — modèle dynamique via API Anthropic (fallback haiku-4-5-20251001)
+// parse-pdf.js — v2026-05-21b — règle VM : lieu = celui du PDF en priorité, Domicile NOM si pas de ville
 // api/parse-pdf.js
 // Vercel Serverless Function — lit un PDF et extrait les événements via Claude API
 // Variables d'environnement requises dans Vercel :
@@ -56,11 +56,17 @@ Pour chaque événement, retourne un objet JSON avec :
 
 RÈGLE sur les VM :
 - Pour les visites médiatisées, détecter qui est présent : père, mère, les deux parents, fratrie
-- Exemples : "visite avec le père" → vm_presents: ["pere"], "rencontre avec les parents" → vm_presents: ["parents"]
-- Le titre doit suivre ce format EXACT : "VM — Père — Graulhet", "VM — Mère — Castres", "VM — Parents — AID 81"
-- Format : "VM — [qui] — [lieu]" (ex: "VM — Père — Graulhet", "VM — Mère et Fratrie — Castres")
+- [qui] dans le titre = le PARENT ou ADULTE présent, JAMAIS le nom de l'enfant
+- Exemples CORRECTS : "VM — Père — Graulhet", "VM — Mère — Castres", "VM — Parents — AID 81"
+- Exemples INCORRECTS : "VM — Ava — Graulhet" ❌, "VM — Lou — Castres" ❌ (ne jamais mettre le prénom de l'enfant dans le titre)
+- Si le document dit "visite au domicile du père" → titre: "VM — Père — Domicile PEREIRA" (nom de famille du père)
+- Si le document dit "visite au domicile de la mère" → titre: "VM — Mère — Domicile ROTONDO" (nom de famille de la mère)
+- vm_presents doit aussi correspondre : père → ["pere"], mère → ["mere"], les deux → ["parents"]
+- Le lieu = toujours celui mentionné dans le PDF en priorité (ville, adresse, lieu-dit, structure)
+- Si le PDF dit "à Gaillac" → lieu: "Gaillac"
+- Si le PDF dit "au domicile de la mère" sans préciser → lieu: "Domicile [nom de famille]" (ex: "Domicile ROTONDO")
+- Si le PDF dit "au domicile du père" sans préciser → lieu: "Domicile [nom de famille père]" (ex: "Domicile PEREIRA")
 - Si présence non précisée : titre: "VM — [lieu]"
-- Le lieu = ville ou nom court (ex: "Graulhet", "Castres", "AID 81", "Domicile PEREIRA")
 
 Règles de catégorisation :
 - "vm" : visite médiatisée, visite en présence, droit de visite
