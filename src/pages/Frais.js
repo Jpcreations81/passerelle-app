@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-20e — fix ligne fin relais au jour date_fin (pas date_debut)
+// Frais.js — v2026-05-21a — résolution adresse "Domicile PEREIRA" → vraie adresse parent
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -41,6 +41,17 @@ const CATS_FORMATION = ['formation']
 // Catégories pro (AR, barème kilométrique Tarn)
 const CATS_PRO = ['vm', 'medical', 'scolaire', 'ase', 'relais', 'autre']
 
+// ── Résolution adresse (domicile père/mère → vraie adresse) ──────────────────
+function resoudreAdresse(lieu, adressesParents) {
+  if (!lieu) return lieu
+  const lieuUpper = lieu.toUpperCase().trim()
+  // Cherche une correspondance dans le dictionnaire
+  for (const [cle, adresse] of Object.entries(adressesParents)) {
+    if (lieuUpper.includes(cle)) return adresse
+  }
+  return lieu // pas de correspondance → retourner tel quel
+}
+
 // ── Calcul distance Google Maps ───────────────────────────────────────────────
 async function calculerDistance(origine, destination) {
   try {
@@ -56,12 +67,13 @@ async function calculerDistance(origine, destination) {
 }
 
 // ── Calcul boucle optimisée ───────────────────────────────────────────────────
-async function calculerBoucle(etapes) {
+async function calculerBoucle(etapes, adressesParents = {}) {
   // etapes = [{ adresse, label }] dans l'ordre indiqué par l'AF
-  // Calcul : etape[0] → etape[1] → ... → etape[n] → domicile
   let totalKm = 0
   for (let i = 0; i < etapes.length - 1; i++) {
-    const km = await calculerDistance(etapes[i].adresse, etapes[i + 1].adresse)
+    const origine = resoudreAdresse(etapes[i].adresse, adressesParents)
+    const destination = resoudreAdresse(etapes[i + 1].adresse, adressesParents)
+    const km = await calculerDistance(origine, destination)
     if (km) totalKm += km
   }
   return Math.round(totalKm * 10) / 10
@@ -220,12 +232,35 @@ export default function Frais({ profile }) {
     setKmCumules(profile.km_cumules_annee || 0)
   }, [profile])
 
-  // ── Charger enfants ───────────────────────────────────────────────────────
+  // ── Charger enfants + parents ─────────────────────────────────────────────
+  const [adressesParents, setAdressesParents] = useState({}) // nom → adresse
+
   useEffect(() => {
     if (!profile) return
-    supabase.from('enfants').select('id, prenom, nom, af_principal_id')
+    supabase.from('enfants')
+      .select('id, prenom, nom, af_principal_id, pere:pere_id(id, nom, prenom, adresse, code_postal, ville), mere:mere_id(id, nom, prenom, adresse, code_postal, ville)')
       .eq('af_principal_id', profile.id)
-      .then(({ data }) => { if (data) setEnfants(data) })
+      .then(({ data }) => {
+        if (data) {
+          setEnfants(data)
+          // Construire un dictionnaire nom → adresse pour résolution
+          const dict = {}
+          data.forEach(e => {
+            if (e.pere?.nom && e.pere?.adresse) {
+              const adresse = [e.pere.adresse, e.pere.code_postal, e.pere.ville].filter(Boolean).join(' ')
+              dict[e.pere.nom.toUpperCase()] = adresse
+              dict[`DOMICILE ${e.pere.nom.toUpperCase()}`] = adresse
+              dict[`DOMICILE ${e.nom.toUpperCase()}`] = adresse // ex: "Domicile PEREIRA"
+            }
+            if (e.mere?.nom && e.mere?.adresse) {
+              const adresse = [e.mere.adresse, e.mere.code_postal, e.mere.ville].filter(Boolean).join(' ')
+              dict[e.mere.nom.toUpperCase()] = adresse
+              dict[`DOMICILE ${e.mere.nom.toUpperCase()}`] = adresse
+            }
+          })
+          setAdressesParents(dict)
+        }
+      })
   }, [profile])
 
   // ── Charger événements du mois ────────────────────────────────────────────
@@ -493,7 +528,7 @@ export default function Frais({ profile }) {
     if (nouvLignes.length > 0) {
       setCalcul(true)
       const updated = await Promise.all(nouvLignes.map(async ligne => {
-        const km = await calculerBoucle(ligne.etapes)
+        const km = await calculerBoucle(ligne.etapes, adressesParents)
         if (ligne.type === 'formation') {
           const montantSNCF = km ? getMontantSNCF(km) : null
           return { ...ligne, km, montantSNCF }
@@ -503,16 +538,15 @@ export default function Frais({ profile }) {
       setLignes(updated)
       setCalcul(false)
     }
-  }, [profile, domicile, mois, annee, cv, kmCumules])
+  }, [profile, domicile, mois, annee, cv, kmCumules, adressesParents])
 
   // ── Calculer toutes les distances ─────────────────────────────────────────
   async function calculerTout() {
     setCalcul(true)
     const updated = await Promise.all(lignes.map(async ligne => {
       if (ligne.km !== null) return ligne
-      const km = await calculerBoucle(ligne.etapes)
+      const km = await calculerBoucle(ligne.etapes, adressesParents)
       if (ligne.type === 'formation') {
-        // Formation : aller seulement → montant SNCF
         const montantSNCF = km ? getMontantSNCF(km) : null
         return { ...ligne, km, montantSNCF }
       }
