@@ -176,8 +176,8 @@ export default function FichePresence({ profile }) {
       const relaisProfiles = {}
       for (const evt of evts) {
         for (const pid of (evt.participants_ids || [])) {
-          if (!relaisProfiles[pid]) {
-            const { data: af } = await supabase.from('profiles').select('id, nom, prenom, civilite').eq('id', pid).single()
+          if (!relaisProfiles[pid] && pid !== profile.id) {
+            const { data: af, error } = await supabase.from('profiles').select('id, nom, prenom').eq('id', pid).single()
             if (af) relaisProfiles[pid] = af
           }
         }
@@ -446,8 +446,8 @@ export default function FichePresence({ profile }) {
                       const fe = isFerie(d)
                       const dim = isDimanche(d)
                       const isBlue = dim || fe
-                      const isRelaisTransit = p.motif && (p.motif.startsWith('Départ en relais') || p.motif.startsWith('Retour de relais'))
-                      const isRelaisJour = p.motif && p.motif.includes('Relais') && !p.present
+                      const isRelaisTransit = p.motif && (p.motif.startsWith('Début accueil relais') || p.motif === 'Retour')
+                      const isRelaisJour = p.motif && p.motif.includes('Relais chez')
                       const isRelaisAny = isRelaisTransit || isRelaisJour
                       const isIntermittentJour = typeFiche === 'intermittent' && presences[key]
                       const rowBg = isIntermittentJour ? '#e0f2fe' : isRelaisAny ? '#fef9c3' : isBlue ? '#dbeafe' : p.present ? '#fff' : '#fff9e6'
