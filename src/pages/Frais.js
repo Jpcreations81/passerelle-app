@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-21a — résolution adresse "Domicile PEREIRA" → vraie adresse parent
+// Frais.js — v2026-05-21b — afficher adresse résolue sous le label (Domicile PEREIRA → vraie adresse)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -785,14 +785,24 @@ export default function Frais({ profile }) {
                   {/* Étapes */}
                   <div style={{ padding:'10px 16px', borderBottom:'1px solid #f0f0f0' }}>
                     <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                      {ligne.etapes.map((etape, i) => (
+                      {ligne.etapes.map((etape, i) => {
+                        const adresseResolue = resoudreAdresse(etape.adresse, adressesParents)
+                        const estResolue = adresseResolue !== etape.adresse
+                        return (
                         <div key={i} style={{ display:'flex', alignItems:'center', gap:8, fontSize:11 }}>
                           <span style={{ color: i === 0 ? '#2e8b4a' : i === ligne.etapes.length-1 ? '#c0392b' : '#1a4b8f', fontWeight:700, minWidth:16 }}>
                             {i === 0 ? '🏠' : i === ligne.etapes.length-1 ? '🏁' : `${i}.`}
                           </span>
-                          <span style={{ flex:1, color:'#5a6478' }}>{etape.label}</span>
+                          <div style={{ flex:1 }}>
+                            <span style={{ color:'#5a6478' }}>{etape.label}</span>
+                            {estResolue && (
+                              <div style={{ fontSize:10, color:'#0891b2', fontStyle:'italic' }}>
+                                → {adresseResolue}
+                              </div>
+                            )}
+                          </div>
                           <span style={{ color:'#9aa3b8', fontSize:10, maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-                            {etape.adresse}
+                            {estResolue ? adresseResolue : etape.adresse}
                           </span>
                           {/* Boutons réordonnement pour boucle */}
                           {ligne.type === 'boucle' && i > 0 && i < ligne.etapes.length - 1 && (
@@ -804,7 +814,8 @@ export default function Frais({ profile }) {
                             </div>
                           )}
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
 
