@@ -161,15 +161,15 @@ export default function FichePresence({ profile }) {
     })
 
     // Charger les événements relais depuis l'agenda
-    const debut = new Date(selectedAnnee, selectedMois, 1)
-    const fin = new Date(selectedAnnee, selectedMois + 1, 0, 23, 59, 59)
+    const debutPerm = new Date(selectedAnnee, selectedMois, 1)
+    const finPerm = new Date(selectedAnnee, selectedMois + 1, 0, 23, 59, 59)
     const { data: evts } = await supabase
       .from('evenements')
       .select('*')
       .eq('af_id', profile.id)
       .eq('categorie', 'relais')
-      .lte('date_debut', fin.toISOString())
-      .gte('date_fin', debut.toISOString())
+      .lte('date_debut', finPerm.toISOString())
+      .gte('date_fin', debutPerm.toISOString())
 
     if (evts) {
       evts.forEach(evt => {
