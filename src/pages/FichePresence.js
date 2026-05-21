@@ -442,15 +442,14 @@ export default function FichePresence({ profile }) {
                   <tbody>
                     {days.map((d, i) => {
                       const key = fmt(d)
-                      const p = presences[key] || { present: true, heure_depart:'', heure_arrivee:'', motif:'' }
+                      const p = presences[key] || { present: false, heure_depart:'', heure_arrivee:'', motif:'' }
                       const fe = isFerie(d)
                       const dim = isDimanche(d)
                       const isBlue = dim || fe
                       const isRelaisTransit = p.motif && (p.motif.startsWith('Début accueil relais') || p.motif === 'Retour')
                       const isRelaisJour = p.motif && p.motif.includes('Relais chez')
                       const isRelaisAny = isRelaisTransit || isRelaisJour
-                      const isIntermittentJour = typeFiche === 'intermittent' && presences[key]
-                      const rowBg = isIntermittentJour ? '#e0f2fe' : isRelaisAny ? '#fef9c3' : isBlue ? '#dbeafe' : p.present ? '#fff' : '#fff9e6'
+                      const rowBg = isRelaisAny ? '#fef9c3' : isBlue ? '#dbeafe' : p.present ? '#fff' : '#fff'
                       const rowClass = isRelaisAny ? 'row-yellow' : isBlue ? 'row-blue' : ''
                       return (
                         <tr key={i} className={rowClass} style={{ background: rowBg }}>
