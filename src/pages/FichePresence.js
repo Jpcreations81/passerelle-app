@@ -436,8 +436,11 @@ export default function FichePresence({ profile }) {
                       const dim = isDimanche(d)
                       const isBlue = dim || fe
                       const isRelaisTransit = p.motif && (p.motif.startsWith('Départ en relais') || p.motif.startsWith('Retour de relais'))
-                      const rowBg = isBlue ? '#dbeafe' : isRelaisTransit ? '#fef9c3' : p.present ? '#fff' : '#fff9e6'
-                      const rowClass = isBlue ? 'row-blue' : isRelaisTransit ? 'row-yellow' : ''
+                      const isRelaisJour = p.motif && p.motif.includes('Relais') && !p.present
+                      const isRelaisAny = isRelaisTransit || isRelaisJour
+                      const isIntermittentJour = typeFiche === 'intermittent' && presences[key]
+                      const rowBg = isBlue ? '#dbeafe' : isIntermittentJour ? '#e0f2fe' : isRelaisAny ? '#fef9c3' : p.present ? '#fff' : '#fff9e6'
+                      const rowClass = isBlue ? 'row-blue' : isRelaisAny ? 'row-yellow' : ''
                       return (
                         <tr key={i} className={rowClass} style={{ background: rowBg }}>
                           <td style={{ padding:'4px 10px', borderBottom:'1px solid #dde3f0', borderRight:'1px solid #dde3f0', fontWeight: isBlue ? 700 : 400, color: isBlue ? '#1a4b8f' : '#1c2333', minWidth:110 }}>
