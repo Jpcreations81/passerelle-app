@@ -1,4 +1,4 @@
-// FichePresencePrint.js — v2026-05-21a — fiche intermittente : en-tête AF relais/principal + case Intermittent
+// FichePresencePrint.js — v2026-05-21b — colonnes arrivée/départ + couleurs conformes document officiel
 import React from 'react'
 
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -150,23 +150,31 @@ export default function FichePresencePrint({ enfant, profile, mois, annee, prese
               <tr style={{ background:'#e8e8e8' }}>
                 <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'left', width:'22%', fontSize:10 }}>Période</th>
                 <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'center', width:'13%', fontSize:10 }}>Présence (x)</th>
-                <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'center', width:'13%', fontSize:10 }}>Heure départ</th>
                 <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'center', width:'13%', fontSize:10 }}>Heure arrivée</th>
-                <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'left', fontSize:10 }}>Motif absence</th>
+                <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'center', width:'13%', fontSize:10 }}>Heure départ</th>
+                <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'left', fontSize:10 }}>Motif</th>
               </tr>
             </thead>
             <tbody>
               {days.map((d, i) => {
                 const key = fmt(d)
-                const p = presences[key] || { present: true, heure_depart:'', heure_arrivee:'', motif:'' }
+                const p = presences[key] || { present: typeFiche !== 'intermittent', heure_depart:'', heure_arrivee:'', motif:'' }
                 const fe = isFerie(d)
                 const dim = isDimanche(d)
-                const isBlue = dim || fe
-                const isRelaisTransit = p.motif && (p.motif.startsWith('Départ en relais') || p.motif.startsWith('Retour de relais') || p.motif.startsWith('Relais —'))
-                const rowBg = isBlue ? '#dbeafe' : isRelaisTransit ? '#fef9c3' : '#fff'
+                const isRelaisDebut = p.motif && p.motif.startsWith('Début accueil relais')
+                const isRelaisFin = p.motif === 'Retour' || (p.motif && p.motif.startsWith('Fin accueil relais'))
+                const isRelaisJour = p.motif && p.motif.includes('Relais chez')
+                const isRelaisAny = isRelaisDebut || isRelaisFin || isRelaisJour
+                // Couleurs : relais jaune prioritaire, dimanche/férié beige, normal blanc
+                const rowBg = isRelaisAny ? '#fef9c3' : (dim || fe) ? '#fef3cd' : '#fff'
+                // Motif simplifié pour impression
+                const motifPrint = isRelaisDebut ? 'Début accueil relais'
+                  : isRelaisFin ? 'Fin accueil relais'
+                  : isRelaisJour ? ''
+                  : (p.motif || '')
                 return (
                   <tr key={i} style={{ background: rowBg }}>
-                    <td style={{ border:'1px solid #ccc', padding:'3px 8px', fontWeight: isBlue ? 700 : 400, fontSize:10, color: isBlue ? '#1a4b8f' : '#000' }}>
+                    <td style={{ border:'1px solid #ccc', padding:'3px 8px', fontWeight: (dim || fe) ? 700 : 400, fontSize:10 }}>
                       {JOURS_LABELS[d.getDay()]} {d.getDate()}
                       {fe && <span style={{ fontSize:8, marginLeft:4, fontWeight:700 }}>férié</span>}
                     </td>
@@ -174,13 +182,13 @@ export default function FichePresencePrint({ enfant, profile, mois, annee, prese
                       {p.present ? 'x' : ''}
                     </td>
                     <td style={{ border:'1px solid #ccc', padding:'3px 8px', textAlign:'center', fontSize:10 }}>
-                      {p.heure_depart || ''}
-                    </td>
-                    <td style={{ border:'1px solid #ccc', padding:'3px 8px', textAlign:'center', fontSize:10 }}>
                       {p.heure_arrivee || ''}
                     </td>
-                    <td style={{ border:'1px solid #ccc', padding:'3px 8px', fontSize:10, color: !p.present ? '#b45309' : '#000' }}>
-                      {p.motif || ''}
+                    <td style={{ border:'1px solid #ccc', padding:'3px 8px', textAlign:'center', fontSize:10 }}>
+                      {p.heure_depart || ''}
+                    </td>
+                    <td style={{ border:'1px solid #ccc', padding:'3px 8px', fontSize:10 }}>
+                      {motifPrint}
                     </td>
                   </tr>
                 )
