@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-05-21a — bouton modifier parent visible sans editMode pour référents
+// DossierEnfant.js — v2026-05-21b — fix docs parent : sync docsPereFiche/docsMereFiche après upload
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -232,7 +232,12 @@ export default function DossierEnfant({ profile }) {
       .select('*')
       .eq('parent_id', parentId)
       .order('created_at', { ascending: false })
-    if (data) setDocsParent(data)
+    if (data) {
+      setDocsParent(data)
+      // Mettre à jour aussi les docs de la fiche
+      if (enfant?.pere_id === parentId) setDocsPereFiche(data)
+      if (enfant?.mere_id === parentId) setDocsMereFiche(data)
+    }
   }
 
   // Uploader un document parent
