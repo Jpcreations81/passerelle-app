@@ -442,7 +442,8 @@ export default function FichePresence({ profile }) {
                   <tbody>
                     {days.map((d, i) => {
                       const key = fmt(d)
-                      const p = presences[key] || { present: false, heure_depart:'', heure_arrivee:'', motif:'' }
+                      const defaultPresent = typeFiche === 'intermittent' ? false : true
+                      const p = presences[key] || { present: defaultPresent, heure_depart:'', heure_arrivee:'', motif:'' }
                       const fe = isFerie(d)
                       const dim = isDimanche(d)
                       const isBlue = dim || fe
