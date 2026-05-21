@@ -46,31 +46,163 @@ function fmtDate(isoStr) {
   return year+'-'+month+'-'+day
 }
 
+// FichePresence.js — v2026-05-21a — fiche intermittente pour AF relais + fiche permanente AF principal
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import Sidebar from '../components/Sidebar'
+import FichePresencePrint from './FichePresencePrint'
+
+const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
+
+const FERIES_2026 = [
+  '2026-01-01','2026-04-06','2026-05-01','2026-05-08',
+  '2026-05-14','2026-05-25','2026-07-14','2026-08-15',
+  '2026-11-01','2026-11-11','2026-12-25'
+]
+
+function isFerie(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth()+1).padStart(2,'0')
+  const d = String(date.getDate()).padStart(2,'0')
+  return FERIES_2026.includes(y+'-'+m+'-'+d)
+}
+function isDimanche(date) { return date.getDay() === 0 }
+function getDaysInMonth(year, month) {
+  const days = []
+  const d = new Date(year, month, 1)
+  while (d.getMonth() === month) { days.push(new Date(d)); d.setDate(d.getDate() + 1) }
+  return days
+}
+function fmt(date) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth()+1).padStart(2,'0')
+  const d = String(date.getDate()).padStart(2,'0')
+  return y+'-'+m+'-'+d
+}
+function fmtHeure(isoStr) {
+  if (!isoStr) return ''
+  return new Date(isoStr).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' })
+}
+function fmtDate(isoStr) {
+  if (!isoStr) return null
+  const d = new Date(isoStr)
+  const localStr = d.toLocaleDateString('fr-FR', { timeZone:'Europe/Paris', year:'numeric', month:'2-digit', day:'2-digit' })
+  const [day, month, year] = localStr.split('/')
+  return year+'-'+month+'-'+day
+}
+
 export default function FichePresence({ profile }) {
   const navigate = useNavigate()
   const [enfants, setEnfants] = useState([])
+  const [enfantsRelais, setEnfantsRelais] = useState([]) // enfants en relais chez cet AF
   const [selectedEnfant, setSelectedEnfant] = useState(null)
-  const [selectedMois, setSelectedMois] = useState(3)
-  const [selectedAnnee, setSelectedAnnee] = useState(2026)
+  const [selectedMois, setSelectedMois] = useState(new Date().getMonth())
+  const [selectedAnnee, setSelectedAnnee] = useState(new Date().getFullYear())
   const [presences, setPresences] = useState({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [moisComplet, setMoisComplet] = useState(true)
   const [toast, setToast] = useState('')
   const [showPrint, setShowPrint] = useState(false)
+  const [typeFiche, setTypeFiche] = useState('permanent') // 'permanent' | 'intermittent'
+  const [afPrincipal, setAfPrincipal] = useState(null) // pour fiche intermittente
+  const [relaisEnCours, setRelaisEnCours] = useState(null) // événement relais sélectionné
+
+  function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
   useEffect(() => { fetchEnfants() }, [])
-  useEffect(() => { if (selectedEnfant) loadFiche() }, [selectedEnfant, selectedMois, selectedAnnee])
+  useEffect(() => { if (selectedEnfant) loadFiche() }, [selectedEnfant, selectedMois, selectedAnnee, typeFiche])
 
   async function fetchEnfants() {
-    const { data } = await supabase.from('enfants').select('id, nom, prenom, numero_dossier').eq('af_principal_id', profile.id)
-    if (data) { setEnfants(data); if (data.length > 0) setSelectedEnfant(data[0]) }
+    // Enfants principaux de l'AF
+    const { data: enfantsPrincipaux } = await supabase
+      .from('enfants').select('id, nom, prenom, numero_dossier, af_principal_id')
+      .eq('af_principal_id', profile.id)
+
+    // Relais actifs où cet AF est participant
+    const debut = new Date(new Date().getFullYear(), 0, 1)
+    const fin = new Date(new Date().getFullYear(), 11, 31)
+    const { data: relais } = await supabase
+      .from('evenements')
+      .select('*, enfants:enfant_ids')
+      .eq('categorie', 'relais')
+      .contains('participants_ids', [profile.id])
+      .gte('date_fin', debut.toISOString())
+      .lte('date_debut', fin.toISOString())
+
+    // Construire la liste des enfants en relais
+    const relaisEnfants = []
+    if (relais) {
+      for (const r of relais) {
+        for (const enfantId of (r.enfant_ids || [])) {
+          const { data: enf } = await supabase.from('enfants')
+            .select('id, nom, prenom, numero_dossier, af_principal_id').eq('id', enfantId).single()
+          if (enf && !relaisEnfants.find(e => e.id === enf.id)) {
+            relaisEnfants.push({ ...enf, _relais: r })
+          }
+        }
+      }
+    }
+    setEnfantsRelais(relaisEnfants)
+
+    const tous = [...(enfantsPrincipaux || [])]
+    if (tous.length > 0) setSelectedEnfant(tous[0])
+    setEnfants(tous)
     setLoading(false)
   }
 
   async function loadFiche() {
     const days = getDaysInMonth(selectedAnnee, selectedMois)
-    // Init toutes les cases cochées
+    const debut = new Date(selectedAnnee, selectedMois, 1)
+    const fin = new Date(selectedAnnee, selectedMois + 1, 0, 23, 59, 59)
+
+    if (typeFiche === 'intermittent') {
+      // Fiche intermittente : uniquement les jours du relais
+      const p = {}
+      // Trouver le relais de cet enfant où l'AF est participant
+      const { data: relais } = await supabase
+        .from('evenements')
+        .select('*')
+        .eq('categorie', 'relais')
+        .contains('participants_ids', [profile.id])
+        .contains('enfant_ids', [selectedEnfant.id])
+        .lte('date_debut', fin.toISOString())
+        .gte('date_fin', debut.toISOString())
+
+      if (relais && relais.length > 0) {
+        const evt = relais[0]
+        setRelaisEnCours(evt)
+        // Charger l'AF principal
+        const { data: afP } = await supabase.from('profiles').select('id, nom, prenom').eq('id', evt.af_id).single()
+        setAfPrincipal(afP)
+
+        const premierJour = fmtDate(evt.date_debut)
+        const dernierJour = fmtDate(evt.date_fin)
+        const cur = new Date(evt.date_debut)
+        cur.setHours(0,0,0,0)
+        const finDate = new Date(evt.date_fin)
+        finDate.setHours(23,59,59,999)
+        while (cur <= finDate) {
+          const key = fmt(cur)
+          if (cur.getFullYear() === selectedAnnee && cur.getMonth() === selectedMois) {
+            if (key === premierJour) {
+              p[key] = { present: true, heure_arrivee: fmtHeure(evt.date_debut), heure_depart: '', motif: 'Début accueil relais' }
+            } else if (key === dernierJour) {
+              p[key] = { present: true, heure_depart: fmtHeure(evt.date_fin), heure_arrivee: '', motif: 'Fin accueil relais' }
+            } else {
+              p[key] = { present: true, heure_depart: '', heure_arrivee: '', motif: '' }
+            }
+          }
+          cur.setDate(cur.getDate() + 1)
+        }
+      }
+      setPresences(p)
+      return
+    }
+
+    // Fiche permanente (comportement existant)
     const p = {}
     days.forEach(d => {
       p[fmt(d)] = { present: true, heure_depart: '', heure_arrivee: '', motif: '' }
@@ -151,11 +283,15 @@ export default function FichePresence({ profile }) {
   async function saveFiche() {
     setSaving(true)
     const { error } = await supabase.from('fiches_presence').upsert({
-      enfant_id: selectedEnfant.id, af_id: profile.id,
-      mois: selectedMois + 1, annee: selectedAnnee,
-      type_fiche: 'permanent',
-      nb_jours_presence: nbJours, nb_jours_feries: nbFeries,
-      donnees: presences, transmise: false,
+      enfant_id: selectedEnfant.id,
+      af_id: profile.id,
+      mois: selectedMois + 1,
+      annee: selectedAnnee,
+      type_fiche: typeFiche,
+      nb_jours_presence: nbJours,
+      nb_jours_feries: nbFeries,
+      donnees: presences,
+      transmise: false,
     }, { onConflict: 'enfant_id,af_id,mois,annee,type_fiche' })
     if (!error) showToast('✅ Fiche sauvegardée !')
     else showToast('❌ Erreur')
@@ -226,11 +362,30 @@ export default function FichePresence({ profile }) {
           {/* Sélecteurs */}
           <div className="card no-print" style={{ marginBottom:14 }}>
             <div className="card-body">
+              {/* Type de fiche */}
+              <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+                <button onClick={() => { setTypeFiche('permanent'); setSelectedEnfant(enfants[0] || null) }}
+                  style={{ padding:'7px 16px', borderRadius:8, border:`2px solid ${typeFiche === 'permanent' ? '#1a4b8f' : '#dde3f0'}`, background: typeFiche === 'permanent' ? '#1a4b8f' : '#fff', color: typeFiche === 'permanent' ? '#fff' : '#5a6478', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                  📋 Fiche permanente
+                </button>
+                {enfantsRelais.length > 0 && (
+                  <button onClick={() => { setTypeFiche('intermittent'); setSelectedEnfant(enfantsRelais[0]) }}
+                    style={{ padding:'7px 16px', borderRadius:8, border:`2px solid ${typeFiche === 'intermittent' ? '#0891b2' : '#dde3f0'}`, background: typeFiche === 'intermittent' ? '#0891b2' : '#fff', color: typeFiche === 'intermittent' ? '#fff' : '#5a6478', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                    🔄 Fiche intermittente (relais)
+                  </button>
+                )}
+              </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
                 <div className="form-group">
                   <label className="form-label">Enfant</label>
-                  <select className="form-control" value={selectedEnfant?.id || ''} onChange={e => setSelectedEnfant(enfants.find(en => en.id === e.target.value))}>
-                    {enfants.map(en => <option key={en.id} value={en.id}>{en.prenom} {en.nom}</option>)}
+                  <select className="form-control" value={selectedEnfant?.id || ''}
+                    onChange={e => {
+                      const liste = typeFiche === 'intermittent' ? enfantsRelais : enfants
+                      setSelectedEnfant(liste.find(en => en.id === e.target.value))
+                    }}>
+                    {(typeFiche === 'intermittent' ? enfantsRelais : enfants).map(en => (
+                      <option key={en.id} value={en.id}>{en.prenom} {en.nom}</option>
+                    ))}
                   </select>
                 </div>
                 <div className="form-group">
@@ -393,6 +548,8 @@ export default function FichePresence({ profile }) {
           presences={presences}
           moisComplet={moisComplet}
           onClose={() => setShowPrint(false)}
+          typeFiche={typeFiche}
+          afPrincipal={afPrincipal}
         />
       )}
       {toast && <div className="toast">{toast}</div>}
