@@ -122,6 +122,7 @@ export default function FichePresence({ profile }) {
           cur.setDate(cur.getDate() + 1)
         }
       })
+    }
 
     setPresences(p)
   }
