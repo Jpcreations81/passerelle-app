@@ -1,4 +1,4 @@
-// Fichepresenceintermittent.js — v2026-05-22c — fix couleurs jaune + fiche sauvegardée + bandeau AF principal
+// Fichepresenceintermittent.js — v2026-05-22d — type_fiche 'relais' (au lieu de 'intermittent')
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -127,7 +127,7 @@ export default function FichePresenceIntermittent({ profile }) {
     const { data: saved } = await supabase.from('fiches_presence').select('*')
       .eq('enfant_id', selectedEnfant.id).eq('af_id', profile.id)
       .eq('mois', selectedMois + 1).eq('annee', selectedAnnee)
-      .eq('type_fiche', 'intermittent').single()
+      .eq('type_fiche', 'relais').single()
     if (saved?.donnees) setPresences(saved.donnees)
     else setPresences(p)
   }
@@ -149,7 +149,7 @@ export default function FichePresenceIntermittent({ profile }) {
     const { error } = await supabase.from('fiches_presence').upsert({
       enfant_id: selectedEnfant.id, af_id: profile.id,
       mois: selectedMois + 1, annee: selectedAnnee,
-      type_fiche: 'intermittent',
+      type_fiche: 'relais',
       nb_jours_presence: nbJours, nb_jours_feries: nbFeries,
       donnees: presences, transmise: false,
     }, { onConflict: 'enfant_id,af_id,mois,annee,type_fiche' })
@@ -162,7 +162,7 @@ export default function FichePresenceIntermittent({ profile }) {
     await saveFiche()
     await supabase.from('fiches_presence').update({ transmise: true, date_transmission: new Date().toISOString() })
       .eq('enfant_id', selectedEnfant.id).eq('af_id', profile.id)
-      .eq('mois', selectedMois + 1).eq('annee', selectedAnnee).eq('type_fiche', 'intermittent')
+      .eq('mois', selectedMois + 1).eq('annee', selectedAnnee).eq('type_fiche', 'relais')
     showToast('📤 Fiche transmise à ase.gaillac-graulhet@tarn.fr !')
   }
 
