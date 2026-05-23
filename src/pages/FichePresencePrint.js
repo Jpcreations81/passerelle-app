@@ -47,6 +47,7 @@ export default function FichePresencePrint({ enfant, profile, mois, annee, prese
             .fiche-to-print, .fiche-to-print * { visibility:visible; }
             .fiche-to-print { position:fixed; left:0; top:0; width:100%; }
             @page { size:A4 portrait; margin:8mm; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           }
         `}</style>
 
