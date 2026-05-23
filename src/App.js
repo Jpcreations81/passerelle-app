@@ -8,6 +8,8 @@ import DossierEnfant from './pages/DossierEnfant'
 import DocumentsEnfant from './pages/DocumentsEnfant'
 import Agenda from './pages/Agenda'
 import FichePresence from './pages/FichePresence'
+import FichePresencePermanent from './pages/FichePresencePermanent'
+import FichePresenceIntermittent from './pages/FichePresenceIntermittent'
 import Rapports from './pages/Rapports'
 import Assfam from './pages/Assfam'
 import DossierAssfam from './pages/DossierAssfam'
@@ -61,7 +63,8 @@ export default function App() {
         <Route path="/enfants/:id/docs" element={session ? <DocumentsEnfant profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/enfant/:id" element={session ? <DossierEnfant profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/agenda" element={session ? <Agenda profile={profile} /> : <Navigate to="/login" />} />
-        <Route path="/fiche-presence" element={session ? <FichePresence profile={profile} /> : <Navigate to="/login" />} />
+        <Route path="/fiche-presence" element={session ? <FichePresencePermanent profile={profile} /> : <Navigate to="/login" />} />
+        <Route path="/fiche-presence-intermittent" element={session ? <FichePresenceIntermittent profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/rapports" element={session ? <Rapports profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/assfam" element={session ? <Assfam profile={profile} /> : <Navigate to="/login" />} />
         <Route path="/assfam/:id" element={session ? <DossierAssfam profile={profile} /> : <Navigate to="/login" />} />
