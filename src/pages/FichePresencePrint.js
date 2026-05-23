@@ -1,4 +1,4 @@
-// FichePresencePrint.js — v2026-05-22b — fix 2 feuilles + titre PDF correct
+// FichePresencePrint.js — v2026-05-22c — retour CSS visibility + titre PDF correct
 import React from 'react'
 
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -49,9 +49,9 @@ export default function FichePresencePrint({ enfant, profile, mois, annee, prese
         <style>{`
           @media print {
             .no-print { display:none!important; }
-            body > * { display:none!important; }
-            body > div:last-of-type { display:block!important; }
-            .fiche-to-print { display:block!important; }
+            body * { visibility:hidden; }
+            .fiche-to-print, .fiche-to-print * { visibility:visible; }
+            .fiche-to-print { position:fixed; left:0; top:0; width:100%; }
             @page { size:A4 portrait; margin:6mm; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           }
