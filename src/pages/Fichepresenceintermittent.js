@@ -1,4 +1,4 @@
-// Fichepresenceintermittent.js — v2026-05-22e — import FichePresenceIntermittentPrint (au lieu de 'intermittent')
+// Fichepresenceintermittent.js — v2026-05-22f — fix interface : cases Formation/Intermittent + colonnes arrivée/départ + AF principal
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -264,13 +264,17 @@ export default function FichePresenceIntermittent({ profile }) {
                   <div style={{ fontSize:12, fontWeight:600, color:'#1c2333', marginTop:2 }}>Mois concerné : {MOIS_LABELS[selectedMois]} {selectedAnnee}</div>
                 </div>
                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                  <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, cursor:'pointer' }}>
-                    <div style={{ width:14, height:14, border:'1.5px solid #1a4b8f', borderRadius:2, background: !moisComplet ? 'none' : '#1a4b8f', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:10, fontWeight:700, cursor:'pointer' }} onClick={() => setMoisComplet(true)}>{moisComplet ? '✓' : ''}</div>
-                    <span style={{ fontWeight:600 }}>Temps complet</span>
+                  <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:11 }}>
+                    <div style={{ width:14, height:14, border:'1.5px solid #1a4b8f', borderRadius:2 }}></div>
+                    <span>Formation</span>
                   </label>
                   <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:11 }}>
-                    <div style={{ width:14, height:14, border:'1.5px solid #1a4b8f', borderRadius:2, background: !moisComplet ? '#1a4b8f' : 'none', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:10, fontWeight:700, cursor:'pointer' }} onClick={() => setMoisComplet(false)}>{!moisComplet ? '✓' : ''}</div>
-                    <span>Continu week-end</span>
+                    <div style={{ width:14, height:14, border:'1.5px solid #1a4b8f', borderRadius:2 }}></div>
+                    <span>Adaptation (Nbrs d'heures)</span>
+                  </label>
+                  <label style={{ display:'flex', alignItems:'center', gap:6, fontSize:11 }}>
+                    <div style={{ width:14, height:14, border:'1.5px solid #1a4b8f', borderRadius:2, background:'#1a4b8f', display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:10, fontWeight:700 }}>✓</div>
+                    <span style={{ fontWeight:600 }}>Intermittent</span>
                   </label>
                 </div>
               </div>
@@ -281,10 +285,13 @@ export default function FichePresenceIntermittent({ profile }) {
                   Nom et prénom de l'enfant (obligatoire) : <strong style={{ borderBottom:'1px solid #333', paddingBottom:1 }}>{selectedEnfant.prenom} {selectedEnfant.nom}</strong>
                 </div>
                 <div style={{ fontSize:12, marginBottom:6 }}>
-                  Nom et Prénom de l'Assistant(e) familial(e) : <strong style={{ borderBottom:'1px solid #333', paddingBottom:1 }}>{profile.prenom} {profile.nom}</strong>
+                  Nom et Prénom de l'Assistant(e) familial(e) <strong>qui fait le Relais</strong> : <strong style={{ borderBottom:'1px solid #333', paddingBottom:1 }}>{profile.prenom} {profile.nom}</strong>
+                </div>
+                <div style={{ fontSize:12, marginBottom:6 }}>
+                  Nom et Prénom de l'Assistant(e) familial(e) <strong>Principal(e)</strong> : <strong style={{ borderBottom:'1px solid #333', paddingBottom:1 }}>{afPrincipal?.prenom} {afPrincipal?.nom}</strong>
                 </div>
                 <div style={{ fontSize:12 }}>
-                  Territoire : <strong>MD Gaillac – Graulhet</strong>
+                  Territoire : <strong>{selectedEnfant?.territoire || 'MD Gaillac – Graulhet'}</strong>
                 </div>
               </div>
 
@@ -318,7 +325,7 @@ export default function FichePresenceIntermittent({ profile }) {
                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                   <thead>
                     <tr style={{ background:'#f0f4ff' }}>
-                      {['Période','Présence (x)','Heure départ','Heure arrivée','Motif absence'].map((h, i) => (
+                      {['Période','Présence (x)','Heure arrivée','Heure départ','Motif'].map((h, i) => (
                         <th key={i} style={{ padding:'7px 10px', borderBottom:'2px solid #1a4b8f', borderRight: i < 4 ? '1px solid #dde3f0' : 'none', textAlign: i === 0 ? 'left' : 'center', fontSize:10, fontWeight:700, color:'#1c2333' }}>{h}</th>
                       ))}
                     </tr>
@@ -326,11 +333,11 @@ export default function FichePresenceIntermittent({ profile }) {
                   <tbody>
                     {days.map((d, i) => {
                       const key = fmt(d)
-                      const p = presences[key] || { present: true, heure_depart:'', heure_arrivee:'', motif:'' }
+                      const p = presences[key] || { present: false, heure_arrivee:'', heure_depart:'', motif:'' }
                       const fe = isFerie(d)
                       const dim = isDimanche(d)
-                      const isBlue = dim || fe
-                      const isRelaisJour = !!presences[key] // tout jour du relais en jaune
+                      const isRelaisJour = !!presences[key]
+                      const isBlue = (dim || fe) && !isRelaisJour
                       const rowBg = isRelaisJour ? '#fef9c3' : isBlue ? '#dbeafe' : '#fff'
                       const rowClass = isRelaisJour ? 'row-yellow' : isBlue ? 'row-blue' : ''
                       return (
@@ -346,17 +353,16 @@ export default function FichePresenceIntermittent({ profile }) {
                             </div>
                           </td>
                           <td style={{ padding:'3px 8px', textAlign:'center', borderBottom:'1px solid #dde3f0', borderRight:'1px solid #dde3f0', minWidth:90 }}>
-                            <input type="time" value={p.heure_depart || ''} onChange={e => setField(key, 'heure_depart', e.target.value)}
+                            <input type="time" value={p.heure_arrivee || ''} onChange={e => setField(key, 'heure_arrivee', e.target.value)}
                               style={{ border:'none', background:'none', fontSize:11, fontFamily:'Sora,sans-serif', outline:'none', textAlign:'center', width:75 }} />
                           </td>
                           <td style={{ padding:'3px 8px', textAlign:'center', borderBottom:'1px solid #dde3f0', borderRight:'1px solid #dde3f0', minWidth:90 }}>
-                            <input type="time" value={p.heure_arrivee || ''} onChange={e => setField(key, 'heure_arrivee', e.target.value)}
+                            <input type="time" value={p.heure_depart || ''} onChange={e => setField(key, 'heure_depart', e.target.value)}
                               style={{ border:'none', background:'none', fontSize:11, fontFamily:'Sora,sans-serif', outline:'none', textAlign:'center', width:75 }} />
                           </td>
                           <td style={{ padding:'3px 8px', borderBottom:'1px solid #dde3f0', minWidth:200 }}>
                             <input type="text" value={p.motif || ''} onChange={e => setField(key, 'motif', e.target.value)}
-                              placeholder={!p.present ? 'Motif absence...' : ''}
-                              style={{ border:'none', background:'none', fontSize:11, fontFamily:'Sora,sans-serif', outline:'none', width:'100%', color: !p.present ? '#d97706' : '#1c2333' }} />
+                              style={{ border:'none', background:'none', fontSize:11, fontFamily:'Sora,sans-serif', outline:'none', width:'100%' }} />
                           </td>
                         </tr>
                       )
