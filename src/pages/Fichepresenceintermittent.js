@@ -1,4 +1,4 @@
-// Fichepresenceintermittent.js — v2026-05-22b — fiche intermittente AF relais + couleurs correctes
+// Fichepresenceintermittent.js — v2026-05-22c — fix couleurs jaune + fiche sauvegardée + bandeau AF principal
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -78,7 +78,7 @@ export default function FichePresenceIntermittent({ profile }) {
     if (relais) {
       for (const r of relais) {
         for (const enfantId of (r.enfant_ids || [])) {
-          const { data: enf } = await supabase.from('enfants').select('id, nom, prenom, numero_dossier, af_principal_id').eq('id', enfantId).single()
+          const { data: enf } = await supabase.from('enfants').select('id, nom, prenom, numero_dossier, af_principal_id, territoire').eq('id', enfantId).single()
           if (enf && !liste.find(e => e.id === enf.id)) liste.push(enf)
         }
       }
@@ -122,7 +122,14 @@ export default function FichePresenceIntermittent({ profile }) {
         cur.setDate(cur.getDate() + 1)
       }
     }
-    setPresences(p)
+
+    // Charger fiche sauvegardée (intermittent uniquement)
+    const { data: saved } = await supabase.from('fiches_presence').select('*')
+      .eq('enfant_id', selectedEnfant.id).eq('af_id', profile.id)
+      .eq('mois', selectedMois + 1).eq('annee', selectedAnnee)
+      .eq('type_fiche', 'intermittent').single()
+    if (saved?.donnees) setPresences(saved.donnees)
+    else setPresences(p)
   }
 
   function togglePresence(key) {
@@ -209,6 +216,12 @@ export default function FichePresenceIntermittent({ profile }) {
             .compteur-box { border:1px solid #000!important; background:#f0f0f0!important; }
           }
         `}</style>
+
+        {afPrincipal && (
+          <div style={{ background:'#e0f2fe', borderRadius:10, padding:'8px 16px', marginBottom:14, fontSize:12, color:'#0c4a6e' }} className="no-print">
+            🔄 Relais pour <strong>{afPrincipal.prenom} {afPrincipal.nom}</strong> (AF principal)
+          </div>
+        )}
 
         <div className="page-content">
 
@@ -317,11 +330,9 @@ export default function FichePresenceIntermittent({ profile }) {
                       const fe = isFerie(d)
                       const dim = isDimanche(d)
                       const isBlue = dim || fe
-                      const isRelaisTransit = p.motif && (p.motif.startsWith('Départ en relais') || p.motif.startsWith('Retour de relais') || p.motif.startsWith('Début accueil relais') || p.motif === 'Retour')
-                      const isRelaisJour = p.motif && p.motif.includes('Relais chez')
-                      const isRelaisAny = isRelaisTransit || isRelaisJour
-                      const rowBg = isRelaisAny ? '#fef9c3' : isBlue ? '#dbeafe' : p.present ? '#fff' : '#fff9e6'
-                      const rowClass = isRelaisAny ? 'row-yellow' : isBlue ? 'row-blue' : ''
+                      const isRelaisJour = !!presences[key] // tout jour du relais en jaune
+                      const rowBg = isRelaisJour ? '#fef9c3' : isBlue ? '#dbeafe' : '#fff'
+                      const rowClass = isRelaisJour ? 'row-yellow' : isBlue ? 'row-blue' : ''
                       return (
                         <tr key={i} className={rowClass} style={{ background: rowBg }}>
                           <td style={{ padding:'4px 10px', borderBottom:'1px solid #dde3f0', borderRight:'1px solid #dde3f0', fontWeight: isBlue ? 700 : 400, color: isBlue ? '#1a4b8f' : '#1c2333', minWidth:110 }}>
