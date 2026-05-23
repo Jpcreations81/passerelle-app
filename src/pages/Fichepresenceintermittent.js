@@ -125,9 +125,6 @@ export default function FichePresenceIntermittent({ profile }) {
     setPresences(p)
   }
 
-    setPresences(p)
-  }
-
   function togglePresence(key) {
     setPresences(prev => ({ ...prev, [key]: { ...prev[key], present: !prev[key].present } }))
   }
