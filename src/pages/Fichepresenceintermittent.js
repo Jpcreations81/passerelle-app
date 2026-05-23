@@ -1,9 +1,9 @@
-// Fichepresenceintermittent.js — v2026-05-22d — type_fiche 'relais' (au lieu de 'intermittent')
+// Fichepresenceintermittent.js — v2026-05-22e — import FichePresenceIntermittentPrint (au lieu de 'intermittent')
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
-import FichePresencePrint from './FichePresencePrint'
+import FichePresenceIntermittentPrint from './FichePresenceIntermittentPrint'
 
 const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -387,7 +387,7 @@ export default function FichePresenceIntermittent({ profile }) {
         </div>
       </div>
       {showPrint && selectedEnfant && (
-        <FichePresencePrint
+        <FichePresenceIntermittentPrint
           enfant={selectedEnfant}
           profile={profile}
           mois={selectedMois}
