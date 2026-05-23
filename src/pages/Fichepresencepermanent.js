@@ -1,4 +1,4 @@
-// Fichepresencepermanent.js — v2026-05-22b — couleurs jaune/bleu correctes + print-color-adjust
+// Fichepresencepermanent.js — v2026-05-22c — motif avec type relais + territoire enfant
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -64,7 +64,7 @@ export default function FichePresence({ profile }) {
   useEffect(() => { if (selectedEnfant) loadFiche() }, [selectedEnfant, selectedMois, selectedAnnee])
 
   async function fetchEnfants() {
-    const { data } = await supabase.from('enfants').select('id, nom, prenom, numero_dossier').eq('af_principal_id', profile.id)
+    const { data } = await supabase.from('enfants').select('id, nom, prenom, numero_dossier, territoire').eq('af_principal_id', profile.id)
     if (data) { setEnfants(data); if (data.length > 0) setSelectedEnfant(data[0]) }
     setLoading(false)
   }
@@ -104,19 +104,23 @@ export default function FichePresence({ profile }) {
         const afRelaisId = (evt.participants_ids || [])[0]
         const afRelais = relaisProfiles[afRelaisId]
         const nomRelais = afRelais ? `${afRelais.prenom} ${afRelais.nom}` : (evt.titre?.replace(/^Relais\s*—\s*/i, '') || 'AF Relais')
+        // Ajouter le type de relais depuis les notes
+        const typeRelais = evt.notes && evt.notes.toLowerCase().includes('adaptation') ? ' — Adaptation' 
+          : evt.notes && evt.notes.toLowerCase().includes('relais') ? ' — Relais' : ''
+        const motifRelais = `Relais chez un(e) ASSFAM — ${nomRelais}${typeRelais}`
         const cur = new Date(evt.date_debut); cur.setHours(0,0,0,0)
         const finDate = new Date(evt.date_fin); finDate.setHours(23,59,59,999)
         while (cur <= finDate) {
           const key = fmt(cur)
           if (p[key]) {
             if (key === premierJour && key === dernierJour) {
-              p[key] = { present: true, heure_depart: fmtHeure(evt.date_debut), heure_arrivee: fmtHeure(evt.date_fin), motif: `Relais chez un(e) ASSFAM — ${nomRelais}` }
+              p[key] = { present: true, heure_depart: fmtHeure(evt.date_debut), heure_arrivee: fmtHeure(evt.date_fin), motif: motifRelais }
             } else if (key === premierJour) {
-              p[key] = { present: true, heure_depart: fmtHeure(evt.date_debut), heure_arrivee: '', motif: `Début accueil relais chez un(e) ASSFAM — ${nomRelais}` }
+              p[key] = { present: true, heure_depart: fmtHeure(evt.date_debut), heure_arrivee: '', motif: `Début accueil relais chez un(e) ASSFAM — ${nomRelais}${typeRelais}` }
             } else if (key === dernierJour) {
               p[key] = { present: true, heure_arrivee: fmtHeure(evt.date_fin), heure_depart: '', motif: 'Retour' }
             } else {
-              p[key] = { present: false, heure_depart: '', heure_arrivee: '', motif: `Relais chez un(e) ASSFAM — ${nomRelais}` }
+              p[key] = { present: false, heure_depart: '', heure_arrivee: '', motif: motifRelais }
             }
           }
           cur.setDate(cur.getDate() + 1)
