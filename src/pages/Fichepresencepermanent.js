@@ -1,4 +1,4 @@
-// Fichepresencepermanent.js — v2026-05-22c — motif avec type relais + territoire enfant
+// Fichepresencepermanent.js — v2026-05-22d — fix filtre relais par enfant_id
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -84,6 +84,7 @@ export default function FichePresence({ profile }) {
       .select('*')
       .eq('af_id', profile.id)
       .eq('categorie', 'relais')
+      .contains('enfant_ids', [selectedEnfant.id])
       .lte('date_debut', fin.toISOString())
       .gte('date_fin', debut.toISOString())
 
