@@ -1,4 +1,4 @@
-// Fichepresencepermanent.js — v2026-05-22e — import FichePresencePermanentPrint
+// Fichepresencepermanent.js — v2026-05-22f — territoire depuis enfant
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -280,7 +280,7 @@ export default function FichePresence({ profile }) {
                   Nom et Prénom de l'Assistant(e) familial(e) : <strong style={{ borderBottom:'1px solid #333', paddingBottom:1 }}>{profile.prenom} {profile.nom}</strong>
                 </div>
                 <div style={{ fontSize:12 }}>
-                  Territoire : <strong>MD Gaillac – Graulhet</strong>
+                  Territoire : <strong>{selectedEnfant?.territoire || 'MD Gaillac – Graulhet'}</strong>
                 </div>
               </div>
 
