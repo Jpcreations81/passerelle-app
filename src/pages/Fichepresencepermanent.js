@@ -1,9 +1,9 @@
-// Fichepresencepermanent.js — v2026-05-22d — fix filtre relais par enfant_id
+// Fichepresencepermanent.js — v2026-05-22e — import FichePresencePermanentPrint
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
-import FichePresencePrint from './FichePresencePrint'
+import FichePresencePermanentPrint from './FichePresencePermanentPrint'
 
 const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -385,7 +385,7 @@ export default function FichePresence({ profile }) {
         </div>
       </div>
       {showPrint && selectedEnfant && (
-        <FichePresencePrint
+        <FichePresencePermanentPrint
           enfant={selectedEnfant}
           profile={profile}
           mois={selectedMois}
