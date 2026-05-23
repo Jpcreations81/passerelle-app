@@ -158,11 +158,9 @@ export default function FichePresenceIntermittent({ profile }) {
     await saveFiche()
     await supabase.from('fiches_presence').update({ transmise: true, date_transmission: new Date().toISOString() })
       .eq('enfant_id', selectedEnfant.id).eq('af_id', profile.id)
-      .eq('mois', selectedMois + 1).eq('annee', selectedAnnee).eq('type_fiche', 'permanent')
+      .eq('mois', selectedMois + 1).eq('annee', selectedAnnee).eq('type_fiche', 'intermittent')
     showToast('📤 Fiche transmise à ase.gaillac-graulhet@tarn.fr !')
   }
-
-  function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
   if (loading) return (
     <div className="app-layout"><Sidebar profile={profile} />
