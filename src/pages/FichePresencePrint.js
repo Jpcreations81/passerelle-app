@@ -1,4 +1,4 @@
-// FichePresencePrint.js — v2026-05-21b — colonnes arrivée/départ + couleurs conformes document officiel
+// FichePresencePrint.js — v2026-05-22b — fix 2 feuilles + titre PDF correct
 import React from 'react'
 
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -36,22 +36,28 @@ export default function FichePresencePrint({ enfant, profile, mois, annee, prese
 
         {/* Boutons hors impression */}
         <div style={{ display:'flex', gap:8, padding:'10px 14px', background:'#1a4b8f', justifyContent:'flex-end' }} className="no-print">
-          <button onClick={() => window.print()} style={{ padding:'7px 16px', background:'#fff', color:'#1a4b8f', border:'none', borderRadius:6, fontWeight:700, cursor:'pointer', fontSize:12 }}>🖨️ Imprimer / PDF</button>
+          <button onClick={() => {
+            const titre = `Fiche présence ${enfant.prenom} ${enfant.nom} — ${MOIS_LABELS[mois]} ${annee}`
+            const oldTitle = document.title
+            document.title = titre
+            window.print()
+            document.title = oldTitle
+          }} style={{ padding:'7px 16px', background:'#fff', color:'#1a4b8f', border:'none', borderRadius:6, fontWeight:700, cursor:'pointer', fontSize:12 }}>🖨️ Imprimer / PDF</button>
           <button onClick={onClose} style={{ padding:'7px 16px', background:'rgba(255,255,255,.2)', color:'#fff', border:'1px solid rgba(255,255,255,.4)', borderRadius:6, cursor:'pointer', fontSize:12 }}>✕ Fermer</button>
         </div>
 
         <style>{`
           @media print {
             .no-print { display:none!important; }
-            body * { visibility:hidden; }
-            .fiche-to-print, .fiche-to-print * { visibility:visible; }
-            .fiche-to-print { position:fixed; left:0; top:0; width:100%; }
-            @page { size:A4 portrait; margin:8mm; }
+            body > * { display:none!important; }
+            body > div:last-of-type { display:block!important; }
+            .fiche-to-print { display:block!important; }
+            @page { size:A4 portrait; margin:6mm; }
             * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
           }
         `}</style>
 
-        <div className="fiche-to-print" style={{ padding:'12px 16px' }}>
+        <div className="fiche-to-print" style={{ padding:'8px 12px', fontFamily:'Arial,sans-serif', fontSize:9 }}>
 
           {/* EN-TÊTE */}
           <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:8 }}>
@@ -177,20 +183,20 @@ export default function FichePresencePrint({ enfant, profile, mois, annee, prese
                   : (p.motif || '')
                 return (
                   <tr key={i} style={{ background: rowBg }}>
-                    <td style={{ border:'1px solid #ccc', padding:'3px 8px', fontWeight: (dim || fe) ? 700 : 400, fontSize:10 }}>
+                    <td style={{ border:'1px solid #ccc', padding:'1px 6px', fontWeight: (dim || fe) ? 700 : 400, fontSize:9 }}>
                       {JOURS_LABELS[d.getDay()]} {d.getDate()}
-                      {fe && <span style={{ fontSize:8, marginLeft:4, fontWeight:700 }}>férié</span>}
+                      {fe && <span style={{ fontSize:7, marginLeft:4, fontWeight:700 }}>férié</span>}
                     </td>
-                    <td style={{ border:'1px solid #ccc', padding:'3px 8px', textAlign:'center', fontSize:11, fontWeight:700 }}>
+                    <td style={{ border:'1px solid #ccc', padding:'1px 6px', textAlign:'center', fontSize:10, fontWeight:700 }}>
                       {p.present ? 'x' : ''}
                     </td>
-                    <td style={{ border:'1px solid #ccc', padding:'3px 8px', textAlign:'center', fontSize:10 }}>
+                    <td style={{ border:'1px solid #ccc', padding:'1px 6px', textAlign:'center', fontSize:9 }}>
                       {p.heure_arrivee || ''}
                     </td>
-                    <td style={{ border:'1px solid #ccc', padding:'3px 8px', textAlign:'center', fontSize:10 }}>
+                    <td style={{ border:'1px solid #ccc', padding:'1px 6px', textAlign:'center', fontSize:9 }}>
                       {p.heure_depart || ''}
                     </td>
-                    <td style={{ border:'1px solid #ccc', padding:'3px 8px', fontSize:10 }}>
+                    <td style={{ border:'1px solid #ccc', padding:'1px 6px', fontSize:9 }}>
                       {motifPrint}
                     </td>
                   </tr>
