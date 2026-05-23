@@ -1,5 +1,4 @@
-
-// FichePresenceIntermittent.js — v2026-05-22a — fiche de présence intermittente AF relais
+// Fichepresenceintermittent.js — v2026-05-22a — fiche de présence intermittente AF relais
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
