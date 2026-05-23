@@ -1,4 +1,4 @@
-// Fichepresenceintermittent.js — v2026-05-22f — fix interface : cases Formation/Intermittent + colonnes arrivée/départ + AF principal
+// Fichepresenceintermittent.js — v2026-05-22g — charger tous les relais du mois (pas seulement le premier)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -104,23 +104,26 @@ export default function FichePresenceIntermittent({ profile }) {
       const { data: afP } = await supabase.from('profiles').select('id, nom, prenom').eq('id', evt.af_id).single()
       setAfPrincipal(afP)
 
-      const premierJour = fmtDate(evt.date_debut)
-      const dernierJour = fmtDate(evt.date_fin)
-      const cur = new Date(evt.date_debut); cur.setHours(0,0,0,0)
-      const finDate = new Date(evt.date_fin); finDate.setHours(23,59,59,999)
-      while (cur <= finDate) {
-        const key = fmt(cur)
-        if (cur.getFullYear() === selectedAnnee && cur.getMonth() === selectedMois) {
-          if (key === premierJour) {
-            p[key] = { present: true, heure_arrivee: fmtHeure(evt.date_debut), heure_depart: '', motif: 'Début accueil relais' }
-          } else if (key === dernierJour) {
-            p[key] = { present: true, heure_depart: fmtHeure(evt.date_fin), heure_arrivee: '', motif: 'Fin accueil relais' }
-          } else {
-            p[key] = { present: true, heure_arrivee: '', heure_depart: '', motif: '' }
+      // Parcourir TOUS les relais du mois
+      relais.forEach(evt => {
+        const premierJour = fmtDate(evt.date_debut)
+        const dernierJour = fmtDate(evt.date_fin)
+        const cur = new Date(evt.date_debut); cur.setHours(0,0,0,0)
+        const finDate = new Date(evt.date_fin); finDate.setHours(23,59,59,999)
+        while (cur <= finDate) {
+          const key = fmt(cur)
+          if (cur.getFullYear() === selectedAnnee && cur.getMonth() === selectedMois) {
+            if (key === premierJour) {
+              p[key] = { present: true, heure_arrivee: fmtHeure(evt.date_debut), heure_depart: '', motif: 'Début accueil relais' }
+            } else if (key === dernierJour) {
+              p[key] = { present: true, heure_depart: fmtHeure(evt.date_fin), heure_arrivee: '', motif: 'Fin accueil relais' }
+            } else {
+              p[key] = { present: true, heure_arrivee: '', heure_depart: '', motif: '' }
+            }
           }
+          cur.setDate(cur.getDate() + 1)
         }
-        cur.setDate(cur.getDate() + 1)
-      }
+      })
     }
 
     // Charger fiche sauvegardée (intermittent uniquement)
