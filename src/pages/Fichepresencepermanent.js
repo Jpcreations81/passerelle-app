@@ -70,10 +70,9 @@ export default function FichePresence({ profile }) {
   }
 
   async function loadFiche() {
-    const days = getDaysInMonth(selectedAnnee, selectedMois)
-    // Init toutes les cases cochées
+    const daysOfMonth = getDaysInMonth(selectedAnnee, selectedMois)
     const p = {}
-    days.forEach(d => {
+    daysOfMonth.forEach(d => {
       p[fmt(d)] = { present: true, heure_depart: '', heure_arrivee: '', motif: '' }
     })
 
