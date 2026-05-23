@@ -1,5 +1,4 @@
-
-// FichePresencePermanent.js — v2026-05-22a — fiche de présence permanente AF principal
+// Fichepresencepermanent.js — v2026-05-22a — fiche de présence permanente AF principal
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
