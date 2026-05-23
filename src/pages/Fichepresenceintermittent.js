@@ -1,4 +1,4 @@
-// Fichepresenceintermittent.js — v2026-05-22g — charger tous les relais du mois (pas seulement le premier)
+// Fichepresenceintermittent.js — v2026-05-22i — territoire enfant + couleurs : fond jaune + bleu relais
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -101,19 +101,23 @@ export default function FichePresenceIntermittent({ profile }) {
 
     if (relais && relais.length > 0) {
       const evt = relais[0]
-      const { data: afP } = await supabase.from('profiles').select('id, nom, prenom').eq('id', evt.af_id).single()
+      const { data: afP } = await supabase.from('profiles').select('id, nom, prenom, territoire').eq('id', evt.af_id).single()
       setAfPrincipal(afP)
 
       // Parcourir TOUS les relais du mois
       relais.forEach(evt => {
         const premierJour = fmtDate(evt.date_debut)
         const dernierJour = fmtDate(evt.date_fin)
+        const memeJour = premierJour === dernierJour
         const cur = new Date(evt.date_debut); cur.setHours(0,0,0,0)
         const finDate = new Date(evt.date_fin); finDate.setHours(23,59,59,999)
         while (cur <= finDate) {
           const key = fmt(cur)
           if (cur.getFullYear() === selectedAnnee && cur.getMonth() === selectedMois) {
-            if (key === premierJour) {
+            if (memeJour) {
+              // Relais d'un seul jour : arrivée ET départ
+              p[key] = { present: true, heure_arrivee: fmtHeure(evt.date_debut), heure_depart: fmtHeure(evt.date_fin), motif: 'Accueil relais' }
+            } else if (key === premierJour) {
               p[key] = { present: true, heure_arrivee: fmtHeure(evt.date_debut), heure_depart: '', motif: 'Début accueil relais' }
             } else if (key === dernierJour) {
               p[key] = { present: true, heure_depart: fmtHeure(evt.date_fin), heure_arrivee: '', motif: 'Fin accueil relais' }
@@ -209,10 +213,10 @@ export default function FichePresenceIntermittent({ profile }) {
             .fiche-print th { background:#e8e8e8!important; color:#000!important; border-bottom:1.5px solid #000!important; }
             .fiche-print tr td { border-bottom:0.5px solid #ccc!important; }
             .fiche-print input { font-size:9pt!important; }
-            /* Dimanches/fériés : fond bleu clair */
-            .row-blue { background:#dbeafe!important; }
-            /* Relais : fond jaune */
-            .row-yellow { background:#fef9c3!important; }
+            /* Jours de relais : fond bleu ciel */
+            .row-blue, .row-blue td { background:#dbeafe!important; }
+            /* Jours sans relais : fond jaune */
+            .row-yellow, .row-yellow td { background:#fef9c3!important; }
             /* En-tête bleu → gris à l'impression */
             .fiche-header-print { background:#e8e8e8!important; }
             /* Compteurs */
@@ -340,9 +344,9 @@ export default function FichePresenceIntermittent({ profile }) {
                       const fe = isFerie(d)
                       const dim = isDimanche(d)
                       const isRelaisJour = !!presences[key]
-                      const isBlue = (dim || fe) && !isRelaisJour
-                      const rowBg = isRelaisJour ? '#fef9c3' : isBlue ? '#dbeafe' : '#fff'
-                      const rowClass = isRelaisJour ? 'row-yellow' : isBlue ? 'row-blue' : ''
+                      const isBlue = isRelaisJour // bleu = jours de relais
+                      const rowBg = isRelaisJour ? '#dbeafe' : '#fef9c3' // jaune par défaut, bleu pour relais
+                      const rowClass = isRelaisJour ? 'row-blue' : 'row-yellow'
                       return (
                         <tr key={i} className={rowClass} style={{ background: rowBg }}>
                           <td style={{ padding:'4px 10px', borderBottom:'1px solid #dde3f0', borderRight:'1px solid #dde3f0', fontWeight: isBlue ? 700 : 400, color: isBlue ? '#1a4b8f' : '#1c2333', minWidth:110 }}>
