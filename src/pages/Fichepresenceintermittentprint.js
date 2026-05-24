@@ -1,5 +1,5 @@
-// FichePresenceIntermittentPrint.js — v2026-05-22e — vrai logo CD81 orange intégré en base64
-import React from 'react'
+// FichePresenceIntermittentPrint.js — v2026-05-22f — fix impression : useRef au lieu de getElementById
+import React, { useRef } from 'react'
 
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
 const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
@@ -29,8 +29,11 @@ export default function FichePresenceIntermittentPrint({ enfant, profile, mois, 
     th: { border:'1px solid #333', padding:'3px 5px', fontSize:9, fontWeight:'bold', background:'#f0f0f0' },
   }
 
+  const ficheRef = useRef(null)
+
   function imprimerDansNouvelleFenetre() {
-    const contenu = document.getElementById('fiche-intermittente-print').innerHTML
+    if (!ficheRef.current) return
+    const contenu = ficheRef.current.innerHTML
     const fenetre = window.open('', '_blank', 'width=800,height=900')
     fenetre.document.write(`<!DOCTYPE html><html><head>
       <title>Fiche relais ${enfant.prenom} ${enfant.nom} — ${MOIS_LABELS[mois]} ${annee}</title>
@@ -56,7 +59,7 @@ export default function FichePresenceIntermittentPrint({ enfant, profile, mois, 
             style={{ padding:'7px 16px', background:'rgba(255,255,255,.2)', color:'#fff', border:'1px solid rgba(255,255,255,.4)', borderRadius:6, cursor:'pointer', fontSize:12 }}>✕ Fermer</button>
         </div>
 
-        <div id="fiche-intermittente-print" style={{ padding:'10px 14px', fontFamily:'Arial,sans-serif', fontSize:10 }}>
+        <div ref={ficheRef} style={{ padding:'10px 14px', fontFamily:'Arial,sans-serif', fontSize:10 }}>
 
           {/* EN-TÊTE */}
           <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:8 }}>
