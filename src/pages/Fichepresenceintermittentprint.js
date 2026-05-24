@@ -1,4 +1,4 @@
-// FichePresenceIntermittentPrint.js — v2026-05-22i — version stable sans logo
+// FichePresencePermanentPrint.js — v2026-05-22j — fiche intermittente : AF relais+principal, cases Formation/Intermittent, colonnes arrivée/départ
 import React from 'react'
 
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -25,7 +25,7 @@ function getDaysInMonth(year, month) {
   return days
 }
 
-export default function FichePresenceIntermittentPrint({ enfant, profile, mois, annee, presences, moisComplet, onClose }) {
+export default function FichePresencePermanentPrint({ enfant, profile, mois, annee, presences, moisComplet, onClose }) {
   const days = getDaysInMonth(annee, mois)
   const nbJours = Object.values(presences).filter(p => p.present).length
   const nbFeries = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
@@ -68,14 +68,20 @@ export default function FichePresenceIntermittentPrint({ enfant, profile, mois, 
                     <tbody>
                       <tr>
                         <td style={{ padding:'4px 8px', borderBottom:'1px solid #333', fontSize:10 }}>
-                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle', background: moisComplet ? '#333' : '#fff', textAlign:'center', lineHeight:'12px', color:'#fff', fontSize:9 }}>{moisComplet ? '✓' : ''}</span>
-                          Temps complet
+                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle' }}></span>
+                          Formation
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding:'4px 8px', borderBottom:'1px solid #333', fontSize:10 }}>
+                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle' }}></span>
+                          Adaptation (Nbrs d'heures)
                         </td>
                       </tr>
                       <tr>
                         <td style={{ padding:'4px 8px', fontSize:10 }}>
-                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle' }}></span>
-                          Continu week-end
+                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle', background:'#333', textAlign:'center', lineHeight:'12px', color:'#fff', fontSize:9 }}>✓</span>
+                          <strong>Intermittent</strong>
                         </td>
                       </tr>
                     </tbody>
@@ -91,10 +97,13 @@ export default function FichePresenceIntermittentPrint({ enfant, profile, mois, 
               Nom et prénom de l'enfant (obligatoire) : <span style={{ borderBottom:'1px solid #000', paddingBottom:1, paddingRight:80 }}><strong>{enfant.prenom} {enfant.nom}</strong></span>
             </div>
             <div style={{ fontSize:11, marginBottom:4 }}>
-              Nom et Prénom de l'Assistant(e) familial(e) : <span style={{ borderBottom:'1px solid #000', paddingBottom:1, paddingRight:40 }}><strong>{profile.prenom} {profile.nom}</strong></span>
+              Nom et Prénom de l'Assistant(e) familial(e) <strong>qui fait le Relais</strong> : <span style={{ borderBottom:'1px solid #000', paddingBottom:1, paddingRight:40 }}><strong>{profile.prenom} {profile.nom}</strong></span>
+            </div>
+            <div style={{ fontSize:11, marginBottom:4 }}>
+              Nom et Prénom de l'Assistant(e) familial(e) <strong>Principal(e)</strong> : <span style={{ borderBottom:'1px solid #000', paddingBottom:1, paddingRight:40 }}><strong>{afPrincipal?.prenom} {afPrincipal?.nom}</strong></span>
             </div>
             <div style={{ fontSize:11 }}>
-              Territoire : <strong>MD Gaillac – Graulhet</strong>
+              Territoire : <strong>{enfant?.territoire || 'MD Gaillac – Graulhet'}</strong>
             </div>
           </div>
 
@@ -133,20 +142,20 @@ export default function FichePresenceIntermittentPrint({ enfant, profile, mois, 
               <tr style={{ background:'#e8e8e8' }}>
                 <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'left', width:'22%', fontSize:10 }}>Période</th>
                 <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'center', width:'13%', fontSize:10 }}>Présence (x)</th>
-                <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'center', width:'13%', fontSize:10 }}>Heure départ</th>
                 <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'center', width:'13%', fontSize:10 }}>Heure arrivée</th>
+                <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'center', width:'13%', fontSize:10 }}>Heure départ</th>
                 <th style={{ border:'1px solid #333', padding:'5px 8px', textAlign:'left', fontSize:10 }}>Motif absence</th>
               </tr>
             </thead>
             <tbody>
               {days.map((d, i) => {
                 const key = fmt(d)
-                const p = presences[key] || { present: true, heure_depart:'', heure_arrivee:'', motif:'' }
+                const p = presences[key] || { present: false, heure_arrivee:'', heure_depart:'', motif:'' }
                 const fe = isFerie(d)
                 const dim = isDimanche(d)
-                const isBlue = dim || fe
-                const isRelaisTransit = p.motif && (p.motif.startsWith('Départ en relais') || p.motif.startsWith('Retour de relais') || p.motif.startsWith('Relais —'))
-                const rowBg = isBlue ? '#dbeafe' : isRelaisTransit ? '#fef9c3' : '#fff'
+                const isRelaisJour = !!presences[key]
+                const isDimFerie = (dim || fe) && !isRelaisJour
+                const rowBg = isRelaisJour ? '#dbeafe' : isDimFerie ? '#fef9c3' : '#fff'
                 return (
                   <tr key={i} style={{ background: rowBg }}>
                     <td style={{ border:'1px solid #ccc', padding:'3px 8px', fontWeight: isBlue ? 700 : 400, fontSize:10, color: isBlue ? '#1a4b8f' : '#000' }}>
@@ -157,10 +166,10 @@ export default function FichePresenceIntermittentPrint({ enfant, profile, mois, 
                       {p.present ? 'x' : ''}
                     </td>
                     <td style={{ border:'1px solid #ccc', padding:'3px 8px', textAlign:'center', fontSize:10 }}>
-                      {p.heure_depart || ''}
+                      {p.heure_arrivee || ''}
                     </td>
                     <td style={{ border:'1px solid #ccc', padding:'3px 8px', textAlign:'center', fontSize:10 }}>
-                      {p.heure_arrivee || ''}
+                      {p.heure_depart || ''}
                     </td>
                     <td style={{ border:'1px solid #ccc', padding:'3px 8px', fontSize:10, color: !p.present ? '#b45309' : '#000' }}>
                       {p.motif || ''}
