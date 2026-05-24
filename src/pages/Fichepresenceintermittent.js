@@ -1,9 +1,9 @@
-// Fichepresenceintermittent.js — v2026-05-22i — territoire enfant + couleurs : fond jaune + bleu relais
+// Fichepresenceintermittent.js — v2026-05-24b — utilise FichePresence2 pdf-lib
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
-import FichePresenceIntermittentPrint from './Fichepresenceintermittentprint'
+import FichePresence2 from './FichePresence2'
 
 const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -262,7 +262,7 @@ export default function FichePresenceIntermittent({ profile }) {
             <div className="fiche-print" style={{ background:'#fff', border:'2px solid #1a4b8f', borderRadius:10, overflow:'hidden', boxShadow:'0 4px 20px rgba(26,75,143,.1)' }}>
 
               {/* EN-TÊTE */}
-              <div className="fiche-header-print" style={{ background:'#dbeafe', borderBottom:'2px solid #1a4b8f', padding:'12px 18px', display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
+              <div className="fiche-header-print" style={{ background:'#fff', borderBottom:'2px solid #1a4b8f', padding:'12px 18px', display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
                 <div style={{ background:'#1a4b8f', color:'#fff', padding:'6px 10px', borderRadius:6, fontSize:11, fontWeight:700, lineHeight:1.3, textAlign:'center', flexShrink:0 }}>
                   TARN<br /><span style={{ fontSize:8, fontWeight:400 }}>LE DÉPARTEMENT</span>
                 </div>
@@ -344,12 +344,12 @@ export default function FichePresenceIntermittent({ profile }) {
                       const fe = isFerie(d)
                       const dim = isDimanche(d)
                       const isRelaisJour = !!presences[key]
-                      const isBlue = isRelaisJour // bleu = jours de relais
-                      const rowBg = isRelaisJour ? '#dbeafe' : '#fef9c3' // jaune par défaut, bleu pour relais
-                      const rowClass = isRelaisJour ? 'row-blue' : 'row-yellow'
+                      const isDimFerie = dim || fe
+                      const rowBg = isRelaisJour ? '#dbeafe' : isDimFerie ? '#fef9c3' : '#fff'
+                      const rowClass = isRelaisJour ? 'row-blue' : isDimFerie ? 'row-yellow' : ''
                       return (
                         <tr key={i} className={rowClass} style={{ background: rowBg }}>
-                          <td style={{ padding:'4px 10px', borderBottom:'1px solid #dde3f0', borderRight:'1px solid #dde3f0', fontWeight: isBlue ? 700 : 400, color: isBlue ? '#1a4b8f' : '#1c2333', minWidth:110 }}>
+                          <td style={{ padding:'4px 10px', borderBottom:'1px solid #dde3f0', borderRight:'1px solid #dde3f0', fontWeight: (isDimFerie || isRelaisJour) ? 700 : 400, color: isRelaisJour ? '#1a4b8f' : '#1c2333', minWidth:110 }}>
                             {JOURS_LABELS[d.getDay()]} {d.getDate()}
                             {fe && <span style={{ fontSize:9, marginLeft:5, color:'#1a4b8f', fontWeight:700 }}> férié</span>}
                           </td>
@@ -400,7 +400,7 @@ export default function FichePresenceIntermittent({ profile }) {
         </div>
       </div>
       {showPrint && selectedEnfant && (
-        <FichePresenceIntermittentPrint
+        <FichePresence2
           enfant={selectedEnfant}
           profile={profile}
           mois={selectedMois}
@@ -408,7 +408,7 @@ export default function FichePresenceIntermittent({ profile }) {
           presences={presences}
           moisComplet={moisComplet}
           onClose={() => setShowPrint(false)}
-          typeFiche="intermittent"
+          typeFiche="relais"
           afPrincipal={afPrincipal}
         />
       )}
