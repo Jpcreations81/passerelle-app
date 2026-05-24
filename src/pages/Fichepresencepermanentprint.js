@@ -1,4 +1,4 @@
-// FichePresencePermanentPrint.js — v2026-05-22b — design fidèle au document officiel Tarn
+// FichePresencePermanentPrint.js — v2026-05-22d — design fidèle original : logo SVG + titre bleu + cases arrondies
 import React from 'react'
 
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -26,9 +26,29 @@ export default function FichePresencePermanentPrint({ enfant, profile, mois, ann
   const nbJours = Object.values(presences).filter(p => p.present).length
   const nbFeries = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
 
-  const S = { // styles communs
+  const S = {
     cell: { border:'1px solid #333', padding:'2px 5px', fontSize:9 },
     th: { border:'1px solid #333', padding:'3px 5px', fontSize:9, fontWeight:'bold', background:'#f0f0f0' },
+  }
+
+  function imprimerDansNouvelleFenetre() {
+    const contenu = document.getElementById('fiche-permanente-print').innerHTML
+    const fenetre = window.open('', '_blank', 'width=800,height=900')
+    fenetre.document.write(`
+      <!DOCTYPE html><html><head>
+      <title>Fiche présence ${enfant.prenom} ${enfant.nom} — ${MOIS_LABELS[mois]} ${annee}</title>
+      <style>
+        * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; box-sizing:border-box; }
+        body { font-family:Arial,sans-serif; font-size:9pt; margin:0; padding:8mm; }
+        @page { size:A4 portrait; margin:8mm; }
+        table { border-collapse:collapse; width:100%; }
+        .row-jaune { background:#fef9c3!important; }
+        .row-bleu { background:#dbeafe!important; }
+        @media print { @page { size:A4 portrait; margin:8mm; } }
+      </style></head><body>${contenu}</body></html>
+    `)
+    fenetre.document.close()
+    setTimeout(() => { fenetre.print(); fenetre.close() }, 500)
   }
 
   return (
@@ -36,111 +56,84 @@ export default function FichePresencePermanentPrint({ enfant, profile, mois, ann
       <div style={{ background:'#fff', width:720, maxWidth:'98vw', fontFamily:'Arial,sans-serif' }}>
 
         {/* Boutons hors impression */}
-        <div style={{ display:'flex', gap:8, padding:'10px 14px', background:'#1a4b8f', justifyContent:'flex-end' }} className="no-print">
-          <button onClick={() => {
-            const oldTitle = document.title
-            document.title = `Fiche présence ${enfant.prenom} ${enfant.nom} — ${MOIS_LABELS[mois]} ${annee}`
-            window.print()
-            document.title = oldTitle
-          }} style={{ padding:'7px 16px', background:'#fff', color:'#1a4b8f', border:'none', borderRadius:6, fontWeight:700, cursor:'pointer', fontSize:12 }}>🖨️ Imprimer / PDF</button>
-          <button onClick={onClose} style={{ padding:'7px 16px', background:'rgba(255,255,255,.2)', color:'#fff', border:'1px solid rgba(255,255,255,.4)', borderRadius:6, cursor:'pointer', fontSize:12 }}>✕ Fermer</button>
+        <div style={{ display:'flex', gap:8, padding:'10px 14px', background:'#1a4b8f', justifyContent:'flex-end' }}>
+          <button onClick={imprimerDansNouvelleFenetre}
+            style={{ padding:'7px 16px', background:'#fff', color:'#1a4b8f', border:'none', borderRadius:6, fontWeight:700, cursor:'pointer', fontSize:12 }}>🖨️ Imprimer / PDF</button>
+          <button onClick={onClose}
+            style={{ padding:'7px 16px', background:'rgba(255,255,255,.2)', color:'#fff', border:'1px solid rgba(255,255,255,.4)', borderRadius:6, cursor:'pointer', fontSize:12 }}>✕ Fermer</button>
         </div>
 
-        <style>{`
-          @media print {
-            .no-print { display:none!important; }
-            body * { visibility:hidden; }
-            .fiche-to-print, .fiche-to-print * { visibility:visible; }
-            .fiche-to-print { position:fixed; left:0; top:0; width:100%; }
-            @page { size:A4 portrait; margin:8mm; }
-            * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
-            .row-jaune { background:#fef9c3!important; }
-            .row-bleu { background:#dbeafe!important; }
-          }
-        `}</style>
-
-        <div className="fiche-to-print" style={{ padding:'10px 14px', fontFamily:'Arial,sans-serif', fontSize:10 }}>
+        <div id="fiche-permanente-print" style={{ padding:'10px 14px', fontFamily:'Arial,sans-serif', fontSize:10 }}>
 
           {/* EN-TÊTE */}
-          <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:6 }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:8 }}>
             <tbody>
               <tr>
-                <td style={{ width:80, verticalAlign:'middle', paddingRight:10 }}>
-                  <div style={{ background:'#e8001c', color:'#fff', fontWeight:900, fontSize:11, padding:'4px 6px', textAlign:'center', lineHeight:1.2 }}>
-                    TARN<br/><span style={{ fontSize:7, fontWeight:400 }}>LE DÉPARTEMENT</span>
-                  </div>
+                <td style={{ width:70, verticalAlign:'middle', paddingRight:8 }}>
+                  {/* Logo Tarn SVG fidèle */}
+                  <svg width="60" height="55" viewBox="0 0 60 55" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="60" height="55" fill="#c8401a" rx="3"/>
+                    <rect x="3" y="3" width="54" height="30" fill="#8b2500" rx="2"/>
+                    <text x="30" y="22" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold" fontFamily="Arial">TARN</text>
+                    <rect x="3" y="36" width="54" height="16" fill="#8b2500" rx="2"/>
+                    <text x="30" y="47" textAnchor="middle" fill="white" fontSize="6" fontFamily="Arial">LE DÉPARTEMENT</text>
+                  </svg>
                 </td>
                 <td style={{ textAlign:'center', verticalAlign:'middle' }}>
-                  <div style={{ fontSize:15, fontWeight:900, textDecoration:'underline', color:'#000', letterSpacing:1 }}>FICHE DE PRÉSENCE {annee}</div>
-                  <div style={{ fontSize:11, fontWeight:700, marginTop:3 }}>Mois concerné : {MOIS_LABELS[mois]} {annee}</div>
+                  <div style={{ fontSize:16, fontWeight:900, textDecoration:'underline', color:'#1a3a8f', fontFamily:'Arial Black, Arial', letterSpacing:0.5 }}>FICHE DE PRÉSENCE {annee}</div>
+                  <div style={{ fontSize:11, fontWeight:400, marginTop:4, fontStyle:'italic' }}>Mois concerné : {MOIS_LABELS[mois]} {annee}</div>
                 </td>
-                <td style={{ width:160, verticalAlign:'top' }}>
-                  <table style={{ borderCollapse:'collapse', border:'1px solid #999', width:'100%', background:'#e8f0f8' }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ padding:'4px 8px', fontSize:10 }}>
-                          <span style={{ display:'inline-block', width:11, height:11, border:'1px solid #555', marginRight:5, verticalAlign:'middle', background: moisComplet ? '#333' : '#fff' }}>{moisComplet ? '✓' : ''}</span>
-                          <strong>Temps complet</strong>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style={{ padding:'4px 8px', fontSize:10 }}>
-                          <span style={{ display:'inline-block', width:11, height:11, border:'1px solid #555', marginRight:5, verticalAlign:'middle' }}></span>
-                          Continu week-end
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <td style={{ width:170, verticalAlign:'top' }}>
+                  <div style={{ background:'#c8dff5', borderRadius:8, border:'1.5px solid #7ba8d0', padding:'6px 10px' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6, fontSize:10 }}>
+                      <span style={{ display:'inline-block', width:12, height:12, border:'1.5px solid #333', background: moisComplet ? '#333' : '#fff', flexShrink:0 }}>{moisComplet ? '✓' : ''}</span>
+                      <span style={{ fontWeight:600 }}>Temps complet</span>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:10 }}>
+                      <span style={{ display:'inline-block', width:12, height:12, border:'1.5px solid #333', background:'#fff', flexShrink:0 }}></span>
+                      <span>Continu week-end</span>
+                    </div>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
 
           {/* IDENTITÉ */}
-          <div style={{ marginBottom:6, fontSize:10 }}>
-            <div style={{ marginBottom:3 }}>Nom et prénom de l'enfant (obligatoire) : <span style={{ borderBottom:'1px solid #000', paddingBottom:1, paddingRight:120, fontWeight:700 }}>{enfant.prenom} {enfant.nom}</span></div>
-            <div style={{ marginBottom:3 }}>Nom et Prénom de l'Assistant(e) familial(e) : <span style={{ borderBottom:'1px solid #000', paddingBottom:1, paddingRight:80, fontWeight:700 }}>{profile.prenom} {profile.nom}</span></div>
+          <div style={{ marginBottom:8, fontSize:10, borderBottom:'1px solid #ccc', paddingBottom:6 }}>
+            <div style={{ marginBottom:4 }}>Nom et prénom de l'enfant (obligatoire) : <span style={{ borderBottom:'1px solid #000', display:'inline-block', minWidth:280, fontWeight:700 }}>{enfant.prenom} {enfant.nom}</span></div>
+            <div style={{ marginBottom:4 }}>Nom et Prénom de l'Assistant(e) familial(e) : <span style={{ borderBottom:'1px solid #000', display:'inline-block', minWidth:260, fontWeight:700 }}>{profile.prenom} {profile.nom}</span></div>
             <div>Territoire : <strong>{enfant?.territoire || ''}</strong></div>
           </div>
 
-          {/* COMPTEURS + ADMIN */}
+          {/* COMPTEURS + ADMIN sur la même ligne */}
           <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:6, fontSize:10 }}>
             <tbody>
               <tr>
-                <td style={{ verticalAlign:'top', width:'55%', paddingRight:8 }}>
-                  <div style={{ marginBottom:3 }}>Nombre de jours de présence et de fériés</div>
-                  <table style={{ borderCollapse:'collapse', border:'1px solid #555' }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ border:'1px solid #555', padding:'3px 10px', fontSize:10 }}>
-                          <div style={{ fontWeight:700 }}>NBRS/J :</div>
-                          <div style={{ fontSize:14, fontWeight:900 }}>{nbJours}</div>
-                        </td>
-                        <td style={{ border:'1px solid #555', padding:'3px 10px', fontSize:10 }}>
-                          <div style={{ fontWeight:700 }}>NBRS/FERIES :</div>
-                          <div style={{ fontSize:14, fontWeight:900 }}>{nbFeries}</div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <div style={{ marginTop:5, display:'flex', alignItems:'center', gap:6, fontSize:10 }}>
-                    <span style={{ display:'inline-block', width:11, height:11, border:'1px solid #555', verticalAlign:'middle', background: moisComplet ? '#333' : '#fff' }}>{moisComplet ? '✓' : ''}</span>
+                <td style={{ verticalAlign:'top', paddingRight:8 }}>
+                  <div style={{ marginBottom:4 }}>Nombre de jours de présence et de fériés</div>
+                  <div style={{ display:'flex', gap:0, marginBottom:6 }}>
+                    <div style={{ border:'1.5px solid #1a3a8f', padding:'3px 12px', fontSize:10 }}>
+                      <div style={{ fontWeight:700, color:'#1a3a8f' }}>NBRS/J :</div>
+                      <div style={{ fontSize:16, fontWeight:900, color:'#1a3a8f' }}>{nbJours}</div>
+                    </div>
+                    <div style={{ border:'1.5px solid #1a3a8f', borderLeft:'none', padding:'3px 12px', fontSize:10 }}>
+                      <div style={{ fontWeight:700, color:'#1a3a8f' }}>NBRS/FERIES :</div>
+                      <div style={{ fontSize:16, fontWeight:900, color:'#1a3a8f' }}>{nbFeries}</div>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:10 }}>
+                    <span style={{ display:'inline-block', width:12, height:12, border:'1.5px solid #333', background: moisComplet ? '#333' : '#fff', flexShrink:0 }}>{moisComplet ? '✓' : ''}</span>
                     <strong>Mois complet</strong>
                   </div>
                 </td>
-                <td style={{ verticalAlign:'top', border:'1px solid #555', padding:'5px 8px' }}>
-                  <div style={{ fontWeight:700, fontSize:10, marginBottom:4 }}>Partie réservé à l'Administration</div>
-                  <table style={{ width:'100%', borderCollapse:'collapse' }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ fontSize:9, paddingBottom:2 }}>Nbrs/Jours : <span style={{ borderBottom:'1px solid #555', paddingRight:40 }}></span></td>
-                        <td style={{ fontSize:9 }}>Nbrs/Jours Fériés : <span style={{ borderBottom:'1px solid #555', paddingRight:20 }}></span></td>
-                      </tr>
-                      <tr>
-                        <td colSpan={2} style={{ fontSize:9, paddingTop:2 }}>Date : <span style={{ borderBottom:'1px solid #555', paddingRight:60 }}></span></td>
-                      </tr>
-                    </tbody>
-                  </table>
+                <td style={{ verticalAlign:'top', border:'1px solid #aaa', padding:'5px 8px', background:'#f5f5f5', width:'42%' }}>
+                  <div style={{ fontWeight:700, fontSize:10, marginBottom:4, textAlign:'center' }}>Partie réservé à l'Administration</div>
+                  <div style={{ display:'flex', gap:20, fontSize:9, marginBottom:3 }}>
+                    <span>Nbrs/Jours : <span style={{ borderBottom:'1px solid #555', paddingRight:35 }}></span></span>
+                    <span>Nbrs/Jours Fériés : <span style={{ borderBottom:'1px solid #555', paddingRight:20 }}></span></span>
+                  </div>
+                  <div style={{ fontSize:9 }}>Date : <span style={{ borderBottom:'1px solid #555', paddingRight:60 }}></span></div>
                 </td>
               </tr>
             </tbody>
@@ -174,7 +167,7 @@ export default function FichePresencePermanentPrint({ enfant, profile, mois, ann
                     <td style={{ ...S.cell, textAlign:'center', fontWeight:700 }}>{p.present ? 'x' : ''}</td>
                     <td style={{ ...S.cell, textAlign:'center' }}>{p.heure_depart || ''}</td>
                     <td style={{ ...S.cell, textAlign:'center' }}>{p.heure_arrivee || ''}</td>
-                    <td style={{ ...S.cell }}>{p.motif || ''}</td>
+                    <td style={{ ...S.cell, maxWidth:180, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{p.motif || ''}</td>
                   </tr>
                 )
               })}
