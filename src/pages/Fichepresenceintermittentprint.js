@@ -1,4 +1,4 @@
-// FichePresenceIntermittentPrint.js — v2026-05-22f — fix impression : useRef au lieu de getElementById
+// FichePresenceIntermittentPrint.js — v2026-05-22g — délai 1500ms pour chargement image base64
 import React, { useRef } from 'react'
 
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -46,7 +46,7 @@ export default function FichePresenceIntermittentPrint({ enfant, profile, mois, 
         .row-jaune { background:#fef9c3!important; }
       </style></head><body>${contenu}</body></html>`)
     fenetre.document.close()
-    setTimeout(() => { fenetre.print(); fenetre.close() }, 500)
+    setTimeout(() => { fenetre.focus(); fenetre.print() }, 1500)
   }
 
   return (
