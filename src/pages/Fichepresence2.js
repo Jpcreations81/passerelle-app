@@ -7,8 +7,8 @@ const FERIES_2026 = ['2026-01-01','2026-04-06','2026-05-01','2026-05-08','2026-0
 
 // URLs publiques des PDFs templates dans Supabase Storage
 const PDF_URLS = {
-  permanent: 'https://ebvwiwdefecaxfmnfppz.supabase.co/storage/v1/object/public/templates/Calendrier%20de%20PRESENCE%20Permanent.pdf',
-  relais: 'https://ebvwiwdefecaxfmnfppz.supabase.co/storage/v1/object/public/templates/Calendrier%20de%20PRESENCE%20Relais.pdf',
+  permanent: 'https://ebvwiwdefecaxfmnfppz.supabase.co/storage/v1/object/public/templates/fiche_presence_permanent.pdf',
+  relais: 'https://ebvwiwdefecaxfmnfppz.supabase.co/storage/v1/object/public/templates/fiche_presence_relais.pdf',
 }
 
 function isFerie(date) {
