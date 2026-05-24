@@ -143,6 +143,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       const days = getDaysInMonth(annee, mois)
       const nbj = Object.values(presences).filter(p => p.present).length
       const nbf = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
+      const moisCompletAuto = !isRelais && (nbj === days.length)
       const nx = M + 155
       drawRect(nx, yc+6, 110, 26, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
       drawText('NBRS/J :', nx+4, yc-1, 9, fontB)
@@ -154,7 +155,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       const ym = yc - 14
       if (!isRelais) {
         drawRect(M, ym+12, 12, 12, WHITE, BLACK, 1.2)
-        if (moisComplet) {
+        if (moisCompletAuto) {
           drawRect(M+1, ym+13, 10, 10, BLACK)
           drawText('x', M+2, ym+11, 9, fontB, WHITE)
         }
@@ -224,25 +225,25 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         if (motif) drawText(motif.length>46 ? motif.substring(0,46)+'...' : motif, COL[4]+3, ry-1, 8.5, font)
 
         // Ligne horizontale
-        drawLine(COL[0], ry-ROW_H, COL[5], ry-ROW_H, hexToRgb('#bbbbbb'), 0.25)
+        drawLine(COL[0], ry-ROW_H, COL[5], ry-ROW_H, hexToRgb('#999999'), 0.4)
       })
 
       // Ligne vide finale
       const ryFin = TY - 13 - days.length * ROW_H
       drawRect(COL[0], ryFin, COL[5]-COL[0], ROW_H, WHITE)
-      drawLine(COL[0], ryFin-ROW_H, COL[5], ryFin-ROW_H, hexToRgb('#bbbbbb'), 0.25)
+      drawLine(COL[0], ryFin-ROW_H, COL[5], ryFin-ROW_H, hexToRgb('#999999'), 0.4)
 
       // Bordures verticales
       const bot = TY - 13 - (days.length+1) * ROW_H
       COL.forEach(cx => drawLine(cx, TY, cx, bot, BLACK, 0.5))
-      page.drawRectangle({ x:COL[0], y:bot, width:COL[5]-COL[0], height:TY-bot, borderColor:BLACK, borderWidth:1, opacity:0 })
+      page.drawRectangle({ x:COL[0], y:bot, width:COL[5]-COL[0], height:TY-bot, borderColor:BLACK, borderWidth:1 })
 
       // Signature
       const sy = bot - 10
       drawText('Date :', M, sy, 9, font)
       drawText("Signature de l'Assistant(e) familial(e)", M, sy-14, 9, font)
       const sigLw = font.widthOfTextAtSize("Signature de l'Assistant(e) familial(e)", 9)
-      page.drawRectangle({ x:M+sigLw+6, y:sy-32, width:160, height:26, borderColor:BLACK, borderWidth:2, opacity:0 })
+      page.drawRectangle({ x:M+sigLw+6, y:sy-32, width:160, height:26, borderColor:BLACK, borderWidth:2 })
 
       // Télécharger
       const pdfBytes = await pdfDoc.save()
