@@ -1,4 +1,4 @@
-// FichePresencePermanentPrint.js — v2026-05-22g — délai 1500ms pour chargement image base64
+// FichePresencePermanentPrint.js — v2026-05-22h — window.print() simple + print-color-adjust
 import React, { useRef } from 'react'
 
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -33,22 +33,11 @@ export default function FichePresencePermanentPrint({ enfant, profile, mois, ann
 
   const ficheRef = useRef(null)
 
-  function imprimerDansNouvelleFenetre() {
-    if (!ficheRef.current) return
-    const contenu = ficheRef.current.innerHTML
-    const fenetre = window.open('', '_blank', 'width=800,height=900')
-    fenetre.document.write(`<!DOCTYPE html><html><head>
-      <title>Fiche présence ${enfant.prenom} ${enfant.nom} — ${MOIS_LABELS[mois]} ${annee}</title>
-      <style>
-        * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; box-sizing:border-box; }
-        body { font-family:Arial,sans-serif; font-size:9pt; margin:0; padding:8mm; }
-        @page { size:A4 portrait; margin:8mm; }
-        table { border-collapse:collapse; width:100%; }
-        .row-jaune { background:#fef9c3!important; }
-        .row-bleu { background:#dbeafe!important; }
-      </style></head><body>${contenu}</body></html>`)
-    fenetre.document.close()
-    setTimeout(() => { fenetre.focus(); fenetre.print() }, 1500)
+  function imprimer() {
+    const oldTitle = document.title
+    document.title = `Fiche présence ${enfant.prenom} ${enfant.nom} — ${MOIS_LABELS[mois]} ${annee}`
+    window.print()
+    document.title = oldTitle
   }
 
   return (
@@ -57,13 +46,26 @@ export default function FichePresencePermanentPrint({ enfant, profile, mois, ann
 
         {/* Boutons hors impression */}
         <div style={{ display:'flex', gap:8, padding:'10px 14px', background:'#1a4b8f', justifyContent:'flex-end' }}>
-          <button onClick={imprimerDansNouvelleFenetre}
+          <button onClick={imprimer}
             style={{ padding:'7px 16px', background:'#fff', color:'#1a4b8f', border:'none', borderRadius:6, fontWeight:700, cursor:'pointer', fontSize:12 }}>🖨️ Imprimer / PDF</button>
           <button onClick={onClose}
             style={{ padding:'7px 16px', background:'rgba(255,255,255,.2)', color:'#fff', border:'1px solid rgba(255,255,255,.4)', borderRadius:6, cursor:'pointer', fontSize:12 }}>✕ Fermer</button>
         </div>
 
-        <div ref={ficheRef} style={{ padding:'10px 14px', fontFamily:'Arial,sans-serif', fontSize:10 }}>
+        <style>{`
+          @media print {
+            .no-print { display:none!important; }
+            body * { visibility:hidden; }
+            .fiche-permanente, .fiche-permanente * { visibility:visible; }
+            .fiche-permanente { position:fixed; left:0; top:0; width:100%; }
+            @page { size:A4 portrait; margin:8mm; }
+            * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; }
+            .row-jaune, .row-jaune td { background:#fef9c3!important; }
+            .row-bleu, .row-bleu td { background:#dbeafe!important; }
+          }
+        `}</style>
+
+        <div ref={ficheRef} className="fiche-permanente" style={{ padding:'10px 14px', fontFamily:'Arial,sans-serif', fontSize:10 }}>
 
           {/* EN-TÊTE */}
           <table style={{ width:'100%', borderCollapse:'collapse', marginBottom:8 }}>
