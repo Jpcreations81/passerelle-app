@@ -256,6 +256,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       setStatus('done')
     } catch(e) {
       console.error('Erreur PDF:', e)
+      alert('Erreur PDF: ' + e.message + '\n' + e.stack)
       setStatus('error')
     }
   }
