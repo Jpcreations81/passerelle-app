@@ -1,4 +1,4 @@
-// FichePresencePermanentPrint.js — v2026-05-22f — fix impression : useRef au lieu de getElementById
+// FichePresencePermanentPrint.js — v2026-05-22g — délai 1500ms pour chargement image base64
 import React, { useRef } from 'react'
 
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -37,8 +37,7 @@ export default function FichePresencePermanentPrint({ enfant, profile, mois, ann
     if (!ficheRef.current) return
     const contenu = ficheRef.current.innerHTML
     const fenetre = window.open('', '_blank', 'width=800,height=900')
-    fenetre.document.write(`
-      <!DOCTYPE html><html><head>
+    fenetre.document.write(`<!DOCTYPE html><html><head>
       <title>Fiche présence ${enfant.prenom} ${enfant.nom} — ${MOIS_LABELS[mois]} ${annee}</title>
       <style>
         * { -webkit-print-color-adjust:exact!important; print-color-adjust:exact!important; box-sizing:border-box; }
@@ -47,11 +46,9 @@ export default function FichePresencePermanentPrint({ enfant, profile, mois, ann
         table { border-collapse:collapse; width:100%; }
         .row-jaune { background:#fef9c3!important; }
         .row-bleu { background:#dbeafe!important; }
-        @media print { @page { size:A4 portrait; margin:8mm; } }
-      </style></head><body>${contenu}</body></html>
-    `)
+      </style></head><body>${contenu}</body></html>`)
     fenetre.document.close()
-    setTimeout(() => { fenetre.print(); fenetre.close() }, 500)
+    setTimeout(() => { fenetre.focus(); fenetre.print() }, 1500)
   }
 
   return (
