@@ -1,4 +1,4 @@
-// FichePresencePermanentPrint.js — v2026-05-22j — fiche intermittente : AF relais+principal, cases Formation/Intermittent, colonnes arrivée/départ
+// FichePresenceIntermittentPrint.js — v2026-05-22k — base stable + adaptations relais
 import React from 'react'
 
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -25,7 +25,7 @@ function getDaysInMonth(year, month) {
   return days
 }
 
-export default function FichePresencePermanentPrint({ enfant, profile, mois, annee, presences, moisComplet, onClose }) {
+export default function FichePresenceIntermittentPrint({ enfant, profile, mois, annee, presences, onClose, afPrincipal }) {
   const days = getDaysInMonth(annee, mois)
   const nbJours = Object.values(presences).filter(p => p.present).length
   const nbFeries = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
@@ -68,12 +68,12 @@ export default function FichePresencePermanentPrint({ enfant, profile, mois, ann
                     <tbody>
                       <tr>
                         <td style={{ padding:'4px 8px', borderBottom:'1px solid #333', fontSize:10 }}>
-                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle' }}></span>
+                          <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle', background:'#fff' }}></span>
                           Formation
                         </td>
                       </tr>
                       <tr>
-                        <td style={{ padding:'4px 8px', borderBottom:'1px solid #333', fontSize:10 }}>
+                        <td style={{ padding:'4px 8px', fontSize:10 }}>
                           <span style={{ display:'inline-block', width:12, height:12, border:'1px solid #333', marginRight:6, verticalAlign:'middle' }}></span>
                           Adaptation (Nbrs d'heures)
                         </td>
