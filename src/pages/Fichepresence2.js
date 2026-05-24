@@ -90,7 +90,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       drawText(titre, 85, H-26, 15, fontB)
 
       // Mois concerné
-      drawText(`Mois concerné : ${moisLabel} ${annee}`, 85, H-44, 13, fontB)
+      drawText(`Mois concerne : ${moisLabel} ${annee}`, 85, H-44, 13, fontB)
 
       // Cases droite
       const bx = W-172
@@ -104,7 +104,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         drawText('Adaptation', bx+95, H-20, 9, font)
         // Intermittent coché
         drawRect(bx, H-37, 11, 11, BLACK, BLACK, 1)
-        drawText('✓', bx+2, H-38, 9, fontB, WHITE)
+        drawText('x', bx+2, H-38, 9, fontB, WHITE)
         drawText('Intermittent', bx+15, H-38, 9, fontB)
       } else {
         drawRect(bx-6, H-14, 164, 60, BLEU_BBL, BLEU, 1)
@@ -139,7 +139,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
 
       // Compteurs
       const yc = y - 12
-      drawText('Nombre de jours de présence et de fériés', M, yc, 8, font)
+      drawText('Nombre de jours de presence et de feries', M, yc, 8, font)
       const days = getDaysInMonth(annee, mois)
       const nbj = Object.values(presences).filter(p => p.present).length
       const nbf = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
@@ -156,7 +156,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         drawRect(M, ym+12, 12, 12, WHITE, BLACK, 1.2)
         if (moisComplet) {
           drawRect(M+1, ym+13, 10, 10, BLACK)
-          drawText('✓', M+2, ym+11, 9, fontB, WHITE)
+          drawText('x', M+2, ym+11, 9, fontB, WHITE)
         }
         drawText('Mois complet', M+16, ym+11, 9, fontB)
       }
@@ -164,14 +164,14 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       // Partie administration
       const ax = nx + 130, aw = (W-M) / 3
       drawRect(ax, yc+12, aw, 40, GRIS_FOND, GRIS_BORD, 0.8)
-      drawText("Partie réservée à l'Administration", ax+4, yc+9, 7.5, fontB)
+      drawText("Partie reservee a l'Administration", ax+4, yc+9, 7.5, fontB)
       if (isRelais) {
         drawText('Nbrs/J/Entretiens : ____', ax+4, yc-2, 7, font)
         drawText('Nbrs/J/Salaire : ____', ax+4, yc-11, 7, font)
-        drawText('Féries : __  Date : ______', ax+4, yc-20, 7, font)
+        drawText('Feries : __  Date : ______', ax+4, yc-20, 7, font)
       } else {
         drawText('Nbrs/Jours : ________', ax+4, yc-2, 7, font)
-        drawText('Nbrs/J Fériés : ______', ax+4, yc-11, 7, font)
+        drawText('Nbrs/J Feries : ______', ax+4, yc-11, 7, font)
         drawText('Date : _____________', ax+4, yc-20, 7, font)
       }
 
