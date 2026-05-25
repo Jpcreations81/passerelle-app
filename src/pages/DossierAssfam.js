@@ -739,37 +739,11 @@ export default function DossierAssfam({ profile }) {
 
               <SectionCard icon="📅" title="Demande de congés">
                 <div style={{background:'#e8eef8',border:'1px solid #c4d4f5',borderRadius:9,padding:'10px 14px',fontSize:12,color:'#1a4b8f',marginBottom:16}}>
-                  💡 La demande sera transmise à votre encadrant technique. Elle inclura les dates de relais pour chaque enfant accueilli.
+                  💡 La demande sera transmise à votre encadrant technique. Elle inclura les dates de relais pour chaque enfant accueilli et générera le PDF officiel du Département du Tarn.
                 </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:12,marginBottom:12}}>
-                  <div style={{display:'flex',flexDirection:'column',gap:5}}>
-                    <label style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase'}}>Date de début</label>
-                    <input type="date" className="form-control" value={congeDebut} onChange={e=>setCongeDebut(e.target.value)} />
-                  </div>
-                  <div style={{display:'flex',flexDirection:'column',gap:5}}>
-                    <label style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase'}}>Date de fin</label>
-                    <input type="date" className="form-control" value={congeFin} onChange={e=>setCongeFin(e.target.value)} />
-                  </div>
-                  <div style={{display:'flex',flexDirection:'column',gap:5}}>
-                    <label style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase'}}>Nombre de jours</label>
-                    <div style={{padding:'10px 12px',background:'#eef1f8',borderRadius:8,fontSize:13,fontWeight:600,color:'#1a4b8f'}}>{congeDebut&&congeFin?`${Math.ceil((new Date(congeFin)-new Date(congeDebut))/(1000*60*60*24))+1} jours`:'—'}</div>
-                  </div>
-                </div>
-                {enfantsAccueillis.map(e=>(
-                  <div key={e.id} style={{marginBottom:10}}>
-                    <label style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',display:'block',marginBottom:5}}>Famille relais pour {e.nom} {e.prenom}</label>
-                    <input className="form-control" placeholder="Nom de l'AF relais..." value={congeRelais[e.id]||''} onChange={ev=>setCongeRelais(r=>({...r,[e.id]:ev.target.value}))} />
-                  </div>
-                ))}
-                <div style={{marginBottom:12}}>
-                  <label style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',display:'block',marginBottom:5}}>Notes pour l'encadrant</label>
-                  <textarea className="form-control" rows={3} value={congeNotes} onChange={e=>setCongeNotes(e.target.value)} placeholder="Informations complémentaires..." style={{resize:'vertical'}} />
-                </div>
-                <div style={{display:'flex',gap:10}}>
-                  <button onClick={() => setShowFicheConges(true)} className="btn btn-primary">🏖️ Demande de congés + PDF officiel</button>
-                  <button onClick={saveConge} className="btn btn-secondary">📤 Envoyer sans PDF</button>
-                  <button onClick={()=>showToast('💾 Brouillon sauvegardé')} className="btn btn-secondary">💾 Sauvegarder brouillon</button>
-                </div>
+                <button onClick={() => setShowFicheConges(true)} className="btn btn-primary" style={{fontSize:14,padding:'12px 24px'}}>
+                  🏖️ Nouvelle demande de congés
+                </button>
               </SectionCard>
 
               <SectionCard icon="📋" title="Historique des congés">
