@@ -294,7 +294,8 @@ export default function DossierAssfam({ profile }) {
   const placesContratTarn = af?.places_contrat_tarn||af?.places_agreees||3
   const placesDisponibles = Math.max(0, placesContratTarn-placesOccupees)
   const congesPris = conges.filter(c=>c.statut==='valide').reduce((s,c)=>s+(c.nb_jours||0),0)
-  const congesRestants = 30-congesPris
+  const congesDroit = af?.conges_droit || 37
+  const congesRestants = congesDroit-congesPris
   const kmCumules = af?.km_cumules_annee||0
   const agrExp = af?.date_expiration_agrement ? new Date(af.date_expiration_agrement) : null
   const joursAgrExp = agrExp ? Math.ceil((agrExp-new Date())/(1000*60*60*24)) : null
@@ -729,12 +730,12 @@ export default function DossierAssfam({ profile }) {
             <>
               <SectionCard icon="🏖️" title="Solde de congés">
                 <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:16}}>
-                  {[{val:30,lbl:'Jours acquis',color:'#2e8b4a',bg:'#e6f5eb'},{val:congesPris,lbl:'Jours pris',color:'#1a4b8f',bg:'#e8eef8'},{val:congesRestants,lbl:'Jours restants',color:'#d97706',bg:'#fef3e2'},{val:conges.filter(c=>c.statut==='en_attente').reduce((s,c)=>s+(c.nb_jours||0),0),lbl:'En attente',color:'#6d4c9e',bg:'#f0ebfb'}].map((s,i)=>(
+                  {[{val:congesDroit,lbl:'Jours acquis',color:'#2e8b4a',bg:'#e6f5eb'},{val:congesPris,lbl:'Jours pris',color:'#1a4b8f',bg:'#e8eef8'},{val:congesRestants,lbl:'Jours restants',color:'#d97706',bg:'#fef3e2'},{val:conges.filter(c=>c.statut==='en_attente').reduce((s,c)=>s+(c.nb_jours||0),0),lbl:'En attente',color:'#6d4c9e',bg:'#f0ebfb'}].map((s,i)=>(
                     <div key={i} style={{background:s.bg,borderRadius:10,padding:14,textAlign:'center'}}><div style={{fontSize:24,fontWeight:700,color:s.color}}>{s.val}</div><div style={{fontSize:11,color:'#5a6478',marginTop:2}}>{s.lbl}</div></div>
                   ))}
                 </div>
-                <div style={{fontSize:12,color:'#5a6478',marginBottom:4}}>Consommation {congesPris}/30 jours ({Math.round((congesPris/30)*100)}%)</div>
-                <div style={{height:8,background:'#eef1f8',borderRadius:10,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(100,(congesPris/30)*100)}%`,background:congesPris>20?'#c0392b':'#2e8b4a',borderRadius:10}} /></div>
+                <div style={{fontSize:12,color:'#5a6478',marginBottom:4}}>Consommation {congesPris}/{congesDroit} jours ({Math.round((congesPris/congesDroit)*100)}%)</div>
+                <div style={{height:8,background:'#eef1f8',borderRadius:10,overflow:'hidden'}}><div style={{height:'100%',width:`${Math.min(100,(congesPris/congesDroit)*100)}%`,background:congesPris>(congesDroit*0.7)?'#c0392b':'#2e8b4a',borderRadius:10}} /></div>
               </SectionCard>
 
               <SectionCard icon="📅" title="Demande de congés">
