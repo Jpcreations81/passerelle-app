@@ -71,7 +71,7 @@ export default function FicheConges({ profile, onClose }) {
   }
 
   async function genererPDF() {
-    const W = 595.28, H = 841.89
+    const W = 841.89, H = 595.28
     const pdfDoc = await PDFDocument.create()
     const page = pdfDoc.addPage([W, H])
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
@@ -305,7 +305,6 @@ export default function FicheConges({ profile, onClose }) {
         cree_par: profile.id,
         visible_ase: true,
         source: 'passerelle',
-        statut: 'en_attente',
         enfant_ids: enfants.map(e => e.id),
       }).select().single()
 
