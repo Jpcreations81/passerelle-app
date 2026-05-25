@@ -32,6 +32,7 @@ export default function InterfaceASE({ profile }) {
 
   // Panel détail
   const [detailAF, setDetailAF] = useState(null)
+  const [congesEnAttente, setCongesEnAttente] = useState([])
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
   function fmtDate(iso) { if (!iso) return ''; const [y,m,d] = iso.split('T')[0].split('-'); return `${d}/${m}/${y}` }
@@ -60,9 +61,17 @@ export default function InterfaceASE({ profile }) {
     setLoading(false)
   }, [])
 
+  const fetchCongesEnAttente = useCallback(async () => {
+    const { data } = await supabase.from('conges')
+      .select('*, af:af_id(nom, prenom, secteur)')
+      .eq('statut', 'en_attente')
+      .order('created_at', { ascending: false })
+    if (data) setCongesEnAttente(data)
+  }, [])
+
   useEffect(() => {
-    fetchAfs(); fetchEnfants()
-  }, [fetchAfs, fetchEnfants])
+    fetchAfs(); fetchEnfants(); fetchCongesEnAttente()
+  }, [fetchAfs, fetchEnfants, fetchCongesEnAttente])
 
   function rechercherAF() {
     let resultats = afs.filter(af => {
@@ -641,7 +650,17 @@ export default function InterfaceASE({ profile }) {
                       <span>⚠️</span><div><div style={{ fontWeight:600 }}>{af.nom} {af.prenom} — Renouvellement à venir</div><div>Expire le {fmtDate(af.date_expiration_agrement)}</div></div>
                     </div>
                   ))}
-                  {agrementsAlerte === 0 && urgences === 0 && (
+                  {congesEnAttente.map(c => (
+                    <div key={c.id} onClick={() => navigate(`/assfam/${c.af_id}`)}
+                      style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background:'#f0ebfb', borderRadius:8, fontSize:11, color:'#6d4c9e', cursor:'pointer' }}>
+                      <span>🏖️</span>
+                      <div>
+                        <div style={{ fontWeight:600 }}>Demande de congés — {c.af?.prenom} {c.af?.nom}</div>
+                        <div>{fmtDate(c.date_debut)} → {fmtDate(c.date_fin)} · {c.nb_jours} jours · En attente de validation</div>
+                      </div>
+                    </div>
+                  ))}
+                  {agrementsAlerte === 0 && urgences === 0 && congesEnAttente.length === 0 && (
                     <div style={{ textAlign:'center', padding:20, color:'#2e8b4a', fontSize:13 }}>✅ Aucune alerte en cours</div>
                   )}
                 </div>
