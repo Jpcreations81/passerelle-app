@@ -1,8 +1,9 @@
-// DossierAssfam.js — v2026-05-19b — vehicule_cv champ numérique libre + barème auto affiché
+// DossierAssfam.js — v2026-05-25a — ajout FicheConges PDF
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
+import FicheConges from './FicheConges'
 
 function SectionCard({ icon, title, children }) {
   const [open, setOpen] = useState(true)
@@ -87,6 +88,7 @@ export default function DossierAssfam({ profile }) {
   const [readingPdf, setReadingPdf] = useState(false)
   const [frDep, setFrDep] = useState('')
   const [frArr, setFrArr] = useState('')
+  const [showFicheConges, setShowFicheConges] = useState(false)
   const [frKm, setFrKm] = useState('')
   const [frType, setFrType] = useState('ar')
   const [frMotif, setFrMotif] = useState('Visite médiatisée (VM)')
@@ -764,7 +766,8 @@ export default function DossierAssfam({ profile }) {
                   <textarea className="form-control" rows={3} value={congeNotes} onChange={e=>setCongeNotes(e.target.value)} placeholder="Informations complémentaires..." style={{resize:'vertical'}} />
                 </div>
                 <div style={{display:'flex',gap:10}}>
-                  <button onClick={saveConge} className="btn btn-primary">📤 Envoyer la demande</button>
+                  <button onClick={() => setShowFicheConges(true)} className="btn btn-primary">🏖️ Demande de congés + PDF officiel</button>
+                  <button onClick={saveConge} className="btn btn-secondary">📤 Envoyer sans PDF</button>
                   <button onClick={()=>showToast('💾 Brouillon sauvegardé')} className="btn btn-secondary">💾 Sauvegarder brouillon</button>
                 </div>
               </SectionCard>
@@ -942,6 +945,13 @@ export default function DossierAssfam({ profile }) {
       )}
 
       {toast&&<div className="toast">{toast}</div>}
+
+      {showFicheConges && (
+        <FicheConges
+          profile={af}
+          onClose={() => { setShowFicheConges(false); fetchConges() }}
+        />
+      )}
     </div>
   )
 }
