@@ -294,8 +294,8 @@ export default function FicheConges({ profile, onClose }) {
         }
       })
 
-      // Créer l'événement principal
-      const { data: evtData, error: evtError } = await supabase.from('evenements').insert({
+      // 1. Créer l'événement congé — 1 seul événement sans enfant_ids (comme Agenda)
+      const { error: evtError } = await supabase.from('evenements').insert({
         titre: `Conge AF - ${profile?.prenom} ${profile?.nom}`,
         categorie: 'conge',
         date_debut: dateDebutISO,
@@ -305,29 +305,35 @@ export default function FicheConges({ profile, onClose }) {
         cree_par: profile.id,
         visible_ase: true,
         source: 'passerelle',
-        enfant_ids: [],
-      }).select().single()
-
+      })
       if (evtError) throw new Error(evtError.message)
 
-      // Créer les événements relais (J-1 à J+1)
-      if (Object.keys(congeRelais).length > 0) {
-        const debutRelais = new Date(dateDebutISO); debutRelais.setDate(debutRelais.getDate()-1); debutRelais.setHours(0,0,0,0)
-        const finRelais = new Date(dateFinISO); finRelais.setDate(finRelais.getDate()+1); finRelais.setHours(23,59,0,0)
-        const relaisRows = Object.entries(congeRelais).map(([enfantId, relais]) => ({
-          titre: `Relais - famille ${relais.nom}`,
+      // Créer les événements relais par enfant (J-1 à J+1) — comme Agenda
+      const debutRelais = new Date(dateDebutISO); debutRelais.setDate(debutRelais.getDate()-1); debutRelais.setHours(0,0,0,0)
+      const finRelais = new Date(dateFinISO); finRelais.setDate(finRelais.getDate()+1); finRelais.setHours(23,59,0,0)
+      const relaisRows = []
+      enfants.forEach(enf => {
+        const afRelaisId = relaisParEnfant[enf.id]
+        const af2RelaisId = relais2ParEnfant[enf.id]
+        const afObj = afProfiles.find(a => a.id === afRelaisId)
+        const nomRelais = afObj ? `${afObj.prenom} ${afObj.nom}` : null
+        relaisRows.push({
+          titre: nomRelais ? `Relais — famille ${nomRelais}` : `Relais — ${enf.prenom} ${enf.nom} sans relais`,
           categorie: 'relais',
           date_debut: debutRelais.toISOString(),
           date_fin: finRelais.toISOString(),
+          notes: `Relais pendant conge AF${nomRelais ? '' : ' — RELAIS NON TROUVE'}`,
           af_id: profile.id,
           cree_par: profile.id,
           visible_ase: true,
           source: 'passerelle',
           relais_type: 'af',
-          relais_nom_libre: relais.nom,
-          enfant_ids: [enfantId],
-          ...(relais.afId ? { participants_ids: [relais.afId] } : {})
-        }))
+          relais_nom_libre: nomRelais || '',
+          enfant_ids: [enf.id],
+          ...(afRelaisId ? { participants_ids: [afRelaisId, ...(af2RelaisId ? [af2RelaisId] : [])] } : {})
+        })
+      })
+      if (relaisRows.length > 0) {
         await supabase.from('evenements').insert(relaisRows)
       }
 
