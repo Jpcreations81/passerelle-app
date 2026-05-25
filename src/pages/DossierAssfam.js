@@ -742,7 +742,7 @@ export default function DossierAssfam({ profile }) {
                 <div style={{background:'#e8eef8',border:'1px solid #c4d4f5',borderRadius:9,padding:'10px 14px',fontSize:12,color:'#1a4b8f',marginBottom:16}}>
                   💡 La demande sera transmise à votre encadrant technique. Elle inclura les dates de relais pour chaque enfant accueilli et générera le PDF officiel du Département du Tarn.
                 </div>
-                <button onClick={() => setShowFicheConges(true)} className="btn btn-primary" style={{fontSize:14,padding:'12px 24px'}}>
+                <button onClick={() => navigate('/agenda?new=conge')} className="btn btn-primary" style={{fontSize:14,padding:'12px 24px'}}>
                   🏖️ Nouvelle demande de congés
                 </button>
               </SectionCard>
