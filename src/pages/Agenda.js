@@ -1,9 +1,10 @@
-// Agenda.js — v2026-05-20f — lieu_remise_debut + lieu_remise_fin séparés dans fiche détail relais
+// Agenda.js — v2026-05-25b — ouverture modal congé via URL params + PDF FicheConges
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
+import FicheConges from './FicheConges'
 
 const CATEGORIES = {
   vm:        { label: 'VM', color: '#e05c5c', bg: '#fde8e8' },
@@ -51,6 +52,9 @@ function fmtHeure(iso) {
 
 export default function Agenda({ profile }) {
   const navigate = useNavigate()
+  const location = useLocation()
+  const [showFicheCongesPDF, setShowFicheCongesPDF] = useState(false)
+  const [dernierConge, setDernierConge] = useState(null)
   const [vue, setVue] = useState('mois')
   const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 6))
   const [evenements, setEvenements] = useState([])
@@ -119,6 +123,17 @@ export default function Agenda({ profile }) {
       fetchAfTousListe(),
     ]).finally(() => setLoading(false))
   }, [profile])
+
+  // Ouvrir modal congé si paramètre URL ?new=conge
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get('new') === 'conge') {
+      setNewEvt(n => ({ ...n, categorie: 'conge', titre: '' }))
+      setShowModal(true)
+      // Nettoyer l'URL
+      navigate('/agenda', { replace: true })
+    }
+  }, [location.search])
 
   const fetchEvenements = useCallback(async () => {
     const { data } = await supabase
@@ -826,6 +841,15 @@ export default function Agenda({ profile }) {
 
       const nb = allRows.length
       showToast(nb > 1 ? `✅ ${nb} événements créés !` : '✅ Événement enregistré !')
+      // Si congé → proposer génération PDF + insert compteur
+      if (newEvt.categorie === 'conge') {
+        setDernierConge({
+          dateDebut: newEvt.date_debut,
+          dateFin: newEvt.date_fin || newEvt.date_debut,
+          congeRelais: newEvt.congeRelais || {},
+        })
+        setShowFicheCongesPDF(true)
+      }
       setShowModal(false)
       setNewEvt({ titre:'', categorie:'vm', date_debut:'', heure_debut:'09:00', date_fin:'', heure_fin:'10:00', lieu:'', notes:'', enfantsSelectionnes:[], relais_type:'af', relais_structure_id:null, relais_af_id:null, relais_nom_libre:'', vm_presents:[], complement_titre:'', dates_sup:[], congeRelais:{}, afEncadrantId:null })
       setRechercheAFConge({})
@@ -3177,6 +3201,17 @@ export default function Agenda({ profile }) {
       )}
 
       {toast && <div className="toast">{toast}</div>}
+
+      {showFicheCongesPDF && dernierConge && (
+        <FicheConges
+          profile={profile}
+          dateDebutInit={dernierConge.dateDebut}
+          dateFinInit={dernierConge.dateFin}
+          congeRelaisInit={dernierConge.congeRelais}
+          onClose={() => { setShowFicheCongesPDF(false); setDernierConge(null) }}
+          pdfSeulement={true}
+        />
+      )}
     </div>
   )
 }
