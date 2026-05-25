@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-05-25a — Formulaire demande congés AF + génération PDF + événement agenda
+// FicheConges.js — v2026-05-25b — Formulaire demande congés AF + génération PDF + événement agenda
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { supabase } from '../lib/supabase'
