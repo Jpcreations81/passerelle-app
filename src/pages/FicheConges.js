@@ -107,7 +107,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
         )
       }
       // Générer PDF
-      await genererPDF()
+      await genererPDF(dateDebutInit, dateFinInit)
       setToast('✅ PDF généré et demande enregistrée !')
       setTimeout(() => { onClose() }, 2000)
     } catch(e) {
@@ -116,7 +116,9 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     setSaving(false)
   }
 
-  async function genererPDF() {
+  async function genererPDF(overrideDebut, overrideFin) {
+    const dateDebut = overrideDebut || form.dateDebut
+    const dateFin = overrideFin || form.dateFin
     const W = 841.89, H = 595.28
     const pdfDoc = await PDFDocument.create()
     const page = pdfDoc.addPage([W, H])
@@ -163,7 +165,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
 
     // Année
     rect(M, H-78, 55, 14, null, BLACK, 1)
-    dt(`ANNEE ${new Date(form.dateDebut||Date.now()).getFullYear()}`, M+4, H-84, 9, fontB)
+    dt(`ANNEE ${new Date(dateDebut||Date.now()).getFullYear()}`, M+4, H-84, 9, fontB)
 
     // Cases secteur
     const secteurs = ['Nord', 'Sud', 'Ouest']
@@ -225,9 +227,9 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     // Dates congés
     let cy = tableBot - 18
     dt('Demande de conges du', M, cy, 9, font)
-    dt(fmtDate(form.dateDebut), M+100, cy, 9, fontB)
+    dt(fmtDate(dateDebut), M+100, cy, 9, fontB)
     dt('inclus au', M+148, cy, 9, font)
-    dt(fmtDate(form.dateFin), M+190, cy, 9, fontB)
+    dt(fmtDate(dateFin), M+190, cy, 9, fontB)
     dt('inclus', M+238, cy, 9, font)
     dt('Date de la demande :', M+310, cy, 9, font)
     dt(fmtDate(form.dateDemandeAffichee), M+410, cy, 9, fontB)
@@ -315,13 +317,13 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `Demande_conges_${profile?.nom}_${profile?.prenom}_${form.dateDebut}.pdf`
+    a.download = `Demande_conges_${profile?.nom}_${profile?.prenom}_${dateDebut}.pdf`
     a.click()
     URL.revokeObjectURL(url)
   }
 
   async function soumettreEtGenerer() {
-    if (!form.dateDebut || !form.dateFin) {
+    if (!dateDebut || !dateFin) {
       setToast('⚠️ Veuillez saisir les dates de congés'); setTimeout(() => setToast(''), 3000); return
     }
     setSaving(true)
