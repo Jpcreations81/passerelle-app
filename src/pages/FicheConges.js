@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-05-25c — Formulaire demande congés AF + génération PDF + événement agenda
+// FicheConges.js — v2026-05-25d — Formulaire demande congés AF + génération PDF + événement agenda
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { supabase } from '../lib/supabase'
@@ -45,13 +45,6 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   const [relais2ParEnfant, setRelais2ParEnfant] = useState({})
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
-
-  // Mode pdfSeulement : générer PDF + compteur automatiquement
-  useEffect(() => {
-    if (pdfSeulement && profile?.id && dateDebutInit && dateFinInit) {
-      soumettreCompteurEtPDF()
-    }
-  }, [pdfSeulement])
 
   useEffect(() => {
     if (!profile?.id) return
