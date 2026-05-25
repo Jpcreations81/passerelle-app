@@ -305,7 +305,7 @@ export default function FicheConges({ profile, onClose }) {
         cree_par: profile.id,
         visible_ase: true,
         source: 'passerelle',
-        enfant_ids: enfants.map(e => e.id),
+        enfant_ids: [],
       }).select().single()
 
       if (evtError) throw new Error(evtError.message)
