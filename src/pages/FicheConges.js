@@ -341,7 +341,21 @@ export default function FicheConges({ profile, onClose }) {
         notes: form.notes || '',
       })
 
-      // 3. Générer le PDF
+      // 3. Créer notification pour l'encadrant du secteur
+      const { data: encadrants } = await supabase.from('profiles')
+        .select('id').eq('role', 'encadrant').eq('secteur', profile.secteur || '')
+      if (encadrants && encadrants.length > 0) {
+        const notifs = encadrants.map(enc => ({
+          destinataire_id: enc.id,
+          type: 'conge_en_attente',
+          titre: `Demande de congés — ${profile?.prenom} ${profile?.nom}`,
+          message: `Du ${fmtDate(form.dateDebut)} au ${fmtDate(form.dateFin)} · ${nbJours} jours`,
+          lien: `/assfam/${profile.id}`,
+        }))
+        await supabase.from('notifications').insert(notifs)
+      }
+
+      // 4. Générer le PDF
       await genererPDF()
 
       setToast('✅ Demande soumise et PDF généré !')
