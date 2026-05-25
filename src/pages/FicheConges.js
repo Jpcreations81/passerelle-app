@@ -32,12 +32,12 @@ function nbJoursOuvres(debut, fin) {
   return count
 }
 
-export default function FicheConges({ profile, onClose }) {
+export default function FicheConges({ profile, onClose, dateDebutInit, dateFinInit, congeRelaisInit, pdfSeulement }) {
   const [enfants, setEnfants] = useState([])
   const [afProfiles, setAfProfiles] = useState([])
   const [form, setForm] = useState({
-    dateDebut: '',
-    dateFin: '',
+    dateDebut: dateDebutInit || '',
+    dateFin: dateFinInit || '',
     dateDemandeAffichee: new Date().toISOString().slice(0, 10),
     notes: '',
   })
@@ -45,6 +45,13 @@ export default function FicheConges({ profile, onClose }) {
   const [relais2ParEnfant, setRelais2ParEnfant] = useState({})
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+
+  // Mode pdfSeulement : générer PDF + compteur automatiquement
+  useEffect(() => {
+    if (pdfSeulement && profile?.id && dateDebutInit && dateFinInit) {
+      soumettreCompteurEtPDF()
+    }
+  }, [pdfSeulement])
 
   useEffect(() => {
     if (!profile?.id) return
@@ -68,6 +75,45 @@ export default function FicheConges({ profile, onClose }) {
   function getReferent(enfant) {
     // On n'a pas le référent ici, on met un champ vide
     return ''
+  }
+
+  async function soumettreCompteurEtPDF() {
+    setSaving(true)
+    try {
+      // Insert compteur congés
+      const dateDebutISO = new Date(`${dateDebutInit}T00:00:00`).toISOString()
+      const dateFinISO = new Date(`${dateFinInit}T23:59:00`).toISOString()
+      const nb = nbJoursOuvres(dateDebutInit, dateFinInit)
+      await supabase.from('conges').insert({
+        af_id: profile.id,
+        date_debut: dateDebutISO,
+        date_fin: dateFinISO,
+        nb_jours: nb,
+        statut: 'en_attente',
+        notes: '',
+      })
+      // Notification encadrant
+      const { data: encadrants } = await supabase.from('profiles')
+        .select('id').eq('role', 'encadrant').eq('secteur', profile.secteur || '')
+      if (encadrants?.length > 0) {
+        await supabase.from('notifications').insert(
+          encadrants.map(enc => ({
+            destinataire_id: enc.id,
+            type: 'conge_en_attente',
+            titre: `Demande de congés — ${profile?.prenom} ${profile?.nom}`,
+            message: `Du ${fmtDate(dateDebutInit)} au ${fmtDate(dateFinInit)} · ${nb} jours`,
+            lien: `/assfam/${profile.id}`,
+          }))
+        )
+      }
+      // Générer PDF
+      await genererPDF()
+      setToast('✅ PDF généré et demande enregistrée !')
+      setTimeout(() => { onClose() }, 2000)
+    } catch(e) {
+      setToast('❌ Erreur : ' + e.message)
+    }
+    setSaving(false)
   }
 
   async function genererPDF() {
