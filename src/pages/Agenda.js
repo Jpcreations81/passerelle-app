@@ -128,9 +128,8 @@ export default function Agenda({ profile }) {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     if (params.get('new') === 'conge') {
-      setNewEvt(n => ({ ...n, categorie: 'conge', titre: '' }))
+      setNewEvt(n => ({ ...n, categorie: 'conge', titre: 'Congé' }))
       setShowModal(true)
-      // Nettoyer l'URL
       navigate('/agenda', { replace: true })
     }
   }, [location.search])
