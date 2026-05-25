@@ -130,7 +130,7 @@ export default function FicheConges({ profile, onClose }) {
 
     // Bandeau partie AF
     rect(M, H-110, W-2*M, 14, GRIS, BLACK, 0.8)
-    const bTitre = 'PARTIE A COMPLETER PAR L'ASSISTANT(E) FAMILIAL(E)'
+    const bTitre = "PARTIE A COMPLETER PAR L'ASSISTANT(E) FAMILIAL(E)"
     dt(bTitre, M+(W-2*M-fontB.widthOfTextAtSize(bTitre,9))/2, H-118, 9, fontB)
 
     // Nom/Prénom + Adresse
@@ -200,10 +200,10 @@ export default function FicheConges({ profile, onClose }) {
     // Tableau décision
     cy -= 14
     const dCols = [
-      {label:'Nom et Prenom de l'enfant', w:0.22},
+      {label:"Nom et Prenom de l'enfant", w:0.22},
       {label:'Validation Equipe Suivi de Placement', w:0.12},
       {label:'Validation Encadrant Technique SAF', w:0.12},
-      {label:'Solution d'accueil retenue', w:0.30},
+      {label:"Solution d'accueil retenue", w:0.30},
       {label:'Date de depart', w:0.12},
       {label:'Date de retour', w:0.12},
     ]
@@ -238,7 +238,7 @@ export default function FicheConges({ profile, onClose }) {
 
     // Signature encadrant
     const sigY = arY - 34
-    dt('Signature de l'Encadrant Technique :', M, sigY, 8, fontB)
+    dt("Signature de l'Encadrant Technique :", M, sigY, 8, fontB)
     dt('Date :', M+350, sigY, 8, fontB)
     line(M, sigY-4, W-M, sigY-4, BLACK, 0.3)
 
@@ -250,7 +250,7 @@ export default function FicheConges({ profile, onClose }) {
     const safCols = [(W-2*M)/3, (W-2*M)/3, (W-2*M)/3]
     let sxAcc = M
     rect(M, safY-2, W-2*M, 12, GRIS, BLACK, 0.5)
-    ;['Droit a conges sur l'annee','Jours pris','Solde'].forEach((h,i) => {
+    ;['Droit a conges sur l annee','Jours pris','Solde'].forEach((h,i) => {
       dt(h, sxAcc+(safCols[i]-font.widthOfTextAtSize(h,8))/2, safY-8, 8, fontB)
       if (i > 0) line(sxAcc, safY+10, sxAcc, safY-26, BLACK, 0.5)
       sxAcc += safCols[i]
