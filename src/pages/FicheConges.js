@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-05-25j — Formulaire demande congés AF + génération PDF + événement agenda
+// FicheConges.js — v2026-05-25k — Formulaire demande congés AF + génération PDF + événement agenda
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { supabase } from '../lib/supabase'
@@ -269,7 +269,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
 
     // Niveau 2 : sous-titres colonnes
     box(M, yDH-hHdr1-hHdr2, TW, hHdr2, GRIS, BLACK, 0.5)
-    const hdrTxt = ['DECISION',"Nom et Prenom de l'enfant",'Validation Equipe Suivi de Placement','Validation Encadrant Technique SAF','Nom de l'As. Fam. Relais','En famille','Centre de vacances','Autre','Date de depart','Date de retour']
+    const hdrTxt = ['DECISION',"Nom et Prenom de l'enfant",'Validation Equipe Suivi de Placement','Validation Encadrant Technique SAF',"Nom de l'As. Fam. Relais",'En famille','Centre de vacances','Autre','Date de depart','Date de retour']
     hdrTxt.forEach((t,i)=>{
       const x=dCX[i], w=dCX[i+1]-dCX[i]
       // Texte sur 2 lignes si long
