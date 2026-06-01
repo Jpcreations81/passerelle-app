@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-05-25l — Formulaire demande congés AF + génération PDF + événement agenda
+// FicheConges.js — v2026-05-25m — Formulaire demande congés AF + génération PDF + événement agenda
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { supabase } from '../lib/supabase'
@@ -188,17 +188,17 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
 
     // ── NOM / ADRESSE ─────────────────────────────────────────────
     const yNA = H-135
-    box(M, yNA-14, TW, 14, null, BLACK, 0.7)
-    ln(M+TW/2, yNA, M+TW/2, yNA-14, BLACK, 0.5)
-    dt('NOM - PRENOM :', M+3, yNA-9, 8.5, fontB)
-    dt(`${profile?.nom||''} ${profile?.prenom||''}`, M+78, yNA-9, 9, font)
-    dt('ADRESSE :', M+TW/2+4, yNA-9, 8.5, fontB)
-    dt(`${profile?.adresse||''}`.trim(), M+TW/2+55, yNA-9, 9, font)
+    box(M, yNA-18, TW, 18, null, BLACK, 0.7)
+    ln(M+TW/2, yNA, M+TW/2, yNA-18, BLACK, 0.5)
+    dt('NOM - PRENOM :', M+3, yNA-12, 8.5, fontB)
+    dt(`${profile?.nom||''} ${profile?.prenom||''}`, M+78, yNA-12, 9, font)
+    dt('ADRESSE :', M+TW/2+4, yNA-12, 8.5, fontB)
+    dt(`${profile?.adresse||''}`.trim(), M+TW/2+55, yNA-12, 9, font)
 
     // ── TABLEAU ENFANTS ───────────────────────────────────────────
     const cW = [TW*0.25, TW*0.17, TW*0.21, TW*0.37]
     const cX = [M, M+cW[0], M+cW[0]+cW[1], M+cW[0]+cW[1]+cW[2]]
-    const yTH = yNA-14
+    const yTH = yNA-18
     const hdrs = ['Nom et Prenom de chaque enfant accueilli','Territoire concerne','Referent enfant','Proposition eventuelle de relais']
     box(M, yTH-12, TW, 12, GRIS, BLACK, 0.5)
     hdrs.forEach((h,i) => {
@@ -208,7 +208,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     ln(M, yTH, W-M, yTH, BLACK, 0.5)
     ln(M, yTH-12, W-M, yTH-12, BLACK, 0.4)
 
-    const ROW = 12
+    const ROW = 16
     const lignes = enfants.length>0 ? [...enfants] : []
     while(lignes.length<3) lignes.push(null)
     lignes.slice(0,4).forEach((enf,i) => {
@@ -287,7 +287,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     ln(M, yDH-hHdr1-hHdr2, W-M, yDH-hHdr1-hHdr2, BLACK, 0.4)
 
     // Lignes enfants + colonne DECISION fusionnée
-    const dROW = 13
+    const dROW = 17
     const dBase = yDH-hHdr1-hHdr2
     const nbL = Math.max(enfants.length, 3)
     const decHeight = nbL*dROW
@@ -312,12 +312,12 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
 
     // Refus
     const yRef=decBot-2
-    box(M, yRef-12, dCX[1]-M, 12, null, BLACK, 0.5)
-    chk(M+3, yRef-10, false)
-    dt('Refus', M+16, yRef-8, 8.5, font)
-    box(dCX[1], yRef-12, W-M-dCX[1], 12, null, BLACK, 0.5)
-    dt('Motif :', dCX[1]+4, yRef-8, 8.5, font)
-    ln(M, yRef-12, W-M, yRef-12, BLACK, 0.4)
+    box(M, yRef-16, dCX[1]-M, 12, null, BLACK, 0.5)
+    chk(M+3, yRef-13, false)
+    dt('Refus', M+16, yRef-11, 8.5, font)
+    box(dCX[1], yRef-16, W-M-dCX[1], 12, null, BLACK, 0.5)
+    dt('Motif :', dCX[1]+4, yRef-11, 8.5, font)
+    ln(M, yRef-16, W-M, yRef-16, BLACK, 0.4)
 
     // Signature Encadrant — sans case, espacé 3 lignes
     const ySig=yRef-48
@@ -336,18 +336,18 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     const sExW = TW*0.25
     // Header 3 cols
     ;['Droit a conges sur l annee','Jours pris','Solde'].forEach((h,i) => {
-      box(M+i*sW, ySAF-24, sW, 12, GRIS, BLACK, 0.5)
-      ctr(h, M+i*sW, sW, ySAF-20, 7.5, fontB)
-      if(i>0) ln(M+i*sW, ySAF-12, M+i*sW, ySAF-40, BLACK, 0.4)
+      box(M+i*sW, ySAF-28, sW, 14, GRIS, BLACK, 0.5)
+      ctr(h, M+i*sW, sW, ySAF-24, 7.5, fontB)
+      if(i>0) ln(M+i*sW, ySAF-14, M+i*sW, ySAF-46, BLACK, 0.4)
     })
     // Ligne valeurs 3 cols
-    box(M, ySAF-40, safW, 16, null, BLACK, 0.5)
-    ln(M+sW,   ySAF-24, M+sW,   ySAF-40, BLACK, 0.4)
-    ln(M+2*sW, ySAF-24, M+2*sW, ySAF-40, BLACK, 0.4)
+    box(M, ySAF-46, safW, 18, null, BLACK, 0.5)
+    ln(M+sW,   ySAF-28, M+sW,   ySAF-46, BLACK, 0.4)
+    ln(M+2*sW, ySAF-28, M+2*sW, ySAF-46, BLACK, 0.4)
     // 4ème case vide — header + valeur alignés à droite
-    box(M+safW, ySAF-24, sExW, 12, GRIS, BLACK, 0.5)
-    box(M+safW, ySAF-40, sExW, 16, null, BLACK, 0.5)
-    ln(M, ySAF-12, W-M, ySAF-12, BLACK, 0.5)
+    box(M+safW, ySAF-28, sExW, 14, GRIS, BLACK, 0.5)
+    box(M+safW, ySAF-46, sExW, 18, null, BLACK, 0.5)
+    ln(M, ySAF-14, W-M, ySAF-14, BLACK, 0.5)
 
     // ── PIED DE PAGE ──────────────────────────────────────────────
     ln(M+80, 36, W-M-80, 36, BLACK, 0.5)
