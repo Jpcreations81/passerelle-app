@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-05-25h — Formulaire demande congés AF + génération PDF + événement agenda
+// FicheConges.js — v2026-05-25i — Formulaire demande congés AF + génération PDF + événement agenda
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { supabase } from '../lib/supabase'
@@ -242,7 +242,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     ln(W-M, yTH, W-M, tBot, BLACK, 0.5)
 
     // ── DATES dans 1 seule zone sans délimitation ─────────────────────
-    const yD = tBot-4
+    const yD = tBot-16
     dt('Demande de conges du', M, yD, 9, font)
     dt(fmtDate(dateDebut), M+112, yD, 9.5, fontB)
     dt('inclus au', M+170, yD, 9, font)
@@ -251,75 +251,57 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     dt('Date de la demande :', M+340, yD, 9, font)
     dt(fmtDate(form.dateDemandeAffichee), M+444, yD, 9.5, fontB)
     dt('Signature :', W-M-90, yD, 9, font)
-    ln(M, yD-6, W-M, yD-6, BLACK, 0.3)
-
     const yD2 = yD-14
     dt('Nombre total de jours demandes :', M, yD2, 9, font)
     dt(`${nbJours} jours`, M+182, yD2, 9.5, fontB)
     ln(M, yD2-6, W-M, yD2-6, BLACK, 0.5)
 
-    // ── DECISION ──────────────────────────────────────────────────────
+    // ── BANDEAU DECISION ──────────────────────────────────────────────
     const yDec = yD2-6
     box(M, yDec-13, TW, 13, GRIS, BLACK, 0.6)
     ctr('DECISION', M, TW, yDec-10, 9, fontB)
 
-    // Header tableau décision — 2 niveaux comme l'original
-    const yDH = yDec-13
-    // Colonnes : DECISION | Nom enfant | Valid ESP | Valid ET SAF | Solution accueil (3 sous-cols) | Date départ | Date retour
-    const dCX = [
-      M,
-      M+TW*0.09,
-      M+TW*0.09+TW*0.19,
-      M+TW*0.09+TW*0.19+TW*0.12,
-      M+TW*0.09+TW*0.19+TW*0.12+TW*0.12,
-      // sous-cols solution : Nom AF Relais | En famille | Centre vacances | Autre
-      M+TW*0.09+TW*0.19+TW*0.12+TW*0.12+TW*0.13,
-      M+TW*0.09+TW*0.19+TW*0.12+TW*0.12+TW*0.13+TW*0.10,
-      M+TW*0.09+TW*0.19+TW*0.12+TW*0.12+TW*0.13+TW*0.10+TW*0.09,
-      M+TW*0.09+TW*0.19+TW*0.12+TW*0.12+TW*0.13+TW*0.10+TW*0.09+TW*0.06,
-      M+TW*0.09+TW*0.19+TW*0.12+TW*0.12+TW*0.13+TW*0.10+TW*0.09+TW*0.06+TW*0.075,
-    ]
+    // Colonnes tableau décision — bien réparties sur toute la largeur
+    // Col0=DECISION+Accord (pas de case séparée)
+    // Col1=Nom enfant | Col2=Valid ESP | Col3=Valid ET SAF
+    // Col4=Nom AF Relais | Col5=En famille | Col6=Centre vacances | Col7=Autre
+    // Col8=Date départ | Col9=Date retour
+    const dP = [0.09, 0.19, 0.10, 0.10, 0.13, 0.09, 0.09, 0.07, 0.08, 0.08]
+    // Calculer positions cumulées
+    const dCX = [M]
+    dP.forEach(p => dCX.push(dCX[dCX.length-1]+TW*p))
 
-    const dH1 = 20
+    const yDH = yDec-13
+    const dH1 = 24  // hauteur header 2 niveaux
     box(M, yDH-dH1, TW, dH1, GRIS, BLACK, 0.5)
 
-    // DECISION en vertical à gauche
-    dt('DECISION', dCX[0]+2, yDH-8, 7, fontB)
+    // Ligne 1 header : titres principaux
+    const solX = dCX[4], solW2 = dCX[8]-dCX[4]
+    // Fusion "Solution d'accueil retenue" sur 4 sous-cols
+    box(solX, yDH-12, solW2, 12, GRIS, BLACK, 0.4)
+    ctr("Solution d'accueil retenue", solX, solW2, yDH-10, 6.5, fontB)
 
-    // Headers
-    dt('Nom et Prenom', dCX[1]+2, yDH-8, 6.5, fontB)
-    dt("de l'enfant", dCX[1]+2, yDH-15, 6.5, fontB)
+    // Séparateur entre niveau 1 et niveau 2
+    ln(M, yDH-12, W-M, yDH-12, BLACK, 0.4)
 
-    dt('Validation', dCX[2]+2, yDH-6, 6.5, fontB)
-    dt('Equipe Suivi', dCX[2]+2, yDH-11, 6.5, fontB)
-    dt('Placement', dCX[2]+2, yDH-16, 6.5, fontB)
-
-    dt('Validation', dCX[3]+2, yDH-6, 6.5, fontB)
-    dt('Encadrant', dCX[3]+2, yDH-11, 6.5, fontB)
-    dt('Tech. SAF', dCX[3]+2, yDH-16, 6.5, fontB)
-
-    // Solution accueil — header groupé
-    const solW = dCX[8]-dCX[4]
-    ctr("Solution d'accueil retenue", dCX[4], solW, yDH-8, 6.5, fontB)
-
-    dt("Nom AF", dCX[4]+2, yDH-16, 6, font)
-    dt("Relais", dCX[4]+2, yDH-21, 6, font)
-    dt("En famille", dCX[5]+2, yDH-16, 6, font)
-    dt("Centre de", dCX[6]+2, yDH-16, 6, font)
-    dt("vacances", dCX[6]+2, yDH-21, 6, font)
-    dt("Autre", dCX[7]+2, yDH-16, 6, font)
-
-    dt('Date de', dCX[8]+2, yDH-8, 6.5, fontB)
-    dt('depart', dCX[8]+2, yDH-15, 6.5, fontB)
-    dt('Date de', dCX[9]+2, yDH-8, 6.5, fontB)
-    dt('retour', dCX[9]+2, yDH-15, 6.5, fontB)
+    // Ligne 2 header : sous-titres
+    dt('DECISION', dCX[0]+2, yDH-20, 7, fontB)
+    dt("Nom et Prenom de l'enfant", dCX[1]+2, yDH-20, 6, fontB)
+    dt('Valid. Equipe Suivi Placement', dCX[2]+2, yDH-20, 5.5, fontB)
+    dt('Valid. Encadrant Tech. SAF', dCX[3]+2, yDH-20, 5.5, fontB)
+    dt('Nom AF Relais', dCX[4]+2, yDH-20, 6, font)
+    dt('En famille', dCX[5]+2, yDH-20, 6, font)
+    dt('Centre vacances', dCX[6]+2, yDH-20, 5.5, font)
+    dt('Autre', dCX[7]+2, yDH-20, 6, font)
+    dt('Date depart', dCX[8]+2, yDH-20, 6, fontB)
+    dt('Date retour', dCX[9]+2, yDH-20, 6, fontB)
 
     // Séparateurs verticaux header
-    dCX.slice(1).forEach(x => ln(x, yDH, x, yDH-dH1, BLACK, 0.4))
+    dCX.slice(1,10).forEach(x => ln(x, yDH, x, yDH-dH1, BLACK, 0.4))
     ln(M, yDH, W-M, yDH, BLACK, 0.5)
     ln(M, yDH-dH1, W-M, yDH-dH1, BLACK, 0.4)
 
-    // Lignes enfants dans tableau décision
+    // Lignes enfants
     const dROW = 13
     const dBase = yDH-dH1
     const nbLignes = Math.max(enfants.length, 3)
@@ -328,29 +310,30 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
       const ry = dBase-i*dROW
       if(enf?.id) dt(`${enf.prenom} ${enf.nom}`, dCX[1]+2, ry-9, 7.5, font)
       ln(M, ry-dROW, W-M, ry-dROW, BLACK, 0.3)
-      dCX.slice(1).forEach(x => ln(x, dBase, x, dBase-nbLignes*dROW, BLACK, 0.3))
     }
+    // Séparateurs verticaux lignes
+    dCX.slice(1,10).forEach(x => ln(x, dBase, x, dBase-nbLignes*dROW, BLACK, 0.3))
     const decBot = dBase-nbLignes*dROW
     ln(M, decBot, W-M, decBot, BLACK, 0.4)
     ln(M, yDH, M, decBot, BLACK, 0.5)
     ln(W-M, yDH, W-M, decBot, BLACK, 0.5)
 
-    // Accord / Refus
+    // Accord — dans la 1ère colonne, pas de case séparée
     const yAcc = decBot-2
-    chk(M+4, yAcc-10, false)
+    chk(M+4, yAcc-11, false)
     dt('Accord', M+18, yAcc-8, 8.5, font)
-    ln(M, yAcc-14, W-M, yAcc-14, BLACK, 0.3)
-    const yRef = yAcc-14
+    ln(M, yAcc-15, W-M, yAcc-15, BLACK, 0.3)
+    const yRef = yAcc-15
     chk(M+4, yRef-11, false)
     dt('Refus', M+18, yRef-8, 8.5, font)
     dt('Motif :', M+60, yRef-8, 8.5, font)
     ln(M, yRef-15, W-M, yRef-15, BLACK, 0.4)
 
-    // Signature encadrant
+    // Signature encadrant — plus d'espace
     const ySig = yRef-15
     dt("Signature de l'Encadrant Technique :", M+2, ySig-8, 8.5, fontB)
-    dt('Date :', M+390, ySig-8, 8.5, fontB)
-    ln(M, ySig-16, W-M, ySig-16, BLACK, 0.5)
+    dt('Date :', M+450, ySig-8, 8.5, fontB)
+    ln(M, ySig-18, W-M, ySig-18, BLACK, 0.5)
 
     // ── PARTIE SAF ────────────────────────────────────────────────────
     const ySAF = ySig-16
@@ -368,8 +351,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     box(M, ySAF-40, TW, 16, null, BLACK, 0.5)
     ln(M+sSAF,   ySAF-24, M+sSAF,   ySAF-40, BLACK, 0.4)
     ln(M+2*sSAF, ySAF-24, M+2*sSAF, ySAF-40, BLACK, 0.4)
-    // 4ème case vide à droite (comme l'original)
-    box(M+3*sSAF-sSAF*0.15, ySAF-24, sSAF*0.15, 28, null, BLACK, 0.5)
+
 
     // ── PIED DE PAGE ──────────────────────────────────────────────────
     ln(M+50, 38, W-M-50, 38, BLACK, 0.5)
