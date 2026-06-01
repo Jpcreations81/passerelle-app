@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-05-25f — Formulaire demande congés AF + génération PDF + événement agenda
+// FicheConges.js — v2026-05-25g — Formulaire demande congés AF + génération PDF + événement agenda
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { supabase } from '../lib/supabase'
@@ -119,203 +119,225 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   async function genererPDF(overrideDebut, overrideFin) {
     const dateDebut = overrideDebut || form.dateDebut
     const dateFin = overrideFin || form.dateFin
+    // Format paysage A4
     const W = 841.89, H = 595.28
     const pdfDoc = await PDFDocument.create()
     const page = pdfDoc.addPage([W, H])
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+    const font  = await pdfDoc.embedFont(StandardFonts.Helvetica)
     const fontB = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
     const BLACK = rgb(0,0,0)
     const WHITE = rgb(1,1,1)
-    const BLEU = hexToRgb('#1a3a8f')
-    const GRIS = hexToRgb('#f0f0f0')
-    const GRIS_BORD = hexToRgb('#cccccc')
-    const M = 28
+    const GRIS  = hexToRgb('#eeeeee')
+    const M = 20  // marge gauche/droite
 
+    // helpers
     function dt(text, x, y, size=9, f=font, color=BLACK) {
-      page.drawText(String(text||''), { x, y: y-size+2, size, font:f, color })
+      page.drawText(String(text||''), { x, y, size, font:f, color })
     }
-    function rect(x, y, w, h, fill, stroke=null, lw=0.5) {
-      page.drawRectangle({ x, y:y-h, width:w, height:h,
-        ...(fill ? {color:fill} : {}),
+    function box(x, y, w, h, fill=null, stroke=null, lw=0.5) {
+      page.drawRectangle({ x, y, width:w, height:h,
+        ...(fill   ? {color:fill}                      : {}),
         ...(stroke ? {borderColor:stroke, borderWidth:lw} : {})
       })
     }
-    function line(x1,y1,x2,y2,color=BLACK,lw=0.5) {
+    function ln(x1,y1,x2,y2,color=BLACK,lw=0.5) {
       page.drawLine({start:{x:x1,y:y1},end:{x:x2,y:y2},thickness:lw,color})
     }
-    function checkbox(x, y, checked=false) {
-      rect(x, y+10, 10, 10, WHITE, BLACK, 0.8)
-      if (checked) dt('x', x+2, y+9, 8, fontB)
+    function chk(x, y, checked=false) {
+      box(x, y, 10, 10, WHITE, BLACK, 0.8)
+      if (checked) dt('x', x+2, y+1, 8, fontB)
+    }
+    function centered(text, x, w, y, size=9, f=fontB) {
+      const tw = f.widthOfTextAtSize(text, size)
+      dt(text, x+(w-tw)/2, y, size, f)
     }
 
-    // Logo
+    // ── LOGO ──────────────────────────────────────────────────────────
     const logoBytes = b64ToBytes(LOGO_B64)
     const logoImg = await pdfDoc.embedJpg(logoBytes)
-    page.drawImage(logoImg, { x:M, y:H-75, width:55, height:55 })
+    page.drawImage(logoImg, { x:M, y:H-65, width:52, height:52 })
 
-    // Titre
+    // ── TITRE ─────────────────────────────────────────────────────────
+    const txBox = M+60
+    const twBox = W-txBox-M
+    box(txBox, H-52, twBox, 34, null, BLACK, 1)
     const titre = 'FICHE DE DEMANDE DE CONGES DES ASSISTANTS FAMILIAUX'
-    rect(M+65, H-20, W-M-65-M, 28, null, BLACK, 1)
-    const tw = fontB.widthOfTextAtSize(titre, 10)
-    dt(titre, M+65+(W-M-65-M-tw)/2, H-28, 10, fontB)
+    centered(titre, txBox, twBox, H-28, 11, fontB)
 
-    // Sous-titre
-    dt('DEPARTEMENT DU TARN - 81013 ALBI CEDEX 9 - TEL : 05.63.45.64.64 - Mail : president@tarn.fr', M, H-50, 7, font)
-    dt('Tout courrier doit etre adresse de facon impersonnelle a Monsieur le President du Conseil departemental', M, H-60, 7, font)
+    // sous-titre
+    dt('DEPARTEMENT DU TARN - 81013 ALBI CEDEX 9 - TEL : 05.63.45.64.64 - Mail : president@tarn.fr', M+60, H-58, 6.5, font)
+    dt('Tout courrier doit etre adresse de facon impersonnelle a Monsieur le President du Conseil departemental', M+60, H-66, 6.5, font)
 
-    // Année
-    rect(M, H-78, 55, 14, null, BLACK, 1)
-    dt(`ANNEE ${new Date(dateDebut||Date.now()).getFullYear()}`, M+4, H-84, 9, fontB)
+    // ── ANNEE ─────────────────────────────────────────────────────────
+    const annee = new Date(dateDebut||Date.now()).getFullYear()
+    box(M, H-85, 58, 14, null, BLACK, 1)
+    dt(`ANNEE ${annee}`, M+4, H-79, 8.5, fontB)
 
-    // Cases secteur
-    const secteurs = ['Nord', 'Sud', 'Ouest']
-    let sx = M
-    secteurs.forEach(s => {
-      checkbox(sx, H-96, secteurLabel === s)
-      dt(`Territoire ${s}`, sx+14, H-96, 8, font)
-      sx += 120
+    // ── CASES TERRITOIRE ──────────────────────────────────────────────
+    let sx = M+70
+    ;['Nord','Sud','Ouest'].forEach(s => {
+      chk(sx, H-85, secteurLabel===s)
+      dt(`Territoire ${s}`, sx+13, H-79, 8, font)
+      sx += 130
     })
 
-    // Bandeau partie AF
-    rect(M, H-110, W-2*M, 14, GRIS, BLACK, 0.8)
+    // ── BANDEAU PARTIE AF ─────────────────────────────────────────────
+    const y1 = H-100
+    box(M, y1, W-2*M, 13, GRIS, BLACK, 0.6)
     const bTitre = "PARTIE A COMPLETER PAR L'ASSISTANT(E) FAMILIAL(E)"
-    dt(bTitre, M+(W-2*M-fontB.widthOfTextAtSize(bTitre,9))/2, H-118, 9, fontB)
+    centered(bTitre, M, W-2*M, y1+4, 8.5, fontB)
 
-    // Nom/Prénom + Adresse
-    dt('NOM - PRENOM :', M, H-132, 8, fontB)
-    dt(`${profile?.nom||''} ${profile?.prenom||''}`, M+75, H-132, 8, font)
-    dt('ADRESSE :', M+260, H-132, 8, fontB)
-    dt(`${profile?.adresse||''} ${profile?.code_postal||''} ${profile?.ville||''}`.trim(), M+305, H-132, 8, font)
-    line(M, H-136, W-M, H-136, BLACK, 0.3)
+    // ── NOM/ADRESSE ───────────────────────────────────────────────────
+    const y2 = y1-16
+    dt('NOM - PRENOM :', M, y2, 8, fontB)
+    dt(`${profile?.nom||''} ${profile?.prenom||''}`, M+72, y2, 8, font)
+    dt('ADRESSE :', M+280, y2, 8, fontB)
+    dt(`${profile?.adresse||''}`.trim(), M+328, y2, 8, font)
+    ln(M, y2-4, W-M, y2-4, BLACK, 0.3)
 
-    // Tableau enfants
-    const colW = [(W-2*M)*0.28, (W-2*M)*0.18, (W-2*M)*0.22, (W-2*M)*0.32]
-    const colX = [M, M+colW[0], M+colW[0]+colW[1], M+colW[0]+colW[1]+colW[2]]
-    const headers = ['Nom et Prenom de chaque enfant accueilli', 'Territoire concerne', 'Referent enfant', 'Proposition eventuelle de relais']
+    // ── TABLEAU ENFANTS ───────────────────────────────────────────────
+    const TW = W-2*M
+    const cW = [TW*0.26, TW*0.18, TW*0.20, TW*0.36]
+    const cX = [M, M+cW[0], M+cW[0]+cW[1], M+cW[0]+cW[1]+cW[2]]
+    const hdrs = ['Nom et Prenom de chaque enfant accueilli','Territoire concerne','Referent enfant','Proposition eventuelle de relais']
 
-    // Header tableau
-    let ty = H-142
-    rect(colX[0], ty+12, W-2*M, 12, GRIS, BLACK, 0.5)
-    headers.forEach((h,i) => {
-      dt(h, colX[i]+3, ty+4, 7, fontB)
-      if (i > 0) line(colX[i], ty+12, colX[i], ty-36*(enfants.length||1), BLACK, 0.4)
+    const y3 = y2-18
+    box(M, y3, TW, 13, GRIS, BLACK, 0.5)
+    hdrs.forEach((h,i) => {
+      dt(h, cX[i]+3, y3+4, 6.5, fontB)
+      if(i>0) ln(cX[i], y3+13, cX[i], y3-50, BLACK, 0.4)
     })
-    line(M, ty, W-M, ty, BLACK, 0.4)
+    ln(M, y3+13, W-M, y3+13, BLACK, 0.5)
+    ln(M, y3, W-M, y3, BLACK, 0.4)
 
-    // Lignes enfants (max 4)
-    const lignesEnfants = enfants.length > 0 ? enfants : [null, null, null]
-    lignesEnfants.slice(0,4).forEach((enf, i) => {
-      const ry = ty - i*12
-      if (enf) {
-        dt(`${enf.prenom} ${enf.nom}`, colX[0]+3, ry-6, 8, font)
-        dt(enf.territoire||'', colX[1]+3, ry-6, 8, font)
-        // Référent — vide (pas de données ici)
-        // Relais
+    const ROW = 14
+    const lignes = enfants.length>0 ? enfants : [{},{},{}]
+    lignes.slice(0,4).forEach((enf,i) => {
+      const ry = y3 - i*ROW
+      if(enf?.id) {
+        dt(`${enf.prenom} ${enf.nom}`, cX[0]+3, ry-9, 8, font)
+        dt(enf.territoire||'', cX[1]+3, ry-9, 8, font)
         const r1 = relaisParEnfant[enf.id]
         const r2 = relais2ParEnfant[enf.id]
-        const af1 = afProfiles.find(a => a.id === r1)
-        const af2 = afProfiles.find(a => a.id === r2)
-        const nom1 = af1 ? `${af1.prenom} ${af1.nom}` : ''
-        const nom2 = af2 ? `${af2.prenom} ${af2.nom}` : ''
-        const relaisText = [nom1, nom2].filter(Boolean).join(' / ')
-        dt(relaisText, colX[3]+3, ry-6, 8, font)
+        const af1 = afProfiles.find(a=>a.id===r1)
+        const af2 = afProfiles.find(a=>a.id===r2)
+        const n1  = af1 ? `${af1.prenom} ${af1.nom}` : ''
+        const n2  = af2 ? `${af2.prenom} ${af2.nom}` : ''
+        const rtxt = [n1,n2].filter(Boolean).join(' / ')
+        // Tronquer si trop long
+        const maxW = cW[3]-6
+        let rtxtFinal = rtxt
+        while(rtxtFinal.length>0 && font.widthOfTextAtSize(rtxtFinal,8)>maxW) {
+          rtxtFinal = rtxtFinal.slice(0,-1)
+        }
+        dt(rtxtFinal, cX[3]+3, ry-9, 8, font)
       }
-      line(M, ry-12, W-M, ry-12, BLACK, 0.3)
+      ln(M, ry-ROW, W-M, ry-ROW, BLACK, 0.3)
     })
+    // Bordures verticales tableau enfants
+    const tBot = y3 - lignes.slice(0,4).length*ROW
+    ln(M, y3+13, M, tBot, BLACK, 0.5)
+    ln(W-M, y3+13, W-M, tBot, BLACK, 0.5)
 
-    // Bordure tableau
-    const tableBot = ty - lignesEnfants.slice(0,4).length * 12
-    line(M, ty+12, M, tableBot, BLACK, 0.5)
-    line(W-M, ty+12, W-M, tableBot, BLACK, 0.5)
+    // ── DATES ─────────────────────────────────────────────────────────
+    const y4 = tBot-16
+    dt('Demande de conges du', M, y4, 9, font)
+    dt(fmtDate(dateDebut), M+108, y4, 9, fontB)
+    dt('inclus au', M+165, y4, 9, font)
+    dt(fmtDate(dateFin), M+215, y4, 9, fontB)
+    dt('inclus', M+268, y4, 9, font)
+    dt('Date de la demande :', M+340, y4, 9, font)
+    dt(fmtDate(form.dateDemandeAffichee), M+443, y4, 9, fontB)
+    dt('Signature :', W-M-85, y4, 9, font)
+    ln(M, y4-5, W-M, y4-5, BLACK, 0.3)
 
-    // Dates congés
-    let cy = tableBot - 18
-    dt('Demande de conges du', M, cy, 9, font)
-    dt(fmtDate(dateDebut), M+100, cy, 9, fontB)
-    dt('inclus au', M+148, cy, 9, font)
-    dt(fmtDate(dateFin), M+190, cy, 9, fontB)
-    dt('inclus', M+238, cy, 9, font)
-    dt('Date de la demande :', M+310, cy, 9, font)
-    dt(fmtDate(form.dateDemandeAffichee), M+410, cy, 9, fontB)
-    dt('Signature :', W-M-80, cy, 9, font)
-    line(M, cy-4, W-M, cy-4, BLACK, 0.3)
+    const y5 = y4-16
+    dt('Nombre total de jours demandes :', M, y5, 9, font)
+    dt(`${nbJours} jours`, M+178, y5, 9, fontB)
+    ln(M, y5-5, W-M, y5-5, BLACK, 0.3)
 
-    cy -= 18
-    dt(`Nombre total de jours demandes :`, M, cy, 9, font)
-    dt(`${nbJours} jours`, M+170, cy, 9, fontB)
+    // ── BANDEAU DECISION ──────────────────────────────────────────────
+    const y6 = y5-18
+    box(M, y6, TW, 13, GRIS, BLACK, 0.6)
+    centered('DECISION', M, TW, y6+4, 8.5, fontB)
 
-    // Bandeau DECISION
-    cy -= 16
-    rect(M, cy+10, W-2*M, 12, GRIS, BLACK, 0.8)
-    dt('DECISION', M+(W-2*M-fontB.widthOfTextAtSize('DECISION',9))/2, cy+2, 9, fontB)
-
-    // Tableau décision
-    cy -= 14
+    // ── TABLEAU DECISION ──────────────────────────────────────────────
+    const y7 = y6-2
     const dCols = [
-      {label:"Nom et Prenom de l'enfant", w:0.22},
-      {label:'Validation Equipe Suivi de Placement', w:0.12},
-      {label:'Validation Encadrant Technique SAF', w:0.12},
-      {label:"Solution d'accueil retenue", w:0.30},
-      {label:'Date de depart', w:0.12},
-      {label:'Date de retour', w:0.12},
+      {l:"Nom et Prenom de l'enfant", w:0.24},
+      {l:'Validation Equipe Suivi de Placement', w:0.13},
+      {l:'Validation Encadrant Technique SAF', w:0.13},
+      {l:"Solution d'accueil retenue", w:0.28},
+      {l:'Date de depart', w:0.11},
+      {l:'Date de retour', w:0.11},
     ]
-    let dxAcc = M
-    rect(M, cy+14, W-2*M, 14, GRIS, BLACK, 0.5)
+    let dxA=M
+    const dHdr=22
+    box(M, y7-dHdr, TW, dHdr, GRIS, BLACK, 0.5)
     dCols.forEach((col,i) => {
-      const cw = col.w * (W-2*M)
-      if (i > 0) line(dxAcc, cy+14, dxAcc, cy-80, BLACK, 0.4)
-      dt(col.label, dxAcc+2, cy+6, 6, fontB)
-      dxAcc += cw
+      const cw=col.w*TW
+      if(i>0) ln(dxA, y7, dxA, y7-dHdr, BLACK, 0.4)
+      // Header sur 2 lignes si besoin
+      const words=col.l.split(' ')
+      const mid=Math.ceil(words.length/2)
+      dt(words.slice(0,mid).join(' '), dxA+2, y7-8, 6, fontB)
+      dt(words.slice(mid).join(' '), dxA+2, y7-15, 6, fontB)
+      dxA+=cw
     })
-    line(M, cy, W-M, cy, BLACK, 0.4)
+    // Bordure extérieure header
+    ln(M, y7, W-M, y7, BLACK, 0.5)
+    ln(M, y7-dHdr, W-M, y7-dHdr, BLACK, 0.4)
 
-    // Lignes décision (enfants)
-    enfants.slice(0,3).forEach((enf, i) => {
-      const ry = cy - i*16
-      if (enf) dt(`${enf.prenom} ${enf.nom}`, M+2, ry-8, 7, font)
-      line(M, ry-16, W-M, ry-16, BLACK, 0.3)
+    const dROW=14
+    const dBot = y7-dHdr
+    enfants.slice(0,3).forEach((enf,i) => {
+      const ry=dBot-i*dROW
+      if(enf?.id) dt(`${enf.prenom} ${enf.nom}`, M+3, ry-9, 7.5, font)
+      ln(M, ry-dROW, W-M, ry-dROW, BLACK, 0.3)
+      // Séparateurs verticaux
+      let dx2=M; dCols.forEach((col,j) => { if(j>0) ln(dx2, dBot, dx2, dBot-3*dROW, BLACK, 0.4); dx2+=col.w*TW })
     })
-    if (enfants.length === 0) {
-      line(M, cy-16, W-M, cy-16, BLACK, 0.3)
-      line(M, cy-32, W-M, cy-32, BLACK, 0.3)
-    }
+    const decBot=dBot-Math.max(enfants.length,2)*dROW
+    ln(M, decBot, W-M, decBot, BLACK, 0.4)
+    ln(M, y7, M, decBot, BLACK, 0.5)
+    ln(W-M, y7, W-M, decBot, BLACK, 0.5)
 
-    // Accord / Refus
-    const arY = cy - Math.max(enfants.length,1)*16 - 10
-    checkbox(M+5, arY+10, false); dt('Accord', M+19, arY+2, 8, font)
-    line(M, arY-4, W-M, arY-4, BLACK, 0.3)
-    checkbox(M+5, arY-10, false); dt('Refus', M+19, arY-18, 8, font)
-    dt('Motif :', M+60, arY-18, 8, font)
-    line(M, arY-22, W-M, arY-22, BLACK, 0.3)
+    // ── ACCORD / REFUS ────────────────────────────────────────────────
+    const y8=decBot-14
+    chk(M+5, y8, false); dt('Accord', M+18, y8+2, 8, font)
+    ln(M, y8-6, W-M, y8-6, BLACK, 0.3)
+    const y9=y8-14
+    chk(M+5, y9, false); dt('Refus', M+18, y9+2, 8, font)
+    dt('Motif :', M+65, y9+2, 8, font)
+    ln(M, y9-6, W-M, y9-6, BLACK, 0.3)
 
-    // Signature encadrant
-    const sigY = arY - 34
-    dt("Signature de l'Encadrant Technique :", M, sigY, 8, fontB)
-    dt('Date :', M+350, sigY, 8, fontB)
-    line(M, sigY-4, W-M, sigY-4, BLACK, 0.3)
+    // ── SIGNATURE ENCADRANT ───────────────────────────────────────────
+    const y10=y9-16
+    dt("Signature de l'Encadrant Technique :", M, y10, 8, fontB)
+    dt('Date :', M+380, y10, 8, fontB)
+    ln(M, y10-6, W-M, y10-6, BLACK, 0.4)
 
-    // Partie SAF
-    const safY = sigY - 18
-    rect(M, safY+10, W-2*M, 12, GRIS, BLACK, 0.8)
-    dt('PARTIE RESERVEE AU SAF', M+(W-2*M-fontB.widthOfTextAtSize('PARTIE RESERVEE AU SAF',9))/2, safY+2, 9, fontB)
+    // ── PARTIE SAF ────────────────────────────────────────────────────
+    const y11=y10-18
+    box(M, y11, TW, 12, GRIS, BLACK, 0.6)
+    centered('PARTIE RESERVEE AU SAF', M, TW, y11+4, 8.5, fontB)
 
-    const safCols = [(W-2*M)/3, (W-2*M)/3, (W-2*M)/3]
-    let sxAcc = M
-    rect(M, safY-2, W-2*M, 12, GRIS, BLACK, 0.5)
+    const y12=y11-2
+    const sW=TW/3
     ;['Droit a conges sur l annee','Jours pris','Solde'].forEach((h,i) => {
-      dt(h, sxAcc+(safCols[i]-font.widthOfTextAtSize(h,8))/2, safY-8, 8, fontB)
-      if (i > 0) line(sxAcc, safY+10, sxAcc, safY-26, BLACK, 0.5)
-      sxAcc += safCols[i]
+      box(M+i*sW, y12-12, sW, 12, GRIS, BLACK, 0.5)
+      centered(h, M+i*sW, sW, y12-9, 7.5, fontB)
     })
-    line(M, safY-14, W-M, safY-14, BLACK, 0.3)
-    line(M, safY-26, W-M, safY-26, BLACK, 0.5)
-    line(M, safY+10, M, safY-26, BLACK, 0.5)
-    line(W-M, safY+10, W-M, safY-26, BLACK, 0.5)
+    box(M, y12-28, TW, 16, null, BLACK, 0.5)
+    ln(M+sW, y12-12, M+sW, y12-28, BLACK, 0.4)
+    ln(M+2*sW, y12-12, M+2*sW, y12-28, BLACK, 0.4)
 
-    // Pied de page
-    dt('WWW.TARN.FR', W/2 - font.widthOfTextAtSize('WWW.TARN.FR',8)/2, 30, 8, font)
-    dt('DEPARTEMENT DU TARN - 81013 ALBI CEDEX 9 - TEL : 05.63.45.64.64 - Mail : president@tarn.fr', W/2 - font.widthOfTextAtSize('DEPARTEMENT DU TARN - 81013 ALBI CEDEX 9 - TEL : 05.63.45.64.64 - Mail : president@tarn.fr',7)/2, 20, 7, font)
+    // ── PIED DE PAGE ──────────────────────────────────────────────────
+    const yf = 22
+    centered('WWW.TARN.FR', M, TW, yf+8, 8, fontB)
+    centered('DEPARTEMENT DU TARN - 81013 ALBI CEDEX 9 - TEL : 05.63.45.64.64 - Mail : president@tarn.fr', M, TW, yf, 6.5, font)
 
+    // ── TELECHARGER ───────────────────────────────────────────────────
     const pdfBytes = await pdfDoc.save()
     const blob = new Blob([pdfBytes], { type:'application/pdf' })
     const url = URL.createObjectURL(blob)
