@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-05-25e — Formulaire demande congés AF + génération PDF + événement agenda
+// FicheConges.js — v2026-05-25f — Formulaire demande congés AF + génération PDF + événement agenda
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { supabase } from '../lib/supabase'
@@ -213,7 +213,11 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
         // Relais
         const r1 = relaisParEnfant[enf.id]
         const r2 = relais2ParEnfant[enf.id]
-        const relaisText = [r1, r2].filter(Boolean).join(' / ')
+        const af1 = afProfiles.find(a => a.id === r1)
+        const af2 = afProfiles.find(a => a.id === r2)
+        const nom1 = af1 ? `${af1.prenom} ${af1.nom}` : ''
+        const nom2 = af2 ? `${af2.prenom} ${af2.nom}` : ''
+        const relaisText = [nom1, nom2].filter(Boolean).join(' / ')
         dt(relaisText, colX[3]+3, ry-6, 8, font)
       }
       line(M, ry-12, W-M, ry-12, BLACK, 0.3)
