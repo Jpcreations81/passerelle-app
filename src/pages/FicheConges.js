@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-05-25k — Formulaire demande congés AF + génération PDF + événement agenda
+// FicheConges.js — v2026-05-25l — Formulaire demande congés AF + génération PDF + événement agenda
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { supabase } from '../lib/supabase'
@@ -241,7 +241,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     dt('inclus', M+278, yD, 9, font)
     dt('Date de la demande :', M+344, yD, 9, font)
     dt(fmtDate(form.dateDemandeAffichee), M+448, yD, 9.5, fontB)
-    dt('Signature :', W-M-85, yD, 9, font)
+    dt('Signature :', W-M-160, yD, 9, font)
     const yD2 = yD-14
     dt('Nombre total de jours demandes :', M, yD2, 9, font)
     dt(`${nbJours} jours`, M+184, yD2, 9.5, fontB)
@@ -319,33 +319,34 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     dt('Motif :', dCX[1]+4, yRef-8, 8.5, font)
     ln(M, yRef-12, W-M, yRef-12, BLACK, 0.4)
 
-    // Signature Encadrant — Date centré
-    const ySig=yRef-12
-    box(M, ySig-16, TW, 16, null, BLACK, 0.5)
-    dt("Signature de l'Encadrant Technique :", M+3, ySig-10, 8.5, fontB)
-    ctr('Date :', M, TW, ySig-10, 8.5, fontB)
-    ln(M, ySig-16, W-M, ySig-16, BLACK, 0.5)
+    // Signature Encadrant — sans case, espacé 3 lignes
+    const ySig=yRef-48
+    dt("Signature de l'Encadrant Technique :", M+3, ySig, 8.5, fontB)
+    dt('Date :', M+TW/2, ySig, 8.5, fontB)
+    ln(M, ySig-10, W-M, ySig-10, BLACK, 0.5)
 
     // ── PARTIE SAF ────────────────────────────────────────────────
     const ySAF=ySig-16
     box(M, ySAF-12, TW, 12, GRIS, BLACK, 0.6)
     ctr('PARTIE RESERVEE AU SAF', M, TW, ySAF-9, 9, fontB)
 
-    // 3 cols + 1 case vide droite (comme l'original)
-    const safW = TW*0.75  // 3 cols sur 75%
+    // 3 cols + 1 case vide droite sur la même ligne
+    const safW = TW*0.75
     const sW   = safW/3
-    const sExW = TW*0.25  // case vide 25%
+    const sExW = TW*0.25
+    // Header 3 cols
     ;['Droit a conges sur l annee','Jours pris','Solde'].forEach((h,i) => {
       box(M+i*sW, ySAF-24, sW, 12, GRIS, BLACK, 0.5)
       ctr(h, M+i*sW, sW, ySAF-20, 7.5, fontB)
       if(i>0) ln(M+i*sW, ySAF-12, M+i*sW, ySAF-40, BLACK, 0.4)
     })
-    // Case vide à droite
-    box(M+safW, ySAF-24, sExW, 28, null, BLACK, 0.5)
-    // Ligne valeurs
+    // Ligne valeurs 3 cols
     box(M, ySAF-40, safW, 16, null, BLACK, 0.5)
     ln(M+sW,   ySAF-24, M+sW,   ySAF-40, BLACK, 0.4)
     ln(M+2*sW, ySAF-24, M+2*sW, ySAF-40, BLACK, 0.4)
+    // 4ème case vide — header + valeur alignés à droite
+    box(M+safW, ySAF-24, sExW, 12, GRIS, BLACK, 0.5)
+    box(M+safW, ySAF-40, sExW, 16, null, BLACK, 0.5)
     ln(M, ySAF-12, W-M, ySAF-12, BLACK, 0.5)
 
     // ── PIED DE PAGE ──────────────────────────────────────────────
