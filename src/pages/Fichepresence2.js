@@ -113,7 +113,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       } else {
         drawRect(bx-6, H-14, 164, 60, BLEU_BBL, BLEU, 1)
         // Temps complet : coché si moisCompletAuto
-        if (moisCompletAuto) {
+        if (moisComplet || moisCompletAuto) {
           drawRect(bx, H-21, 11, 11, BLACK, BLACK, 1)
           drawText('x', bx+2, H-22, 9, fontB, WHITE)
         } else {
@@ -168,7 +168,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       const ym = yc - 20
       if (!isRelais) {
         drawRect(M, ym + 2, 12, 12, WHITE, BLACK, 1.2)
-        if (moisCompletAuto) {
+        if (moisComplet || moisCompletAuto) {
           drawRect(M+1, ym + 3, 10, 10, BLACK)
           drawText('x', M+2, ym + 1, 9, fontB, WHITE)
         }
