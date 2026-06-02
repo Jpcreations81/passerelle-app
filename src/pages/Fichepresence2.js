@@ -97,7 +97,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       const nbj = Object.values(presences || {}).filter(p => p.present).length
       const nbf = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
       const hasRelais = Object.values(presences || {}).some(p => p.motif && p.motif.toLowerCase().includes('relais'))
-      const moisCompletAuto = !isRelais && (moisComplet || nbj === days.length) && !hasRelais
+      const moisCompletAuto = !isRelais && !hasRelais && (nbj === days.length)
       const bx = W-172
       if (isRelais) {
         drawRect(bx-6, H-14, 164, 60, JAUNE_BBL, JAUNE_VIF, 1)
@@ -113,16 +113,12 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         drawText('Intermittent', bx+15, H-38, 9, fontB)
       } else {
         drawRect(bx-6, H-14, 164, 60, BLEU_BBL, BLEU, 1)
-        // Temps complet : coché si moisCompletAuto
-        if (moisComplet || moisCompletAuto) {
-          drawRect(bx, H-21, 11, 11, BLACK, BLACK, 1)
-          drawText('x', bx+2, H-22, 9, fontB, WHITE)
-        } else {
-          drawRect(bx, H-21, 11, 11, WHITE, BLACK, 1)
-        }
+        // Temps complet : TOUJOURS coché (type de contrat AF permanent)
+        drawRect(bx, H-21, 11, 11, BLACK, BLACK, 1)
+        drawText('x', bx+2, H-22, 9, fontB, WHITE)
         drawText('Temps complet', bx+15, H-22, 9, fontB)
-        // Continu week-end : coché si moisComplet === false
-        if (!moisComplet && !moisCompletAuto) {
+        // Continu week-end : coché si moisComplet === false dans l'interface
+        if (moisComplet === false) {
           drawRect(bx, H-39, 11, 11, BLACK, BLACK, 1)
           drawText('x', bx+2, H-40, 9, fontB, WHITE)
         } else {
@@ -174,7 +170,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       const ym = yc - 20
       if (!isRelais) {
         drawRect(M, ym + 2, 12, 12, WHITE, BLACK, 1.2)
-        if (moisComplet || moisCompletAuto) {
+        if (moisCompletAuto) {
           drawRect(M+1, ym + 3, 10, 10, BLACK)
           drawText('x', M+2, ym + 1, 9, fontB, WHITE)
         }
