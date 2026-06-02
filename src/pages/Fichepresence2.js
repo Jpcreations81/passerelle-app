@@ -229,19 +229,22 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         const label = `${JOURS_FR[d.getDay()]} ${i+1}` + (ferie ? ' férié' : '')
         drawText(label, COL[0]+3, ry-1, 9, (ferie||dim) ? fontB : font)
 
-        // Présence
-        if (p.present) {
+        // Présence : pas de croix si mois complet (sauf jours avec motif particulier)
+        if (p.present && !(moisCompletAuto && !motif)) {
           const cx = (COL[1]+COL[2])/2
           const tw3 = fontB.widthOfTextAtSize('x', 10)
           drawText('x', cx-tw3/2, ry-1, 10, fontB)
         }
 
-        // Heures
+        // Heures : pas d'heures si mois complet et pas de motif
         const h1 = isRelais ? p.heure_arrivee : p.heure_depart
         const h2 = isRelais ? p.heure_depart  : p.heure_arrivee
-        if (h1) { const cx=(COL[2]+COL[3])/2; const tw4=font.widthOfTextAtSize(h1,8.5); drawText(h1,cx-tw4/2,ry-1,8.5,font) }
-        if (h2) { const cx=(COL[3]+COL[4])/2; const tw5=font.widthOfTextAtSize(h2,8.5); drawText(h2,cx-tw5/2,ry-1,8.5,font) }
-        if (motif) drawText(motif.length>46 ? motif.substring(0,46)+'...' : motif, COL[4]+3, ry-1, 8.5, font)
+        // Si mois complet et pas de motif : ne pas afficher les heures
+        if (!moisCompletAuto || motif) {
+          if (h1) { const cx=(COL[2]+COL[3])/2; const tw4=font.widthOfTextAtSize(h1,8.5); drawText(h1,cx-tw4/2,ry-1,8.5,font) }
+          if (h2) { const cx=(COL[3]+COL[4])/2; const tw5=font.widthOfTextAtSize(h2,8.5); drawText(h2,cx-tw5/2,ry-1,8.5,font) }
+          if (motif) drawText(motif.length>46 ? motif.substring(0,46)+'...' : motif, COL[4]+3, ry-1, 8.5, font)
+        }
 
         // Ligne horizontale
         drawLine(COL[0], ry-ROW_H, COL[5], ry-ROW_H, hexToRgb('#999999'), 0.4)
