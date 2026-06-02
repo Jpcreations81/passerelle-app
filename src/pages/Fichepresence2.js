@@ -1,4 +1,4 @@
-// FichePresence2.js — v2026-05-24a — génération PDF pdf-lib, design validé vmax
+// FichePresence2.js — v2026-06-02a — fix NBRS/J et NBRS/FERIES alignement + Partie Admin agrandie
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 
@@ -144,12 +144,22 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       const nbj = Object.values(presences).filter(p => p.present).length
       const nbf = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
       const moisCompletAuto = !isRelais && (nbj === days.length)
+      // Cadre NBRS : 2 cases côte à côte, label + valeur sur même ligne
       const nx = M + 155
-      drawRect(nx, yc+6, 110, 26, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
+      const nbjStr = String(nbj), nbfStr = String(nbf)
+      // Case 1 : NBRS/J
+      const w1 = 72
+      // Case 2 : NBRS/FERIES
+      const w2 = 100
+      drawRect(nx, yc-18, w1 + w2 + 4, 28, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
+      // Label + valeur NBRS/J sur même ligne
       drawText('NBRS/J :', nx+4, yc-1, 9, fontB)
-      drawText(String(nbj), nx+58, yc-3, 13, fontB)
-      drawText('NBRS/FERIES :', nx+4, yc-13, 9, fontB)
-      drawText(String(nbf), nx+82, yc-15, 13, fontB)
+      drawText(nbjStr, nx+4+52, yc-1, 11, fontB)
+      // Séparateur vertical
+      page.drawLine({ start:{x: nx+w1, y: yc-18}, end:{x: nx+w1, y: yc+10}, thickness:0.8, color: ACCENT })
+      // Label + valeur NBRS/FERIES sur même ligne
+      drawText('NBRS/FERIES :', nx+w1+4, yc-1, 9, fontB)
+      drawText(nbfStr, nx+w1+4+72, yc-1, 11, fontB)
 
       // Mois complet / espace blanc
       const ym = yc - 14
@@ -162,18 +172,19 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         drawText('Mois complet', M+16, ym+11, 9, fontB)
       }
 
-      // Partie administration
-      const ax = nx + 130, aw = (W-M) / 3
-      drawRect(ax, yc+12, aw, 40, GRIS_FOND, GRIS_BORD, 0.8)
-      drawText("Partie reservee a l'Administration", ax+4, yc+9, 7.5, fontB)
+      // Partie administration — agrandie
+      const ax = nx + w1 + w2 + 16
+      const aw = W - ax - M + 10
+      drawRect(ax, yc-22, aw, 42, GRIS_FOND, GRIS_BORD, 0.8)
+      drawText("Partie reservee a l'Administration", ax+4, yc+8, 7.5, fontB)
       if (isRelais) {
-        drawText('Nbrs/J/Entretiens : ____', ax+4, yc-2, 7, font)
-        drawText('Nbrs/J/Salaire : ____', ax+4, yc-11, 7, font)
-        drawText('Feries : __  Date : ______', ax+4, yc-20, 7, font)
+        drawText('Nbrs/J/Entretiens : ________', ax+4, yc-4, 7.5, font)
+        drawText('Nbrs/J/Salaire : ___________', ax+4, yc-14, 7.5, font)
+        drawText('Feries : ____  Date : _______', ax+4, yc-24, 7.5, font)
       } else {
-        drawText('Nbrs/Jours : ________', ax+4, yc-2, 7, font)
-        drawText('Nbrs/J Feries : ______', ax+4, yc-11, 7, font)
-        drawText('Date : _____________', ax+4, yc-20, 7, font)
+        drawText('Nbrs/Jours : ______________', ax+4, yc-4, 7.5, font)
+        drawText('Nbrs/J Feries : ____________', ax+4, yc-14, 7.5, font)
+        drawText('Date : ___________________', ax+4, yc-24, 7.5, font)
       }
 
       // Tableau
