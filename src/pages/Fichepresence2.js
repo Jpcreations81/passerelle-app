@@ -33,7 +33,7 @@ function hexToRgb(hex) {
   return rgb(r,g,b)
 }
 
-export default function FichePresence2({ enfant, profile, mois, annee, presences, moisComplet, onClose, typeFiche, afPrincipal }) {
+export default function FichePresence2({ enfant, profile, mois, annee, presences, moisComplet, onClose, typeFiche, afPrincipal, hasAdaptation, hasFormation }) {
   const [status, setStatus] = useState('generating')
 
   useEffect(() => { genererPDF() }, [])
@@ -101,11 +101,21 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       const bx = W-172
       if (isRelais) {
         drawRect(bx-6, H-14, 164, 60, JAUNE_BBL, JAUNE_VIF, 1)
-        // Formation
-        drawRect(bx, H-19, 11, 11, WHITE, BLACK, 1)
+        // Formation : cochée si hasFormation
+        if (hasFormation) {
+          drawRect(bx, H-19, 11, 11, BLACK, BLACK, 1)
+          drawText('x', bx+2, H-20, 9, fontB, WHITE)
+        } else {
+          drawRect(bx, H-19, 11, 11, WHITE, BLACK, 1)
+        }
         drawText('Formation', bx+15, H-20, 9, font)
-        // Adaptation
-        drawRect(bx+80, H-19, 11, 11, WHITE, BLACK, 1)
+        // Adaptation : cochée si hasAdaptation
+        if (hasAdaptation) {
+          drawRect(bx+80, H-19, 11, 11, BLACK, BLACK, 1)
+          drawText('x', bx+82, H-20, 9, fontB, WHITE)
+        } else {
+          drawRect(bx+80, H-19, 11, 11, WHITE, BLACK, 1)
+        }
         drawText('Adaptation', bx+95, H-20, 9, font)
         // Intermittent coché
         drawRect(bx, H-37, 11, 11, BLACK, BLACK, 1)
