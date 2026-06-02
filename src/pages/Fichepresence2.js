@@ -149,8 +149,8 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       const nx = M + 155
       const nbjStr = String(nbj), nbfStr = String(nbf)
       const nw = 110
-      // drawRect(x, y_bas, w, h) — y_bas = coin bas-gauche
-      drawRect(nx, yc - 10, nw, 26, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
+      // drawRect(x, y_bas, w, h) — y_bas = coin bas-gauche en coordonnées PDF
+      drawRect(nx, yc - 14, nw, 30, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
       // Ligne 1 : NBRS/J label à gauche, valeur à droite
       drawText('NBRS/J :', nx+4, yc+8, 9, fontB)
       drawText(nbjStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbjStr, 11), yc+8, 11, fontB)
@@ -159,7 +159,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       drawText(nbfStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbfStr, 11), yc - 4, 11, fontB)
 
       // Mois complet (permanent uniquement) — en dessous du cadre NBRS
-      const ym = yc - 22
+      const ym = yc - 26
       if (!isRelais) {
         drawRect(M, ym + 2, 12, 12, WHITE, BLACK, 1.2)
         if (moisCompletAuto) {
@@ -169,11 +169,11 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         drawText('Mois complet', M+16, ym + 1, 9, fontB)
       }
 
-      // Partie administration — même hauteur que cadre NBRS, jusqu'au bord droit
+      // Partie administration — même base que cadre NBRS, jusqu'au bord droit
       const ax = nx + nw + 8
       const aw = W - M - ax
-      drawRect(ax, yc - 10, aw, 38, GRIS_FOND, GRIS_BORD, 0.8)
-      drawText("Partie reservee a l'Administration", ax+4, yc+20, 7.5, fontB)
+      drawRect(ax, yc - 14, aw, 42, GRIS_FOND, GRIS_BORD, 0.8)
+      drawText("Partie reservee a l'Administration", ax+4, yc+18, 7.5, fontB)
       if (isRelais) {
         drawText('Nbrs/J/Entretiens : ________', ax+4, yc+8, 7.5, font)
         drawText('Nbrs/J/Salaire : ___________', ax+4, yc-2, 7.5, font)
