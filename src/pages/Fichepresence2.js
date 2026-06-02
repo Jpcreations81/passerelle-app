@@ -93,6 +93,10 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       drawText(`Mois concerne : ${moisLabel} ${annee}`, 85, H-44, 13, fontB)
 
       // Cases droite
+      const days = getDaysInMonth(annee, mois)
+      const nbj = Object.values(presences).filter(p => p.present).length
+      const nbf = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
+      const moisCompletAuto = !isRelais && (nbj === days.length)
       const bx = W-172
       if (isRelais) {
         drawRect(bx-6, H-14, 164, 60, JAUNE_BBL, JAUNE_VIF, 1)
@@ -147,11 +151,6 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       // Compteurs
       const yc = y - 12
       drawText('Nombre de jours de presence et de feries', M, yc, 8, font)
-      const days = getDaysInMonth(annee, mois)
-      const nbj = Object.values(presences).filter(p => p.present).length
-      const nbf = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
-      const moisCompletAuto = !isRelais && (nbj === days.length)
-
       // Cadre NBRS : 2 lignes (fidèle fiche officielle)
       const nx = M + 155
       const nbjStr = String(nbj), nbfStr = String(nbf)
