@@ -144,38 +144,38 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       const nbj = Object.values(presences).filter(p => p.present).length
       const nbf = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
       const moisCompletAuto = !isRelais && (nbj === days.length)
-      // Cadre NBRS : 2 cases côte à côte, label + valeur sur même ligne
+
+      // Cadre NBRS : 2 lignes (comme fiche officielle)
+      // NBRS/J : [valeur]  sur ligne 1
+      // NBRS/FERIES : [valeur]  sur ligne 2
       const nx = M + 155
       const nbjStr = String(nbj), nbfStr = String(nbf)
-      // Case 1 : NBRS/J
-      const w1 = 72
-      // Case 2 : NBRS/FERIES
-      const w2 = 100
-      drawRect(nx, yc-18, w1 + w2 + 4, 28, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
-      // Label + valeur NBRS/J sur même ligne
-      drawText('NBRS/J :', nx+4, yc-1, 9, fontB)
-      drawText(nbjStr, nx+4+52, yc-1, 11, fontB)
-      // Séparateur vertical
-      page.drawLine({ start:{x: nx+w1, y: yc-18}, end:{x: nx+w1, y: yc+10}, thickness:0.8, color: ACCENT })
-      // Label + valeur NBRS/FERIES sur même ligne
-      drawText('NBRS/FERIES :', nx+w1+4, yc-1, 9, fontB)
-      drawText(nbfStr, nx+w1+4+72, yc-1, 11, fontB)
+      const nw = 110  // largeur cadre fixe
+      const nh = 28   // hauteur cadre (2 lignes)
+      drawRect(nx, yc - nh + 10, nw, nh, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
+      // Ligne 1 : NBRS/J label + valeur
+      drawText('NBRS/J :', nx+4, yc+2, 9, fontB)
+      drawText(nbjStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbjStr, 11), yc+2, 11, fontB)
+      // Ligne 2 : NBRS/FERIES label + valeur
+      drawText('NBRS/FERIES :', nx+4, yc - 11, 9, fontB)
+      drawText(nbfStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbfStr, 11), yc - 11, 11, fontB)
 
-      // Mois complet / espace blanc
-      const ym = yc - 14
+      // Mois complet (permanent uniquement) — en dessous du cadre NBRS
+      const ym = yc - nh
       if (!isRelais) {
-        drawRect(M, ym+12, 12, 12, WHITE, BLACK, 1.2)
+        drawRect(M, ym+4, 12, 12, WHITE, BLACK, 1.2)
         if (moisCompletAuto) {
-          drawRect(M+1, ym+13, 10, 10, BLACK)
-          drawText('x', M+2, ym+11, 9, fontB, WHITE)
+          drawRect(M+1, ym+5, 10, 10, BLACK)
+          drawText('x', M+2, ym+3, 9, fontB, WHITE)
         }
-        drawText('Mois complet', M+16, ym+11, 9, fontB)
+        drawText('Mois complet', M+16, ym+3, 9, fontB)
       }
 
-      // Partie administration — agrandie
-      const ax = nx + w1 + w2 + 16
-      const aw = W - ax - M + 10
-      drawRect(ax, yc-22, aw, 42, GRIS_FOND, GRIS_BORD, 0.8)
+      // Partie administration — s'étend du bord droit du cadre NBRS jusqu'au bord de page
+      const ax = nx + nw + 8
+      const aw = W - M - ax
+      const ah = isRelais ? 36 : 36
+      drawRect(ax, yc - ah + 14, aw, ah + 4, GRIS_FOND, GRIS_BORD, 0.8)
       drawText("Partie reservee a l'Administration", ax+4, yc+8, 7.5, fontB)
       if (isRelais) {
         drawText('Nbrs/J/Entretiens : ________', ax+4, yc-4, 7.5, font)
