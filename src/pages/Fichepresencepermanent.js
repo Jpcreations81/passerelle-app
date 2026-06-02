@@ -1,4 +1,4 @@
-// Fichepresencepermanent.js — v2026-05-24b — utilise FichePresence2 pdf-lib
+// Fichepresencepermanent.js — v2026-06-02a — cadres NBRS/J et NBRS/FERIES agrandis + Partie Admin agrandie
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -288,23 +288,23 @@ export default function FichePresence({ profile }) {
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', borderBottom:'1px solid #dde3f0' }}>
                 <div style={{ padding:'10px 18px', borderRight:'1px solid #dde3f0' }}>
                   <div style={{ fontSize:11, color:'#5a6478', marginBottom:4 }}>Nombre de jours de présence et de fériés</div>
-                  <div style={{ display:'flex', gap:20 }}>
-                    <div style={{ background:'#e8eef8', border:'1px solid #1a4b8f', borderRadius:6, padding:'6px 14px', fontSize:11 }}>
-                      <div style={{ fontWeight:700 }}>NBRS/J :</div>
-                      <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f' }}>{nbJours}</div>
+                  <div style={{ display:'flex', gap:12 }}>
+                    <div style={{ background:'#e8eef8', border:'2px solid #1a4b8f', borderRadius:6, padding:'8px 16px', fontSize:11, minWidth:110, display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ fontWeight:700, whiteSpace:'nowrap' }}>NBRS/J :</span>
+                      <span style={{ fontSize:18, fontWeight:800, color:'#1a4b8f' }}>{nbJours}</span>
                     </div>
-                    <div style={{ background:'#e8eef8', border:'1px solid #1a4b8f', borderRadius:6, padding:'6px 14px', fontSize:11 }}>
-                      <div style={{ fontWeight:700 }}>NBRS/FERIES :</div>
-                      <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f' }}>{nbFeries}</div>
+                    <div style={{ background:'#e8eef8', border:'2px solid #1a4b8f', borderRadius:6, padding:'8px 16px', fontSize:11, minWidth:140, display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ fontWeight:700, whiteSpace:'nowrap' }}>NBRS/FERIES :</span>
+                      <span style={{ fontSize:18, fontWeight:800, color:'#1a4b8f' }}>{nbFeries}</span>
                     </div>
                   </div>
                 </div>
-                <div style={{ padding:'10px 18px', background:'#f8f9fb' }}>
-                  <div style={{ fontSize:11, fontWeight:700, marginBottom:4 }}>Partie réservée à l'Administration</div>
-                  <div style={{ fontSize:11, color:'#5a6478', lineHeight:1.8 }}>
-                    <div>Nbrs/Jours : ___________</div>
-                    <div>Nbrs/Jours Fériés : ___________</div>
-                    <div>Date : ___________</div>
+                <div style={{ padding:'12px 18px', background:'#f0f3fa', border:'1.5px solid #c4d0e8', borderRadius:6, margin:'0 8px 0 0' }}>
+                  <div style={{ fontSize:11, fontWeight:700, marginBottom:8, color:'#1a4b8f' }}>Partie réservée à l'Administration</div>
+                  <div style={{ fontSize:11, color:'#3a4460', lineHeight:2.2 }}>
+                    <div>Nbrs/Jours : ___________________</div>
+                    <div>Nbrs/J Fériés : _________________</div>
+                    <div>Date : _______________________</div>
                   </div>
                 </div>
               </div>
