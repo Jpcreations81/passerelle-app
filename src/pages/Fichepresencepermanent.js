@@ -94,7 +94,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
 
       // Cases droite
       const days = getDaysInMonth(annee, mois)
-      const nbj = Object.values(presences).filter(p => p.present).length
+      const nbj = Object.values(presences || {}).filter(p => p.present).length
       const nbf = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
       const moisCompletAuto = !isRelais && (nbj === days.length)
       const bx = W-172
