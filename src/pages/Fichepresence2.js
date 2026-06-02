@@ -139,6 +139,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
 
       // Compteurs
       const yc = y - 12
+      console.log('DEBUG yc=', yc, 'y=', y)
       drawText('Nombre de jours de presence et de feries', M, yc, 8, font)
       const days = getDaysInMonth(annee, mois)
       const nbj = Object.values(presences).filter(p => p.present).length
