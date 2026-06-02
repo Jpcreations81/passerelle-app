@@ -1,4 +1,4 @@
-// FichePresence2.js — v2026-06-02a — fix NBRS/J et NBRS/FERIES alignement + Partie Admin agrandie
+// FichePresence2.js — v2026-06-02b — coche Temps complet dans PDF
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 
@@ -108,8 +108,15 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         drawText('Intermittent', bx+15, H-38, 9, fontB)
       } else {
         drawRect(bx-6, H-14, 164, 60, BLEU_BBL, BLEU, 1)
-        drawRect(bx, H-21, 11, 11, WHITE, BLACK, 1)
+        // Temps complet : coché si moisCompletAuto
+        if (moisCompletAuto) {
+          drawRect(bx, H-21, 11, 11, BLACK, BLACK, 1)
+          drawText('x', bx+2, H-22, 9, fontB, WHITE)
+        } else {
+          drawRect(bx, H-21, 11, 11, WHITE, BLACK, 1)
+        }
         drawText('Temps complet', bx+15, H-22, 9, fontB)
+        // Continu week-end : toujours vide (non géré pour l'instant)
         drawRect(bx, H-39, 11, 11, WHITE, BLACK, 1)
         drawText('Continu week-end', bx+15, H-40, 9, font)
       }
