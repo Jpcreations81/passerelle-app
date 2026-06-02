@@ -327,8 +327,8 @@ export default function FichePresence({ profile }) {
                       const fe = isFerie(d)
                       const dim = isDimanche(d)
                       const isBlue = dim || fe
-                      const isRelaisTransit = p.motif && (p.motif.startsWith('Départ en relais') || p.motif.startsWith('Retour de relais') || p.motif.startsWith('Début accueil relais') || p.motif === 'Retour')
-                      const isRelaisJour = p.motif && p.motif.includes('Relais chez')
+                      const isRelaisTransit = p.motif && (p.motif.startsWith('Départ en relais') || p.motif.startsWith('Retour de relais') || p.motif.startsWith('Début relais ASSFAM') || p.motif === 'Retour')
+                      const isRelaisJour = p.motif && p.motif.includes('Relais ASSFAM')
                       const isRelaisAny = isRelaisTransit || isRelaisJour
                       const rowBg = isRelaisAny ? '#fef9c3' : isBlue ? '#dbeafe' : p.present ? '#fff' : '#fff9e6'
                       const rowClass = isRelaisAny ? 'row-yellow' : isBlue ? 'row-blue' : ''
