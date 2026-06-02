@@ -139,53 +139,49 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
 
       // Compteurs
       const yc = y - 12
-      console.log('DEBUG yc=', yc, 'y=', y)
       drawText('Nombre de jours de presence et de feries', M, yc, 8, font)
       const days = getDaysInMonth(annee, mois)
       const nbj = Object.values(presences).filter(p => p.present).length
       const nbf = days.filter(d => isFerie(d) && presences[fmt(d)]?.present).length
       const moisCompletAuto = !isRelais && (nbj === days.length)
 
-      // Cadre NBRS : 2 lignes (comme fiche officielle)
-      // NBRS/J : [valeur]  sur ligne 1
-      // NBRS/FERIES : [valeur]  sur ligne 2
+      // Cadre NBRS : 2 lignes (fidèle fiche officielle)
       const nx = M + 155
       const nbjStr = String(nbj), nbfStr = String(nbf)
-      const nw = 110  // largeur cadre fixe
-      const nh = 28   // hauteur cadre (2 lignes)
-      drawRect(nx, yc - nh + 10, nw, nh, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
-      // Ligne 1 : NBRS/J label + valeur
-      drawText('NBRS/J :', nx+4, yc+2, 9, fontB)
-      drawText(nbjStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbjStr, 11), yc+2, 11, fontB)
-      // Ligne 2 : NBRS/FERIES label + valeur
-      drawText('NBRS/FERIES :', nx+4, yc - 11, 9, fontB)
-      drawText(nbfStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbfStr, 11), yc - 11, 11, fontB)
+      const nw = 110
+      // drawRect(x, y_bas, w, h) — y_bas = coin bas-gauche
+      drawRect(nx, yc - 10, nw, 26, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
+      // Ligne 1 : NBRS/J label à gauche, valeur à droite
+      drawText('NBRS/J :', nx+4, yc+8, 9, fontB)
+      drawText(nbjStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbjStr, 11), yc+8, 11, fontB)
+      // Ligne 2 : NBRS/FERIES label à gauche, valeur à droite
+      drawText('NBRS/FERIES :', nx+4, yc - 4, 9, fontB)
+      drawText(nbfStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbfStr, 11), yc - 4, 11, fontB)
 
       // Mois complet (permanent uniquement) — en dessous du cadre NBRS
-      const ym = yc - nh
+      const ym = yc - 22
       if (!isRelais) {
-        drawRect(M, ym+4, 12, 12, WHITE, BLACK, 1.2)
+        drawRect(M, ym + 2, 12, 12, WHITE, BLACK, 1.2)
         if (moisCompletAuto) {
-          drawRect(M+1, ym+5, 10, 10, BLACK)
-          drawText('x', M+2, ym+3, 9, fontB, WHITE)
+          drawRect(M+1, ym + 3, 10, 10, BLACK)
+          drawText('x', M+2, ym + 1, 9, fontB, WHITE)
         }
-        drawText('Mois complet', M+16, ym+3, 9, fontB)
+        drawText('Mois complet', M+16, ym + 1, 9, fontB)
       }
 
-      // Partie administration — s'étend du bord droit du cadre NBRS jusqu'au bord de page
+      // Partie administration — même hauteur que cadre NBRS, jusqu'au bord droit
       const ax = nx + nw + 8
       const aw = W - M - ax
-      const ah = isRelais ? 36 : 36
-      drawRect(ax, yc - ah + 14, aw, ah + 4, GRIS_FOND, GRIS_BORD, 0.8)
-      drawText("Partie reservee a l'Administration", ax+4, yc+8, 7.5, fontB)
+      drawRect(ax, yc - 10, aw, 38, GRIS_FOND, GRIS_BORD, 0.8)
+      drawText("Partie reservee a l'Administration", ax+4, yc+20, 7.5, fontB)
       if (isRelais) {
-        drawText('Nbrs/J/Entretiens : ________', ax+4, yc-4, 7.5, font)
-        drawText('Nbrs/J/Salaire : ___________', ax+4, yc-14, 7.5, font)
-        drawText('Feries : ____  Date : _______', ax+4, yc-24, 7.5, font)
+        drawText('Nbrs/J/Entretiens : ________', ax+4, yc+8, 7.5, font)
+        drawText('Nbrs/J/Salaire : ___________', ax+4, yc-2, 7.5, font)
+        drawText('Feries : ____  Date : _______', ax+4, yc-12, 7.5, font)
       } else {
-        drawText('Nbrs/Jours : ______________', ax+4, yc-4, 7.5, font)
-        drawText('Nbrs/J Feries : ____________', ax+4, yc-14, 7.5, font)
-        drawText('Date : ___________________', ax+4, yc-24, 7.5, font)
+        drawText('Nbrs/Jours : ______________', ax+4, yc+8, 7.5, font)
+        drawText('Nbrs/J Feries : ____________', ax+4, yc-2, 7.5, font)
+        drawText('Date : ___________________', ax+4, yc-12, 7.5, font)
       }
 
       // Tableau
