@@ -159,7 +159,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       drawText(nbfStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbfStr, 11), yc-7, 11, fontB)
 
       // Mois complet (permanent uniquement) — en dessous du cadre NBRS
-      const ym = yc - 26
+      const ym = yc - 20
       if (!isRelais) {
         drawRect(M, ym + 2, 12, 12, WHITE, BLACK, 1.2)
         if (moisCompletAuto) {
