@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-05-21b — fix docs parent : sync docsPereFiche/docsMereFiche après upload
+// DossierEnfant.js — v2026-06-02a — territoire enfant mis à jour automatiquement depuis la MD sélectionnée
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1364,6 +1364,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                             F('md_adresse')(`${md.adresse}, ${md.code_postal} ${md.ville}`)
                             F('md_tel')(md.telephone)
                             F('md_email')(md.email)
+                            F('territoire')(md.territoire)
                           }
                         }}>
                         <option value="">— Sélectionner une MD —</option>
