@@ -1,4 +1,4 @@
-// Fichepresenceintermittent.js — v2026-05-24b — utilise FichePresence2 pdf-lib
+// Fichepresenceintermittent.js — v2026-06-02a — motif enrichi avec notes + props adaptation/formation
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -60,6 +60,8 @@ export default function FichePresenceIntermittent({ profile }) {
   const [toast, setToast] = useState('')
   const [showPrint, setShowPrint] = useState(false)
   const [afPrincipal, setAfPrincipal] = useState(null)
+  const [hasAdaptation, setHasAdaptation] = useState(false)
+  const [hasFormation, setHasFormation] = useState(false)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -105,22 +107,29 @@ export default function FichePresenceIntermittent({ profile }) {
       setAfPrincipal(afP)
 
       // Parcourir TOUS les relais du mois
+      let _hasAdaptation = false, _hasFormation = false
       relais.forEach(evt => {
         const premierJour = fmtDate(evt.date_debut)
         const dernierJour = fmtDate(evt.date_fin)
         const memeJour = premierJour === dernierJour
+        const notes = evt.notes || ''
+        const notesLower = notes.toLowerCase()
+        // Détecter adaptation et formation
+        if (notesLower.includes('adaptation')) _hasAdaptation = true
+        if (notesLower.includes('formation')) _hasFormation = true
+        // Commentaire à ajouter au motif (si présent)
+        const commentaire = notes.trim() ? ` — ${notes.trim()}` : ''
         const cur = new Date(evt.date_debut); cur.setHours(0,0,0,0)
         const finDate = new Date(evt.date_fin); finDate.setHours(23,59,59,999)
         while (cur <= finDate) {
           const key = fmt(cur)
           if (cur.getFullYear() === selectedAnnee && cur.getMonth() === selectedMois) {
             if (memeJour) {
-              // Relais d'un seul jour : arrivée ET départ
-              p[key] = { present: true, heure_arrivee: fmtHeure(evt.date_debut), heure_depart: fmtHeure(evt.date_fin), motif: 'Accueil relais' }
+              p[key] = { present: true, heure_arrivee: fmtHeure(evt.date_debut), heure_depart: fmtHeure(evt.date_fin), motif: `Accueil relais${commentaire}` }
             } else if (key === premierJour) {
-              p[key] = { present: true, heure_arrivee: fmtHeure(evt.date_debut), heure_depart: '', motif: 'Début accueil relais' }
+              p[key] = { present: true, heure_arrivee: fmtHeure(evt.date_debut), heure_depart: '', motif: `Début accueil relais${commentaire}` }
             } else if (key === dernierJour) {
-              p[key] = { present: true, heure_depart: fmtHeure(evt.date_fin), heure_arrivee: '', motif: 'Fin accueil relais' }
+              p[key] = { present: true, heure_depart: fmtHeure(evt.date_fin), heure_arrivee: '', motif: `Fin accueil relais${commentaire}` }
             } else {
               p[key] = { present: true, heure_arrivee: '', heure_depart: '', motif: '' }
             }
@@ -128,6 +137,8 @@ export default function FichePresenceIntermittent({ profile }) {
           cur.setDate(cur.getDate() + 1)
         }
       })
+      setHasAdaptation(_hasAdaptation)
+      setHasFormation(_hasFormation)
     }
 
     // Charger fiche sauvegardée (intermittent uniquement)
@@ -410,6 +421,8 @@ export default function FichePresenceIntermittent({ profile }) {
           onClose={() => setShowPrint(false)}
           typeFiche="relais"
           afPrincipal={afPrincipal}
+          hasAdaptation={hasAdaptation}
+          hasFormation={hasFormation}
         />
       )}
       {toast && <div className="toast">{toast}</div>}
