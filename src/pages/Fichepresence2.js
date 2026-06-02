@@ -152,11 +152,11 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       // drawRect(x, y_bas, w, h) — y_bas = coin bas-gauche en coordonnées PDF
       drawRect(nx, yc + 6, nw, 27, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
       // Ligne 1 : NBRS/J label à gauche, valeur à droite
-      drawText('NBRS/J :', nx+4, yc-2, 9, fontB)
-      drawText(nbjStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbjStr, 11), yc-2, 11, fontB)
+      drawText('NBRS/J :', nx+4, yc+4, 9, fontB)
+      drawText(nbjStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbjStr, 11), yc+4, 11, fontB)
       // Ligne 2 : NBRS/FERIES label à gauche, valeur à droite
-      drawText('NBRS/FERIES :', nx+4, yc-13, 9, fontB)
-      drawText(nbfStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbfStr, 11), yc-13, 11, fontB)
+      drawText('NBRS/FERIES :', nx+4, yc-7, 9, fontB)
+      drawText(nbfStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbfStr, 11), yc-7, 11, fontB)
 
       // Mois complet (permanent uniquement) — en dessous du cadre NBRS
       const ym = yc - 26
