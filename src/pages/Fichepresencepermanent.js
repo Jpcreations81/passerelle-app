@@ -1,4 +1,4 @@
-// Fichepresencepermanent.js — v2026-05-24b — utilise FichePresence2 pdf-lib
+// Fichepresencepermanent.js — v2026-06-02a — motif relais raccourci (initiale prénom + ASSFAM court) — utilise FichePresence2 pdf-lib
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -104,11 +104,12 @@ export default function FichePresence({ profile }) {
         const dernierJour = fmtDate(evt.date_fin)
         const afRelaisId = (evt.participants_ids || [])[0]
         const afRelais = relaisProfiles[afRelaisId]
-        const nomRelais = afRelais ? `${afRelais.prenom} ${afRelais.nom}` : (evt.titre?.replace(/^Relais\s*—\s*/i, '') || 'AF Relais')
+        const prenomInitiale = afRelais?.prenom ? afRelais.prenom.charAt(0) + '.' : ''
+        const nomRelais = afRelais ? `${prenomInitiale} ${afRelais.nom}` : (evt.titre?.replace(/^Relais\s*—\s*/i, '') || 'AF Relais')
         // Ajouter le type de relais depuis les notes
         const typeRelais = evt.notes && evt.notes.toLowerCase().includes('adaptation') ? ' — Adaptation' 
           : evt.notes && evt.notes.toLowerCase().includes('relais') ? ' — Relais' : ''
-        const motifRelais = `Relais chez un(e) ASSFAM — ${nomRelais}${typeRelais}`
+        const motifRelais = `Relais ASSFAM — ${nomRelais}${typeRelais}`
         const cur = new Date(evt.date_debut); cur.setHours(0,0,0,0)
         const finDate = new Date(evt.date_fin); finDate.setHours(23,59,59,999)
         while (cur <= finDate) {
@@ -117,7 +118,7 @@ export default function FichePresence({ profile }) {
             if (key === premierJour && key === dernierJour) {
               p[key] = { present: true, heure_depart: fmtHeure(evt.date_debut), heure_arrivee: fmtHeure(evt.date_fin), motif: motifRelais }
             } else if (key === premierJour) {
-              p[key] = { present: true, heure_depart: fmtHeure(evt.date_debut), heure_arrivee: '', motif: `Début accueil relais chez un(e) ASSFAM — ${nomRelais}${typeRelais}` }
+              p[key] = { present: true, heure_depart: fmtHeure(evt.date_debut), heure_arrivee: '', motif: `Début relais ASSFAM — ${nomRelais}${typeRelais}` }
             } else if (key === dernierJour) {
               p[key] = { present: true, heure_arrivee: fmtHeure(evt.date_fin), heure_depart: '', motif: 'Retour' }
             } else {
