@@ -150,7 +150,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       const nbjStr = String(nbj), nbfStr = String(nbf)
       const nw = 110
       // drawRect(x, y_bas, w, h) — y_bas = coin bas-gauche en coordonnées PDF
-      drawRect(nx, yc + 6, nw, 27, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
+      drawRect(nx, yc + 9, nw, 24, isRelais ? JAUNE_FOND : BLEU_FOND, ACCENT, 1.5)
       // Ligne 1 : NBRS/J label à gauche, valeur à droite
       drawText('NBRS/J :', nx+4, yc+10, 9, fontB)
       drawText(nbjStr, nx + nw - 4 - fontB.widthOfTextAtSize(nbjStr, 11), yc+10, 11, fontB)
@@ -172,7 +172,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       // Partie administration — même base que cadre NBRS, jusqu'au bord droit
       const ax = nx + nw + 8
       const aw = W - M - ax
-      drawRect(ax, yc + 6, aw, 38, GRIS_FOND, GRIS_BORD, 0.8)
+      drawRect(ax, yc + 9, aw, 35, GRIS_FOND, GRIS_BORD, 0.8)
       drawText("Partie reservee a l'Administration", ax+4, yc+20, 7.5, fontB)
       if (isRelais) {
         drawText('Nbrs/J/Entretiens : ________', ax+4, yc+10, 7.5, font)
