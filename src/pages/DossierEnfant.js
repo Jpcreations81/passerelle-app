@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-02a — territoire enfant mis à jour automatiquement depuis la MD sélectionnée
+// DossierEnfant.js — v2026-06-03a — encarts visuels personnalisés par type de document identité
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -888,6 +888,73 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
     }).length : 0 },
   ].filter(o => !o.hidden)
 
+
+  // Encarts visuels personnalisés par type de document
+  function renderDocVisuel(docKey, fields, vFn) {
+    if (docKey === 'vitale') return (
+      <div style={{ background:'linear-gradient(135deg,#1a8c3c 60%,#f5c800 100%)', borderRadius:10, padding:'12px 14px', marginBottom:10, position:'relative', minHeight:70 }}>
+        <div style={{ color:'#fff', fontSize:16, fontWeight:800, letterSpacing:1, marginBottom:4 }}>Vitale</div>
+        <div style={{ background:'rgba(255,255,255,0.2)', borderRadius:4, width:28, height:20, marginBottom:6, display:'inline-block' }} />
+        <div style={{ background:'rgba(255,255,255,0.85)', borderRadius:5, padding:'4px 8px', display:'inline-block', fontSize:11, fontWeight:600, color:'#1a8c3c', letterSpacing:1 }}>
+          {vFn('vitale_numero') || '— — — — — — — —'}
+        </div>
+        <div style={{ fontSize:10, color:'rgba(255,255,255,0.8)', marginTop:4 }}>{vFn('mutuelle') || 'Mutuelle —'}</div>
+      </div>
+    )
+    if (docKey === 'cni') return (
+      <div style={{ background:'linear-gradient(135deg,#1a3c8c 70%,#3a6fd8 100%)', borderRadius:10, padding:'12px 14px', marginBottom:10, minHeight:70 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+          <div>
+            <div style={{ color:'rgba(255,255,255,0.7)', fontSize:9, letterSpacing:1, marginBottom:2 }}>CARTE NATIONALE D'IDENTITÉ</div>
+            <div style={{ color:'#fff', fontSize:11, fontWeight:700, letterSpacing:.5 }}>RÉPUBLIQUE FRANÇAISE</div>
+          </div>
+          <div style={{ width:28, height:28, borderRadius:'50%', background:'rgba(255,255,255,0.15)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>🇫🇷</div>
+        </div>
+        <div style={{ background:'rgba(255,255,255,0.15)', borderRadius:5, padding:'4px 8px', marginTop:6, display:'inline-block', fontSize:11, color:'#fff', letterSpacing:1 }}>
+          {vFn('cni_numero') || 'N° — — — — — —'}
+        </div>
+        {vFn('cni_expiration') && <div style={{ fontSize:9, color:'rgba(255,255,255,0.7)', marginTop:3 }}>Exp. {new Date(vFn('cni_expiration')).toLocaleDateString('fr-FR')}</div>}
+      </div>
+    )
+    if (docKey === 'passeport') return (
+      <div style={{ background:'linear-gradient(135deg,#1a3c5c 70%,#2d7abf 100%)', borderRadius:10, padding:'12px 14px', marginBottom:10, minHeight:70 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+          <div>
+            <div style={{ color:'rgba(255,255,255,0.7)', fontSize:9, letterSpacing:1, marginBottom:2 }}>PASSEPORT</div>
+            <div style={{ color:'#fff', fontSize:11, fontWeight:700 }}>FRANCE</div>
+          </div>
+          <div style={{ fontSize:22 }}>📘</div>
+        </div>
+        <div style={{ background:'rgba(255,255,255,0.15)', borderRadius:5, padding:'4px 8px', marginTop:6, display:'inline-block', fontSize:11, color:'#fff', letterSpacing:1 }}>
+          {vFn('passeport_numero') || 'N° — — — — — —'}
+        </div>
+        {vFn('passeport_expiration') && <div style={{ fontSize:9, color:'rgba(255,255,255,0.7)', marginTop:3 }}>Exp. {new Date(vFn('passeport_expiration')).toLocaleDateString('fr-FR')}</div>}
+      </div>
+    )
+    if (docKey === 'livret_famille') return (
+      <div style={{ background:'linear-gradient(135deg,#7c3aed 70%,#a78bfa 100%)', borderRadius:10, padding:'12px 14px', marginBottom:10, minHeight:70 }}>
+        <div style={{ color:'rgba(255,255,255,0.8)', fontSize:9, letterSpacing:1, marginBottom:2 }}>LIVRET DE FAMILLE</div>
+        <div style={{ fontSize:28, marginBottom:2 }}>👨‍👩‍👧</div>
+        <div style={{ color:'rgba(255,255,255,0.9)', fontSize:10 }}>RÉPUBLIQUE FRANÇAISE</div>
+      </div>
+    )
+    if (docKey === 'carnet_sante') return (
+      <div style={{ background:'linear-gradient(135deg,#166534 70%,#4ade80 100%)', borderRadius:10, padding:'12px 14px', marginBottom:10, minHeight:70 }}>
+        <div style={{ color:'rgba(255,255,255,0.8)', fontSize:9, letterSpacing:1, marginBottom:4 }}>CARNET DE SANTÉ</div>
+        <div style={{ fontSize:28 }}>📗</div>
+        <div style={{ color:'rgba(255,255,255,0.8)', fontSize:10, marginTop:2 }}>Suivi médical</div>
+      </div>
+    )
+    if (docKey === 'carnet_vaccination') return (
+      <div style={{ background:'linear-gradient(135deg,#b45309 70%,#fbbf24 100%)', borderRadius:10, padding:'12px 14px', marginBottom:10, minHeight:70 }}>
+        <div style={{ color:'rgba(255,255,255,0.8)', fontSize:9, letterSpacing:1, marginBottom:4 }}>CARNET DE VACCINATION</div>
+        <div style={{ fontSize:28 }}>💉</div>
+        <div style={{ color:'rgba(255,255,255,0.8)', fontSize:10, marginTop:2 }}>Vaccinations</div>
+      </div>
+    )
+    return null
+  }
+
   return (
     <div className="app-layout">
       <Sidebar profile={profile} />
@@ -1056,11 +1123,14 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                               const docsType = documents.filter(d => d.type_doc === doc.key)
                               return (
                                 <div key={doc.key} style={{ background:'#f4f6fb', borderRadius:10, padding:14, border:'1px solid #dde3f0' }}>
-                                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
-                                    <span style={{ fontSize:22 }}>{doc.icon}</span>
-                                    <span style={{ fontSize:12, fontWeight:600 }}>{doc.label}</span>
-                                  </div>
-                                  {doc.fields && doc.fields.map(f => (
+                                  {renderDocVisuel(doc.key, doc.fields, v) || (
+                                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                                      <span style={{ fontSize:22 }}>{doc.icon}</span>
+                                      <span style={{ fontSize:12, fontWeight:600 }}>{doc.label}</span>
+                                    </div>
+                                  )}
+                                  {/* Champs éditables en mode édition, ou si pas de visuel */}
+                                  {(editMode || !renderDocVisuel(doc.key, doc.fields, v)) && doc.fields && doc.fields.map(f => (
                                     <div key={f.key} style={{ marginBottom:6 }}>
                                       <label style={{ fontSize:10, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.3px', display:'block', marginBottom:2 }}>{f.label}</label>
                                       {editMode ? (
