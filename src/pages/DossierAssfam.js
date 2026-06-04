@@ -1,5 +1,4 @@
-
-// DossierAssfam.js — v2026-06-02a — champ Secteur (Nord/Sud/Ouest) modifiable par encadrant/admin uniquement
+// DossierAssfam.js — v2026-06-04a — onglet Enfants renommé, profil accueil masqué pour AF
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -106,6 +105,7 @@ export default function DossierAssfam({ profile }) {
 
   const isReferent = ['referent','encadrant','rtase','admin'].includes(profile?.role)
   const isEncadrant = ['encadrant','admin'].includes(profile?.role)
+  const isAF = profile?.role === 'af'
   const isOwnProfile = profile?.id === id
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2800) }
@@ -309,7 +309,7 @@ export default function DossierAssfam({ profile }) {
     {id:'identite',icon:'🪪',label:'Identité'},
     {id:'agrement',icon:'📜',label:'Agrément'},
     {id:'foyer',icon:'🏠',label:'Foyer'},
-    {id:'enfants',icon:'👶',label:'Enfants & Frais'},
+    {id:'enfants',icon:'👶',label:'Enfants'},
     {id:'conges',icon:'🏖️',label:'Congés'},
     {id:'formations',icon:'🎓',label:'Formations'},
     {id:'safa',icon:'🏛️',label:'SAFA & Contrat'},
@@ -659,7 +659,7 @@ export default function DossierAssfam({ profile }) {
                 ))}
               </SectionCard>
 
-              <SectionCard icon="👤" title="Profil d'accueil souhaité">
+              {!isAF && <SectionCard icon="👤" title="Profil d'accueil souhaité">
                 <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:16}}>
                   <div>
                     <label style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.4px',display:'block',marginBottom:8}}>Tranche d'âge souhaitée</label>
