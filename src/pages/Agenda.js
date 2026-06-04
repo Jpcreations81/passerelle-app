@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-25b — ouverture modal congé via URL params + PDF FicheConges
+// Agenda.js — v2026-06-04a — fix mois courant + filtre AF strict + vérif doublons import PDF
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -56,7 +56,7 @@ export default function Agenda({ profile }) {
   const [showFicheCongesPDF, setShowFicheCongesPDF] = useState(false)
   const [dernierConge, setDernierConge] = useState(null)
   const [vue, setVue] = useState('mois')
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 6))
+  const [currentDate, setCurrentDate] = useState(new Date())
   const [evenements, setEvenements] = useState([])
   const [partages, setPartages] = useState([])
   const [filtres, setFiltres] = useState(['tous'])
@@ -138,8 +138,15 @@ export default function Agenda({ profile }) {
     const { data } = await supabase
       .from('evenements').select('*').order('date_debut', { ascending: true })
     if (!data) return
-    // Filtrer les événements personnels des autres utilisateurs
+    // Filtrer les événements selon le rôle
+    const isAfRole = profile?.role === 'af'
     const filtered = data.filter(e => {
+      // Les AF ne voient que leurs propres événements (af_id = eux) ou partagés avec eux
+      if (isAfRole) {
+        return e.af_id === profile?.id || 
+               (e.participants_ids && e.participants_ids.includes(profile?.id))
+      }
+      // Pour les autres rôles : masquer les événements personnels des autres
       if (e.categorie === 'personnel') {
         return e.af_id === profile?.id || e.cree_par === profile?.id
       }
@@ -1041,6 +1048,14 @@ export default function Agenda({ profile }) {
     const selectionnes = evtsImportes.filter((_, i) => evtsImportesChecked[i] === true)
     if (selectionnes.length === 0) { showToast('⚠️ Aucun événement sélectionné'); return }
 
+    // Vérifier les doublons : récupérer les événements existants pour cet AF
+    const { data: existants } = await supabase.from('evenements')
+      .select('date_debut, date_fin, titre, enfant_ids')
+      .eq('af_id', profile.id)
+    const existantsSet = new Set((existants || []).map(e => 
+      `${e.titre}|${e.date_debut?.slice(0,16)}|${JSON.stringify(e.enfant_ids)}`
+    ))
+
     // Créer 1 row par événement sélectionné
     // _af_id = AF principal de l'enfant (si référent) ou profile.id (si AF)
     // Convertir les dates ISO sans fuseau en dates Paris correctes
@@ -1067,7 +1082,17 @@ export default function Agenda({ profile }) {
       return isoStr
     }
 
-    const rows = selectionnes.map(evt => ({
+    // Filtrer les doublons
+    const sansDoublons = selectionnes.filter(evt => {
+      const key = `${evt.titre}|${(toParisISO(evt.date_debut) || '').slice(0,16)}|${JSON.stringify(evt.enfant_ids || [])}`
+      return !existantsSet.has(key)
+    })
+    if (sansDoublons.length === 0) { showToast('⚠️ Tous ces événements existent déjà'); return }
+    if (sansDoublons.length < selectionnes.length) {
+      showToast(`ℹ️ ${selectionnes.length - sansDoublons.length} doublon(s) ignoré(s)`)
+    }
+
+    const rows = sansDoublons.map(evt => ({
       titre: evt.titre,
       categorie: evt.categorie || 'vm',
       date_debut: toParisISO(evt.date_debut),
