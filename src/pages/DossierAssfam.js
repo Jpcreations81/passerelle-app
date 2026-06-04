@@ -659,7 +659,7 @@ export default function DossierAssfam({ profile }) {
                 ))}
               </SectionCard>
 
-              {!isAF && <SectionCard icon="👤" title="Profil d'accueil souhaité">
+              {!isAF && (<SectionCard icon="👤" title="Profil d'accueil souhaité">
                 <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:16}}>
                   <div>
                     <label style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.4px',display:'block',marginBottom:8}}>Tranche d'âge souhaitée</label>
@@ -706,7 +706,7 @@ export default function DossierAssfam({ profile }) {
                     ))}
                   </div>
                 </div>
-              </SectionCard>
+              </SectionCard>)}
 
               <SectionCard icon="📋" title="Historique enfants accueillis">
                 {historique.length===0 ? <div style={{color:'#9aa3b8',fontStyle:'italic',fontSize:13}}>Aucun historique disponible</div> : (
