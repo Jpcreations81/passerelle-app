@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-05-11a — AF relais voit les enfants en relais actif (J-2/J+2) + badge 🔄
+// ListeEnfants.js — v2026-06-04a — AF peut créer dossier enfant + pas de barre recherche pour AF
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -22,6 +22,7 @@ export default function ListeEnfants({ profile }) {
   const [newFratrieItem, setNewFratrieItem] = useState({ prenom:'', nom:'', ddn:'', sexe:'M', meme_af:true })
 
   const isReferent = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
+  const isAF = profile?.role === 'af'
   const [enfantsRelaisIds, setEnfantsRelaisIds] = useState([]) // IDs des enfants en relais actif chez cet AF
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2800) }
@@ -184,13 +185,18 @@ export default function ListeEnfants({ profile }) {
           {isReferent && (
             <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Nouveau dossier</button>
           )}
+          {isAF && (
+            <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Nouveau dossier enfant</button>
+          )}
         </PageHeader>
 
         <div style={{ padding:24 }}>
           <div style={{ marginBottom:20 }}>
-            <input className="form-control" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="🔍 Rechercher par nom ou n° dossier..."
-              style={{ maxWidth:380 }} />
+            {!isAF && (
+              <input className="form-control" value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="🔍 Rechercher par nom ou n° dossier..."
+                style={{ maxWidth:380 }} />
+            )}
           </div>
 
           {loading ? (
