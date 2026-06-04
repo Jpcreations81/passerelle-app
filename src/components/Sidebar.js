@@ -42,6 +42,7 @@ export default function Sidebar({ profile }) {
           if (item.path === '/enfants' && profile?.role === 'encadrant') return false
           if (item.path === '/assfam' && profile?.role === 'referent') return false
           if (item.path === '/frais' && profile?.role === 'encadrant') return false
+          if (item.path === '/ase' && profile?.role === 'af') return false
           return true
         }).map(item => (
           <button
