@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-04a — fix mois courant + filtre AF strict + vérif doublons import PDF
+// Agenda.js — v2026-06-04b — af_id=profile.id pour import AF + nom enfant dans titre
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1092,21 +1092,29 @@ export default function Agenda({ profile }) {
       showToast(`ℹ️ ${selectionnes.length - sansDoublons.length} doublon(s) ignoré(s)`)
     }
 
-    const rows = sansDoublons.map(evt => ({
-      titre: evt.titre,
+    const isAfImport = profile?.role === 'af'
+    const rows = sansDoublons.map(evt => {
+      // Ajouter le prénom de l'enfant dans le titre si pas déjà présent
+      const enfantLabel = evt._enfantLabel || ''
+      const titreAvecEnfant = enfantLabel && !evt.titre.includes(enfantLabel.split(' ')[0])
+        ? `${evt.titre} — ${enfantLabel}`
+        : evt.titre
+      return {
+      titre: titreAvecEnfant,
       categorie: evt.categorie || 'vm',
       date_debut: toParisISO(evt.date_debut),
       date_fin: toParisISO(evt.date_fin),
       lieu: evt.lieu || '',
       notes: evt.notes || '',
-      af_id: evt._af_id || profile.id,
+      // Si c'est un AF qui importe : af_id = toujours lui-même
+      af_id: isAfImport ? profile.id : (evt._af_id || profile.id),
       cree_par: profile.id,
       visible_ase: true,
       source: 'pdf_import',
       ...(evt.vm_presents && evt.vm_presents.length > 0 ? { vm_presents: evt.vm_presents } : {}),
       ...(evt.enfant_ids && evt.enfant_ids.length > 0 ? { enfant_ids: evt.enfant_ids } : {}),
       ...(evt.participants_ids && evt.participants_ids.length > 0 ? { participants_ids: evt.participants_ids } : {})
-    }))
+    }})
 
     const { error } = await supabase.from('evenements').insert(rows)
     if (!error) {
