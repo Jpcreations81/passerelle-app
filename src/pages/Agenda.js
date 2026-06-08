@@ -2602,12 +2602,12 @@ export default function Agenda({ profile }) {
                                     const prenom = prompt(`Prénom de l'enfant temporaire :`, '')
                                     const nom = prompt(`Nom de l'enfant temporaire :`, nomDetecte)
                                     if (!prenom || !nom) return
-                                    const { data: newEnf } = await supabase.from('enfants').insert({
+                                    const { data: newEnf, error: errEnf } = await supabase.from('enfants').insert({
                                       prenom: prenom.trim(), nom: nom.trim().toUpperCase(),
-                                      statut_profil: 'temporaire', created_by: profile.id
+                                      statut_profil: 'temporaire'
                                     }).select().single()
+                                    if (errEnf) { showToast('❌ ' + errEnf.message); return }
                                     if (newEnf) {
-                                      // Ajouter à la liste locale des enfants pour que le select se mette à jour
                                       setEnfants(prev => [...(prev || []), newEnf])
                                       setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
                                         ...ev, enfant_ids: [newEnf.id],
@@ -2662,7 +2662,7 @@ export default function Agenda({ profile }) {
                                       if (!prenom || !nom) return
                                       const { data: newAf } = await supabase.from('profiles').insert({
                                         prenom: prenom.trim(), nom: nom.trim().toUpperCase(),
-                                        role: 'af', statut_profil: 'temporaire', created_by: profile.id
+                                        role: 'af', statut_profil: 'temporaire'
                                       }).select().single()
                                       if (newAf) {
                                         setAfTousListe(prev => [...prev, newAf])
