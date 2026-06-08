@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-05a — select AF relais + enfant dans import PDF + profils temporaires
+// Agenda.js — v2026-06-05b — pré-sélection AF + synchro relais + fix enfant temporaire + mois courant
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -931,9 +931,9 @@ export default function Agenda({ profile }) {
               participantsIds = [relaisProfile.id]
               relaisLabel = `${relaisProfile.prenom} ${relaisProfile.nom}`
             } else if (candidatsRelais.length > 1) {
-              // Ambiguïté : plusieurs AF avec ce nom → pas de pré-sélection
-              participantsIds = []
-              relaisLabel = null
+              // Ambiguïté : plusieurs AF avec ce nom → pré-sélectionner le premier, l'utilisateur peut changer
+              participantsIds = [candidatsRelais[0].id]
+              relaisLabel = `${candidatsRelais[0].prenom} ${candidatsRelais[0].nom}`
             } else {
               // Non trouvé en mémoire → recherche Supabase sur tous les territoires
               // Cherche dans Supabase par nom (tous territoires)
@@ -2607,10 +2607,13 @@ export default function Agenda({ profile }) {
                                       statut_profil: 'temporaire', created_by: profile.id
                                     }).select().single()
                                     if (newEnf) {
+                                      // Ajouter à la liste locale des enfants pour que le select se mette à jour
+                                      setEnfants(prev => [...(prev || []), newEnf])
                                       setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
                                         ...ev, enfant_ids: [newEnf.id],
                                         _enfantLabel: `${newEnf.prenom} ${newEnf.nom}`
                                       } : ev))
+                                      showToast(`✅ Enfant temporaire créé : ${newEnf.prenom} ${newEnf.nom}`)
                                     }
                                   }}>
                                   ⏳ Créer temporaire
@@ -2627,11 +2630,18 @@ export default function Agenda({ profile }) {
                                   value={evt.participants_ids?.[0] || ''}
                                   onChange={e => {
                                     const af = afTousListe.find(a => a.id === e.target.value)
-                                    setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
-                                      ...ev,
-                                      participants_ids: e.target.value ? [e.target.value] : [],
-                                      _relaisLabel: af ? `${af.prenom} ${af.nom}` : ''
-                                    } : ev))
+                                    const nomBrut = evt._relaisNomBrut
+                                    // Synchroniser tous les événements avec le même nom de relais détecté
+                                    setEvtsImportes(prev => prev.map((ev,j) => {
+                                      if (j === i || (nomBrut && ev._relaisNomBrut === nomBrut)) {
+                                        return {
+                                          ...ev,
+                                          participants_ids: e.target.value ? [e.target.value] : [],
+                                          _relaisLabel: af ? `${af.prenom} ${af.nom}` : ''
+                                        }
+                                      }
+                                      return ev
+                                    }))
                                   }}>
                                   <option value=''>— Choisir l'AF relais —</option>
                                   {afTousListe.map(af => (
@@ -2660,6 +2670,7 @@ export default function Agenda({ profile }) {
                                           ...ev, participants_ids: [newAf.id],
                                           _relaisLabel: `${newAf.prenom} ${newAf.nom}`
                                         } : ev))
+                                        showToast(`✅ AF temporaire créé : ${newAf.prenom} ${newAf.nom}`)
                                       }
                                     }}>
                                     ⏳ Créer temporaire
