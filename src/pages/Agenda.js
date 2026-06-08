@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-25b — ouverture modal congé via URL params + PDF FicheConges
+// Agenda.js — v2026-06-05a — select AF relais + enfant dans import PDF + profils temporaires
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -56,7 +56,7 @@ export default function Agenda({ profile }) {
   const [showFicheCongesPDF, setShowFicheCongesPDF] = useState(false)
   const [dernierConge, setDernierConge] = useState(null)
   const [vue, setVue] = useState('mois')
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 6))
+  const [currentDate, setCurrentDate] = useState(new Date())
   const [evenements, setEvenements] = useState([])
   const [partages, setPartages] = useState([])
   const [filtres, setFiltres] = useState(['tous'])
@@ -914,7 +914,8 @@ export default function Agenda({ profile }) {
             const relaisParts = relaisNomLower.split(' ').filter(p => p.length > 2)
             // Chercher dans afProfiles (chargés depuis Supabase pour tous les relais)
             const allProfiles = Object.values(afProfiles)
-            const relaisProfile = allProfiles.find(c => {
+            // Trouver TOUS les AF qui correspondent (pas juste le premier)
+            const candidatsRelais = allProfiles.filter(c => {
               const cNomLower = c.nom.toLowerCase().trim()
               const cPrenomLower = c.prenom.toLowerCase().trim()
               return relaisParts.some(part =>
@@ -922,9 +923,17 @@ export default function Agenda({ profile }) {
                 cPrenomLower.includes(part) || part.includes(cPrenomLower)
               )
             })
+            const relaisProfile = candidatsRelais.length === 1 ? candidatsRelais[0] : null
+            // Stocker les candidats pour affichage select dans l'UI
+            evt._candidatsRelais = candidatsRelais
+            evt._relaisNomBrut = relaisNomBrut
             if (relaisProfile) {
               participantsIds = [relaisProfile.id]
               relaisLabel = `${relaisProfile.prenom} ${relaisProfile.nom}`
+            } else if (candidatsRelais.length > 1) {
+              // Ambiguïté : plusieurs AF avec ce nom → pas de pré-sélection
+              participantsIds = []
+              relaisLabel = null
             } else {
               // Non trouvé en mémoire → recherche Supabase sur tous les territoires
               // Cherche dans Supabase par nom (tous territoires)
@@ -982,6 +991,9 @@ export default function Agenda({ profile }) {
             })
           }
 
+          // Stocker les candidats enfants pour l'UI
+          evt._candidatsEnfants = ids.map(id => enfants.find(e => e.id === id)).filter(Boolean)
+
           // Dupliquer : 1 événement par enfant trouvé
           if (ids.length > 0) {
             ids.forEach(enfantId => {
@@ -1002,7 +1014,10 @@ export default function Agenda({ profile }) {
                 vm_presents: evt.vm_presents || [],
                 _enfantLabel: enf ? `${enf.prenom} ${enf.nom}` : '',
                 _afLabel: afLabel,
-                _relaisLabel: relaisLabel
+                _relaisLabel: relaisLabel,
+                _candidatsRelais: evt._candidatsRelais || [],
+                _relaisNomBrut: evt._relaisNomBrut || '',
+                _candidatsEnfants: evt._candidatsEnfants || []
               })
             })
           } else {
@@ -1015,7 +1030,10 @@ export default function Agenda({ profile }) {
               notes,
               _enfantLabel: '',
               _afLabel: null,
-              _relaisLabel: relaisLabel
+              _relaisLabel: relaisLabel,
+              _candidatsRelais: evt._candidatsRelais || [],
+              _relaisNomBrut: evt._relaisNomBrut || '',
+              _candidatsEnfants: evt._candidatsEnfants || []
             })
           }
         }
@@ -2555,24 +2573,101 @@ export default function Agenda({ profile }) {
                             </div>
                           )}
                           {/* Enfant + AF associé */}
-                          <div style={{ marginTop:5, display:'flex', gap:4, alignItems:'center', flexWrap:'wrap' }}>
-                            {evt._enfantLabel ? (
-                              <span style={{ fontSize:10, padding:'2px 8px', borderRadius:10, background: evt.enfant_ids?.[0] ? (couleursEnfants[evt.enfant_ids[0]] || '#1a4b8f') : '#1a4b8f', color:'#fff', fontWeight:600 }}>
-                                {evt._enfantLabel}
-                              </span>
-                            ) : (
-                              <span style={{ fontSize:10, color:'#d97706', fontStyle:'italic' }}>⚠️ Enfant non reconnu</span>
+                          <div style={{ marginTop:6, display:'flex', flexDirection:'column', gap:5 }}>
+
+                            {/* SELECT ENFANT */}
+                            <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                              <span style={{ fontSize:10, color:'#5a6478', fontWeight:600, minWidth:50 }}>👶 Enfant :</span>
+                              <select
+                                style={{ fontSize:11, border:'1px solid #dde3f0', borderRadius:6, padding:'3px 8px', background:'#fff', maxWidth:200 }}
+                                value={evt.enfant_ids?.[0] || ''}
+                                onChange={e => {
+                                  const enf = enfants.find(en => en.id === e.target.value)
+                                  setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
+                                    ...ev,
+                                    enfant_ids: e.target.value ? [e.target.value] : [],
+                                    _enfantLabel: enf ? `${enf.prenom} ${enf.nom}` : ''
+                                  } : ev))
+                                }}>
+                                <option value=''>— Non lié —</option>
+                                {enfants.map(en => (
+                                  <option key={en.id} value={en.id}>{en.prenom} {en.nom}</option>
+                                ))}
+                              </select>
+                              {!evt.enfant_ids?.[0] && (
+                                <button
+                                  style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
+                                  onClick={async () => {
+                                    const nomDetecte = evt.titre?.replace(/^(Relais|VM|Visite)[\s—-]*/i,'') || ''
+                                    const prenom = prompt(`Prénom de l'enfant temporaire :`, '')
+                                    const nom = prompt(`Nom de l'enfant temporaire :`, nomDetecte)
+                                    if (!prenom || !nom) return
+                                    const { data: newEnf } = await supabase.from('enfants').insert({
+                                      prenom: prenom.trim(), nom: nom.trim().toUpperCase(),
+                                      statut_profil: 'temporaire', created_by: profile.id
+                                    }).select().single()
+                                    if (newEnf) {
+                                      setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
+                                        ...ev, enfant_ids: [newEnf.id],
+                                        _enfantLabel: `${newEnf.prenom} ${newEnf.nom}`
+                                      } : ev))
+                                    }
+                                  }}>
+                                  ⏳ Créer temporaire
+                                </button>
+                              )}
+                            </div>
+
+                            {/* SELECT AF RELAIS (seulement pour les relais) */}
+                            {evt.categorie === 'relais' && (
+                              <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                                <span style={{ fontSize:10, color:'#0891b2', fontWeight:600, minWidth:50 }}>🔄 Relais :</span>
+                                <select
+                                  style={{ fontSize:11, border:`1px solid ${evt.participants_ids?.[0] ? '#0891b2' : '#f59e0b'}`, borderRadius:6, padding:'3px 8px', background: evt.participants_ids?.[0] ? '#fff' : '#fffbeb', maxWidth:200 }}
+                                  value={evt.participants_ids?.[0] || ''}
+                                  onChange={e => {
+                                    const af = afTousListe.find(a => a.id === e.target.value)
+                                    setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
+                                      ...ev,
+                                      participants_ids: e.target.value ? [e.target.value] : [],
+                                      _relaisLabel: af ? `${af.prenom} ${af.nom}` : ''
+                                    } : ev))
+                                  }}>
+                                  <option value=''>— Choisir l'AF relais —</option>
+                                  {afTousListe.map(af => (
+                                    <option key={af.id} value={af.id}>{af.prenom} {af.nom}</option>
+                                  ))}
+                                </select>
+                                {!evt.participants_ids?.[0] && evt._relaisNomBrut && (
+                                  <span style={{ fontSize:10, color:'#d97706', fontStyle:'italic' }}>
+                                    (détecté : {evt._relaisNomBrut})
+                                  </span>
+                                )}
+                                {!evt.participants_ids?.[0] && (
+                                  <button
+                                    style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
+                                    onClick={async () => {
+                                      const prenom = prompt(`Prénom de l'AF temporaire :`, '')
+                                      const nom = prompt(`Nom de l'AF temporaire :`, evt._relaisNomBrut || '')
+                                      if (!prenom || !nom) return
+                                      const { data: newAf } = await supabase.from('profiles').insert({
+                                        prenom: prenom.trim(), nom: nom.trim().toUpperCase(),
+                                        role: 'af', statut_profil: 'temporaire', created_by: profile.id
+                                      }).select().single()
+                                      if (newAf) {
+                                        setAfTousListe(prev => [...prev, newAf])
+                                        setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
+                                          ...ev, participants_ids: [newAf.id],
+                                          _relaisLabel: `${newAf.prenom} ${newAf.nom}`
+                                        } : ev))
+                                      }
+                                    }}>
+                                    ⏳ Créer temporaire
+                                  </button>
+                                )}
+                              </div>
                             )}
-                            {evt._afLabel && (
-                              <span style={{ fontSize:10, padding:'2px 8px', borderRadius:10, background:'#eef1f8', color:'#1a4b8f', fontWeight:600, border:'1px solid #c4d4f5' }}>
-                                👤 {evt._afLabel}
-                              </span>
-                            )}
-                            {evt._relaisLabel && (
-                              <span style={{ fontSize:10, padding:'2px 8px', borderRadius:10, background:'#e0f2fe', color:'#0891b2', fontWeight:600, border:'1px solid #bae6fd' }}>
-                                🔄 Relais : {evt._relaisLabel}
-                              </span>
-                            )}
+
                           </div>
                         </div>
                       </div>
