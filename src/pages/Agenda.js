@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-09c — recherche enfant + nouveau dossier remplace créer temporaire
+// Agenda.js — v2026-06-09c — séparation visuelle enfant/AF relais dans modal import
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -48,65 +48,6 @@ function fmtDate(iso) {
 function fmtHeure(iso) {
   if (!iso) return ''
   return new Date(iso).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' })
-}
-
-// Composant recherche enfant dans la fenêtre d'import PDF
-function RechercheEnfantImport({ evtIndex, nomDetecte, onSelect, navigate }) {
-  const [query, setQuery] = React.useState(nomDetecte || '')
-  const [resultats, setResultats] = React.useState([])
-  const [cherche, setCherche] = React.useState(false)
-
-  const rechercher = async () => {
-    if (!query.trim()) return
-    setCherche(true)
-    const { data } = await supabase.from('enfants')
-      .select('id, prenom, nom, statut_profil')
-      .or(`nom.ilike.%${query.trim()}%,prenom.ilike.%${query.trim()}%`)
-      .limit(6)
-    setResultats(data || [])
-    setCherche(false)
-  }
-
-  return (
-    <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:4 }}>
-      <div style={{ display:'flex', gap:4, alignItems:'center' }}>
-        <input
-          style={{ fontSize:11, border:'1px solid #dde3f0', borderRadius:6, padding:'3px 8px', width:130 }}
-          placeholder="Rechercher…"
-          value={query}
-          onChange={e => { setQuery(e.target.value); setResultats([]) }}
-          onKeyDown={e => e.key === 'Enter' && rechercher()}
-        />
-        <button
-          style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #6366f1', background:'#eef2ff', color:'#4338ca', cursor:'pointer', fontWeight:600 }}
-          onClick={rechercher}>
-          🔍
-        </button>
-        <button
-          style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:600 }}
-          onClick={() => navigate('/enfants/nouveau')}>
-          📁 Nouveau dossier
-        </button>
-      </div>
-      {cherche && <span style={{ fontSize:10, color:'#888' }}>Recherche…</span>}
-      {resultats.length > 0 && (
-        <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:6, maxHeight:120, overflowY:'auto' }}>
-          {resultats.map(enf => (
-            <div
-              key={enf.id}
-              style={{ padding:'4px 8px', fontSize:11, cursor:'pointer', borderBottom:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between', alignItems:'center' }}
-              onClick={() => { onSelect(enf); setResultats([]) }}>
-              <span>{enf.prenom} {enf.nom}</span>
-              {enf.statut_profil === 'temporaire' && <span style={{ fontSize:9, color:'#f59e0b', fontWeight:600 }}>TEMP</span>}
-            </div>
-          ))}
-        </div>
-      )}
-      {resultats.length === 0 && cherche === false && query !== nomDetecte && query.length > 1 && (
-        <span style={{ fontSize:10, color:'#888', fontStyle:'italic' }}>Aucun résultat — créez un nouveau dossier</span>
-      )}
-    </div>
-  )
 }
 
 export default function Agenda({ profile }) {
@@ -2596,11 +2537,11 @@ export default function Agenda({ profile }) {
                             </div>
                           )}
                           {/* Enfant + AF associé */}
-                          <div style={{ marginTop:6, display:'flex', flexDirection:'column', gap:5 }}>
+                          <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:6 }}>
 
                             {/* SELECT ENFANT */}
-                            <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                              <span style={{ fontSize:10, color:'#5a6478', fontWeight:600, minWidth:50 }}>👶 Enfant :</span>
+                            <div style={{ background:'#f0faf4', border:'1px solid #b6e2c7', borderRadius:8, padding:'6px 10px', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                              <span style={{ fontSize:10, color:'#2e8b4a', fontWeight:700, minWidth:60 }}>👶 Enfant :</span>
                               <select
                                 style={{ fontSize:11, border:'1px solid #dde3f0', borderRadius:6, padding:'3px 8px', background:'#fff', maxWidth:200 }}
                                 value={evt.enfant_ids?.[0] || ''}
@@ -2618,25 +2559,36 @@ export default function Agenda({ profile }) {
                                 ))}
                               </select>
                               {!evt.enfant_ids?.[0] && (
-                                <RechercheEnfantImport
-                                  evtIndex={i}
-                                  nomDetecte={evt.titre?.replace(/^(Relais|VM|Visite)[\s—-]*/i,'') || ''}
-                                  onSelect={(enf) => {
-                                    setEnfants(prev => prev.find(e => e.id === enf.id) ? prev : [...(prev||[]), enf])
-                                    setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
-                                      ...ev, enfant_ids: [enf.id],
-                                      _enfantLabel: `${enf.prenom} ${enf.nom}`
-                                    } : ev))
-                                  }}
-                                  navigate={navigate}
-                                />
+                                <button
+                                  style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
+                                  onClick={async () => {
+                                    const nomDetecte = evt.titre?.replace(/^(Relais|VM|Visite)[\s—-]*/i,'') || ''
+                                    const prenom = prompt(`Prénom de l'enfant temporaire :`, '')
+                                    const nom = prompt(`Nom de l'enfant temporaire :`, nomDetecte)
+                                    if (!prenom || !nom) return
+                                    const { data: newEnf, error: errEnf } = await supabase.from('enfants').insert({
+                                      prenom: prenom.trim(), nom: nom.trim().toUpperCase(),
+                                      statut_profil: 'temporaire'
+                                    }).select().single()
+                                    if (errEnf) { showToast('❌ ' + errEnf.message); return }
+                                    if (newEnf) {
+                                      setEnfants(prev => [...(prev || []), newEnf])
+                                      setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
+                                        ...ev, enfant_ids: [newEnf.id],
+                                        _enfantLabel: `${newEnf.prenom} ${newEnf.nom}`
+                                      } : ev))
+                                      showToast(`✅ Enfant temporaire créé : ${newEnf.prenom} ${newEnf.nom}`)
+                                    }
+                                  }}>
+                                  ⏳ Créer temporaire
+                                </button>
                               )}
                             </div>
 
                             {/* SELECT AF RELAIS (seulement pour les relais) */}
                             {evt.categorie === 'relais' && (
-                              <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                                <span style={{ fontSize:10, color:'#0891b2', fontWeight:600, minWidth:50 }}>🔄 Relais :</span>
+                              <div style={{ background:'#e0f2fe', border:'1px solid #7dd3fc', borderRadius:8, padding:'6px 10px', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                                <span style={{ fontSize:10, color:'#0369a1', fontWeight:700, minWidth:60 }}>🔄 AF Relais :</span>
                                 <select
                                   style={{ fontSize:11, border:`1px solid ${evt.participants_ids?.[0] ? '#0891b2' : '#f59e0b'}`, borderRadius:6, padding:'3px 8px', background: evt.participants_ids?.[0] ? '#fff' : '#fffbeb', maxWidth:200 }}
                                   value={evt.participants_ids?.[0] || ''}
@@ -2667,9 +2619,25 @@ export default function Agenda({ profile }) {
                                 )}
                                 {!evt.participants_ids?.[0] && (
                                   <button
-                                    style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #0891b2', background:'#e0f2fe', color:'#0369a1', cursor:'pointer', fontWeight:600 }}
-                                    onClick={() => navigate('/assfam/nouveau')}>
-                                    📁 Nouveau dossier AF
+                                    style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
+                                    onClick={async () => {
+                                      const prenom = prompt(`Prénom de l'AF temporaire :`, '')
+                                      const nom = prompt(`Nom de l'AF temporaire :`, evt._relaisNomBrut || '')
+                                      if (!prenom || !nom) return
+                                      const { data: newAf } = await supabase.from('profiles').insert({
+                                        prenom: prenom.trim(), nom: nom.trim().toUpperCase(),
+                                        role: 'af', statut_profil: 'temporaire'
+                                      }).select().single()
+                                      if (newAf) {
+                                        setAfTousListe(prev => [...prev, newAf])
+                                        setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
+                                          ...ev, participants_ids: [newAf.id],
+                                          _relaisLabel: `${newAf.prenom} ${newAf.nom}`
+                                        } : ev))
+                                        showToast(`✅ AF temporaire créé : ${newAf.prenom} ${newAf.nom}`)
+                                      }
+                                    }}>
+                                    ⏳ Créer temporaire
                                   </button>
                                 )}
                               </div>
