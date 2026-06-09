@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-06-04a — onglet Enfants renommé, profil accueil masqué pour AF
+// DossierAssfam.js — v2026-06-09a — modifier formation (statut + infos)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -100,6 +100,7 @@ export default function DossierAssfam({ profile }) {
   const [congeNotes, setCongeNotes] = useState('')
   const [showFormationModal, setShowFormationModal] = useState(false)
   const [newFormation, setNewFormation] = useState({ titre:'', organisme:'', date_debut:'', duree_heures:'', statut:'planifiee' })
+  const [editFormation, setEditFormation] = useState(null) // null = création, objet = édition
   const [showFoyerModal, setShowFoyerModal] = useState(false)
   const [newFoyerEnfant, setNewFoyerEnfant] = useState({ prenom:'', nom:'', date_naissance:'', sexe:'M', lien:'enfant' })
 
@@ -280,8 +281,19 @@ export default function DossierAssfam({ profile }) {
 
   async function saveFormation() {
     if (!newFormation.titre) { showToast('⚠️ Titre requis'); return }
-    const { error } = await supabase.from('formations').insert({ ...newFormation, af_id:id })
-    if (!error) { showToast('✅ Ajoutée !'); setShowFormationModal(false); setNewFormation({ titre:'',organisme:'',date_debut:'',duree_heures:'',statut:'planifiee' }); fetchFormations() }
+    let error
+    if (editFormation) {
+      // Modification
+      const { error: e } = await supabase.from('formations').update({ titre:newFormation.titre, organisme:newFormation.organisme, date_debut:newFormation.date_debut, duree_heures:newFormation.duree_heures, statut:newFormation.statut }).eq('id', editFormation.id)
+      error = e
+      if (!error) showToast('✅ Formation modifiée !')
+    } else {
+      // Création
+      const { error: e } = await supabase.from('formations').insert({ ...newFormation, af_id:id })
+      error = e
+      if (!error) showToast('✅ Ajoutée !')
+    }
+    if (!error) { setShowFormationModal(false); setEditFormation(null); setNewFormation({ titre:'',organisme:'',date_debut:'',duree_heures:'',statut:'planifiee' }); fetchFormations() }
     else showToast('❌ '+error.message)
   }
 
@@ -803,7 +815,7 @@ export default function DossierAssfam({ profile }) {
                 <button onClick={()=>setShowFormationModal(true)} className="btn btn-secondary" style={{marginBottom:16}}>+ Ajouter une formation</button>
                 {formations.length===0 ? <div style={{color:'#9aa3b8',fontStyle:'italic',fontSize:13}}>Aucune formation enregistrée</div> : (
                   <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
-                    <thead><tr style={{borderBottom:'2px solid #dde3f0'}}>{['Formation','Organisme','Date','Durée','Statut'].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.3px'}}>{h}</th>)}</tr></thead>
+                    <thead><tr style={{borderBottom:'2px solid #dde3f0'}}>{['Formation','Organisme','Date','Durée','Statut',''].map(h=><th key={h} style={{padding:'8px 10px',textAlign:'left',fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.3px'}}>{h}</th>)}</tr></thead>
                     <tbody>
                       {formations.map(f=>(
                         <tr key={f.id} style={{borderBottom:'1px solid #f0f0f0'}}>
@@ -812,6 +824,7 @@ export default function DossierAssfam({ profile }) {
                           <td style={{padding:'10px 10px',color:'#9aa3b8'}}>{f.date_debut?fmtDate(f.date_debut):'—'}</td>
                           <td style={{padding:'10px 10px',textAlign:'center'}}>{f.duree_heures?`${f.duree_heures} jours`:'—'}</td>
                           <td style={{padding:'10px 10px'}}><span style={{padding:'2px 8px',borderRadius:10,fontSize:11,fontWeight:600,background:f.statut==='validee'?'#e6f5eb':f.statut==='planifiee'?'#fef3e2':'#e8eef8',color:f.statut==='validee'?'#2e8b4a':f.statut==='planifiee'?'#d97706':'#1a4b8f'}}>{f.statut==='validee'?'✅ Validée':f.statut==='planifiee'?'⏳ Planifiée':f.statut}</span></td>
+                          <td style={{padding:'10px 10px',textAlign:'center'}}><button onClick={()=>{ setEditFormation(f); setNewFormation({ titre:f.titre, organisme:f.organisme||'', date_debut:f.date_debut||'', duree_heures:f.duree_heures||'', statut:f.statut||'planifiee' }); setShowFormationModal(true) }} style={{padding:'3px 10px',borderRadius:7,border:'1px solid #dde3f0',background:'#f4f6fb',color:'#1a4b8f',fontSize:11,cursor:'pointer',fontWeight:600}}>✏️ Modifier</button></td>
                         </tr>
                       ))}
                     </tbody>
@@ -908,7 +921,7 @@ export default function DossierAssfam({ profile }) {
       {showFormationModal&&(
         <div className="modal-overlay" onClick={()=>setShowFormationModal(false)}>
           <div className="modal-box" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
-            <div className="modal-title">🎓 Ajouter une formation</div>
+            <div className="modal-title">{editFormation ? '✏️ Modifier la formation' : '🎓 Ajouter une formation'}</div>
             <div className="form-grid-2">
               <div className="form-group col-span-2"><label className="form-label">Titre *</label><input className="form-control" value={newFormation.titre} onChange={e=>setNewFormation(n=>({...n,titre:e.target.value}))} autoFocus /></div>
               <div className="form-group"><label className="form-label">Organisme</label><input className="form-control" value={newFormation.organisme} onChange={e=>setNewFormation(n=>({...n,organisme:e.target.value}))} placeholder="IRTS, CNFPT..." /></div>
@@ -916,7 +929,7 @@ export default function DossierAssfam({ profile }) {
               <div className="form-group"><label className="form-label">Date de début</label><input type="date" className="form-control" value={newFormation.date_debut} onChange={e=>setNewFormation(n=>({...n,date_debut:e.target.value}))} /></div>
               <div className="form-group"><label className="form-label">Statut</label><select className="form-control" value={newFormation.statut} onChange={e=>setNewFormation(n=>({...n,statut:e.target.value}))}><option value="planifiee">⏳ Planifiée</option><option value="en_cours">🔄 En cours</option><option value="validee">✅ Validée</option></select></div>
             </div>
-            <div className="modal-footer"><button className="btn btn-secondary" onClick={()=>setShowFormationModal(false)}>Annuler</button><button className="btn btn-primary" onClick={saveFormation}>✅ Ajouter</button></div>
+            <div className="modal-footer"><button className="btn btn-secondary" onClick={()=>{ setShowFormationModal(false); setEditFormation(null); setNewFormation({ titre:'',organisme:'',date_debut:'',duree_heures:'',statut:'planifiee' }) }}>Annuler</button><button className="btn btn-primary" onClick={saveFormation}>{editFormation ? '💾 Enregistrer' : '✅ Ajouter'}</button></div>
           </div>
         </div>
       )}
