@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-09a — fix doublon relais congé + suppression doSaveEdit en double
+// Agenda.js — v2026-06-09a — fix doublon congé (bouton Suivant) + suppression doSaveEdit en double
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -663,9 +663,7 @@ export default function Agenda({ profile }) {
     const isPersonnel = newEvt.categorie === 'personnel'
 
     // Si personnel ou aucun enfant sélectionné → 1 seul événement sans enfant
-    // Pour congé/formation : les relais enfants sont créés séparément via congeRelais → pas d'enfants dans l'événement principal
-    const isCongeOuFormation = ['conge', 'formation'].includes(newEvt.categorie)
-    const enfantsACree = (!isPersonnel && !isCongeOuFormation && newEvt.enfantsSelectionnes.length > 0)
+    const enfantsACree = (!isPersonnel && newEvt.enfantsSelectionnes.length > 0)
       ? newEvt.enfantsSelectionnes
       : [null]
 
@@ -2371,9 +2369,24 @@ export default function Agenda({ profile }) {
 
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Annuler</button>
-              <button className="btn btn-primary" onClick={saveEvt}>
-                💾 {newEvt.enfantsSelectionnes.length > 1 ? `Créer ${newEvt.enfantsSelectionnes.length} événements` : 'Enregistrer'}
-              </button>
+              {newEvt.categorie === 'conge' ? (
+                <button className="btn btn-primary" onClick={() => {
+                  if (!newEvt.date_debut) { showToast('⚠️ Date de début requise'); return }
+                  setDernierConge({
+                    dateDebut: newEvt.date_debut,
+                    dateFin: newEvt.date_fin || newEvt.date_debut,
+                    congeRelais: newEvt.congeRelais || {},
+                  })
+                  setShowModal(false)
+                  setShowFicheCongesPDF(true)
+                }}>
+                  Suivant →
+                </button>
+              ) : (
+                <button className="btn btn-primary" onClick={saveEvt}>
+                  💾 {newEvt.enfantsSelectionnes.length > 1 ? `Créer ${newEvt.enfantsSelectionnes.length} événements` : 'Enregistrer'}
+                </button>
+              )}
             </div>
           </div>
         </div>
