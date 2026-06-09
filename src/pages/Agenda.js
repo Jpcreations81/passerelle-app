@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-09e — recherche enfant dans toute la base si non trouvé localement
+// Agenda.js — v2026-06-09f — fix af_id relais importé par AF relais → AF principal owner
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1026,17 +1026,23 @@ export default function Agenda({ profile }) {
           if (ids.length > 0) {
             ids.forEach(enfantId => {
               const enf = enfants.find(e => e.id === enfantId)
-              // Si référent/ASE : af_id = AF principal de l'enfant
-              // Si AF : af_id = profile.id (soi-même)
+              // af_id = AF principal de l'enfant (si connu), sinon soi-même
+              // Si AF relais importe un relais pour un enfant pas le sien → af_id = AF principal, elle-même dans participants_ids
               const isASE = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
-              const afId = isASE && enf?.af_principal_id ? enf.af_principal_id : profile.id
-              const afLabel = isASE && enf?.af_principal
+              const afPrincipalId = enf?.af_principal_id || (typeof enf?.af_principal === 'object' ? enf?.af_principal?.id : null)
+              const afId = afPrincipalId ? afPrincipalId : profile.id
+              const isAfRelais = !isASE && afPrincipalId && afPrincipalId !== profile.id
+              const afLabel = afPrincipalId && enf?.af_principal
                 ? `${enf.af_principal.prenom} ${enf.af_principal.nom}`
                 : null
+              // Si AF relais : elle-même dans participants_ids (en plus des relais détectés)
+              const participantsIdsFinaux = isAfRelais
+                ? [...new Set([...participantsIds, profile.id])]
+                : participantsIds
               evtsExpanded.push({
                 ...evt,
                 enfant_ids: [enfantId],
-                participants_ids: participantsIds,
+                participants_ids: participantsIdsFinaux,
                 _af_id: afId,
                 notes,
                 vm_presents: evt.vm_presents || [],
