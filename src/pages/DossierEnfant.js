@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-03a — encarts visuels personnalisés par type de document identité
+// DossierEnfant.js — v2026-06-09a — bouton Modifier parents visible pour AF principal
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1225,7 +1225,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                           <div style={{ color:'#9aa3b8', fontStyle:'italic', fontSize:13 }}>
                             Aucune information renseignée
                           </div>
-                          {(editMode || isReferent) && (
+                          {(editMode || isReferent || isAfPrincipal) && (
                             <button onClick={() => openParentModal(type)} className="btn btn-primary" style={{ fontSize:11 }}>
                               + Renseigner {label.toLowerCase() === 'père' ? 'le père' : 'la mère'}
                             </button>
@@ -1233,7 +1233,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                         </div>
                       ) : (
                         <>
-                        {(editMode || isReferent) && (
+                        {(editMode || isReferent || isAfPrincipal) && (
                           <div style={{ marginBottom:12 }}>
                             <button onClick={() => openParentModal(type)} className="btn btn-secondary" style={{ fontSize:11 }}>
                               ✏️ Modifier les infos {label.toLowerCase()}
