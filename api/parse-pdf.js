@@ -1,4 +1,4 @@
-// parse-pdf.js — v2026-05-21b — règle VM : lieu = celui du PDF en priorité, Domicile NOM si pas de ville
+// parse-pdf.js — v2026-06-09a — fix détection enfant vs AF relais dans courrier relais
 // api/parse-pdf.js
 // Vercel Serverless Function — lit un PDF et extrait les événements via Claude API
 // Variables d'environnement requises dans Vercel :
@@ -27,14 +27,19 @@ export default async function handler(req, res) {
 Analyse ce document PDF et extrait TOUS les événements (rendez-vous, visites, réunions, relais, adaptations, etc.).
 
 RÈGLE sur les enfants :
+- L'enfant est TOUJOURS le mineur confié à l'ASE, JAMAIS l'assistante familiale.
+- Dans un courrier dont l'objet est "Calendrier d'accueils relais Léna BOYOT" → l'enfant est "Léna BOYOT".
+- Si le document dit "votre fille/fils [Prénom]" ou "l'enfant [Prénom NOM]" → c'est l'enfant.
+- "Madame LAURENT, assistante familiale" ou "Madame ABOUDAOUD, assistante familiale" → c'est l'AF relais, PAS l'enfant. Ne jamais mettre le nom de l'AF dans enfants_noms.
+- Le nom dans l'objet du courrier ("Objet: Calendrier d'accueils relais [Prénom NOM]") = toujours l'enfant.
 - Liste tous les enfants concernés dans enfants_noms.
-- Si l'événement ne concerne qu'un enfant : enfants_noms: ["Ava Pereira"]
+- Si l'événement ne concerne qu'un enfant : enfants_noms: ["Léna BOYOT"]
 - Si plusieurs enfants : enfants_noms: ["Lou Pereira", "Ava Pereira"]
 
 RÈGLE sur les relais et adaptations :
 - "Adaptation" = rencontres préparatoires avant le relais → categorie: "relais", notes doit contenir "Adaptation"
 - "Accueil relais" = hébergement chez famille relais → categorie: "relais", notes doit contenir "Relais"
-- Extraire le nom de la famille relais dans relais_nom (ex: "ABOUDAOUD Fares")
+- Extraire le nom de la famille relais dans relais_nom (ex: "ABOUDAOUD Fares") — c'est le nom de l'ASSISTANTE FAMILIALE qui accueille l'enfant, jamais le nom de l'enfant lui-même
 - Pour les périodes multi-jours sans heures : date_debut = debut à T00:00:00, date_fin = fin à T23:59:00
 
 RÈGLE sur les TISF :
