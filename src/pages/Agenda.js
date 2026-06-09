@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-09f — fix af_id relais importé par AF relais → AF principal owner
+// Agenda.js — v2026-06-09h — fix titre instable : fetchEnfants merge au lieu d'écraser
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -209,7 +209,7 @@ export default function Agenda({ profile }) {
     const allEnfantIds = []
     data.forEach(e => { if (e.enfant_ids) e.enfant_ids.forEach(id => { if (!allEnfantIds.includes(id)) allEnfantIds.push(id) }) })
     if (allEnfantIds.length > 0) {
-      const { data: enf } = await supabase.from('enfants').select('id, nom, prenom').in('id', allEnfantIds)
+      const { data: enf } = await supabase.from('enfants').select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)').in('id', allEnfantIds)
       if (enf) {
         setEnfants(prev => {
           const merged = [...prev]
@@ -231,6 +231,8 @@ export default function Agenda({ profile }) {
         if (e.participants_ids) e.participants_ids.forEach(id => afIds.add(id))
       }
     })
+    // Ajouter aussi les AF principaux des enfants pour le titrePOV
+    if (enf) enf.forEach(e => { if (e.af_principal_id) afIds.add(e.af_principal_id) })
     if (afIds.size > 0) {
       const { data: profiles } = await supabase.from('profiles').select('id, nom, prenom').in('id', Array.from(afIds))
       if (profiles) {
@@ -436,10 +438,17 @@ export default function Agenda({ profile }) {
       enfantsRelais.forEach(e => { if (!tous.find(x => x.id === e.id)) tous.push(e) })
     }
 
-    setEnfants(tous)
-    const couleurs = {}
-    tous.forEach((en, i) => { couleurs[en.id] = DEFCOLORS[i % DEFCOLORS.length] })
-    setCouleursEnfants(couleurs)
+    // Merger avec les enfants déjà chargés par fetchEvenements (ex: enfants en relais hors périmètre AF)
+    setEnfants(prev => {
+      const merged = [...tous]
+      prev.forEach(e => { if (!merged.find(x => x.id === e.id)) merged.push(e) })
+      return merged
+    })
+    setCouleursEnfants(prev => {
+      const updated = { ...prev }
+      tous.forEach((en, i) => { if (!updated[en.id]) updated[en.id] = DEFCOLORS[i % DEFCOLORS.length] })
+      return updated
+    })
   }, [profile])
 
   // ── Accepter une demande ──────────────────────────────────────────────────
