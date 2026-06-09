@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-09h — fix titre instable : fetchEnfants merge au lieu d'écraser
+// Agenda.js — v2026-06-09i — couleurs agenda persistées dans profiles.couleurs_agenda
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -171,6 +171,11 @@ export default function Agenda({ profile }) {
 
   useEffect(() => {
     if (!profile) return
+    // Charger les couleurs personnalisées en premier pour éviter le flash
+    supabase.from('profiles').select('couleurs_agenda').eq('id', profile.id).single()
+      .then(({ data }) => {
+        if (data?.couleurs_agenda) setCouleursEnfants(prev => ({ ...prev, ...data.couleurs_agenda }))
+      })
     Promise.all([
       fetchEvenements(),
       fetchPartages(),
@@ -1681,6 +1686,12 @@ export default function Agenda({ profile }) {
               </button>
             )}
             <button className="btn btn-secondary" onClick={() => setShowPartageModal(true)}>🔗 Partage</button>
+            {profile?.role === 'af' && (
+              <button className="btn" style={{ background:'#fef9ec', color:'#b45309', border:'1px solid #fcd34d', fontFamily:'Sora,sans-serif', fontSize:11, padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:600 }}
+                onClick={() => setShowPartageModal(true)}>
+                🎨 Couleurs
+              </button>
+            )}
             <button className="btn" style={{ background:'#f0f9ff', color:'#0891b2', border:'1px solid #bae6fd', fontFamily:'Sora,sans-serif', fontSize:11, padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:600 }}
               onClick={() => setShowModifModal(true)}>
               📝 Modifier calendrier
@@ -3051,7 +3062,11 @@ export default function Agenda({ profile }) {
                     <div style={{ width:20, height:20, borderRadius:'50%', background: couleursEnfants[en.id] || '#1a4b8f', flexShrink:0 }}></div>
                     <span style={{ fontSize:12, flex:1 }}>{en.prenom} {en.nom}</span>
                     <input type="color" value={couleursEnfants[en.id] || '#1a4b8f'}
-                      onChange={e => setCouleursEnfants(prev => ({ ...prev, [en.id]: e.target.value }))}
+                      onChange={async e => {
+                        const nouvCouleurs = { ...couleursEnfants, [en.id]: e.target.value }
+                        setCouleursEnfants(nouvCouleurs)
+                        await supabase.from('profiles').update({ couleurs_agenda: nouvCouleurs }).eq('id', profile.id)
+                      }}
                       style={{ width:36, height:30, border:'1px solid #dde3f0', borderRadius:5, cursor:'pointer', padding:2 }} />
                   </div>
                 ))}
@@ -3351,3 +3366,4 @@ export default function Agenda({ profile }) {
     </div>
   )
 }
+      
