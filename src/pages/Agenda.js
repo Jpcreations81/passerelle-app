@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-09a — fix doublon congé (bouton Suivant) + suppression doSaveEdit en double
+// Agenda.js — v2026-06-09b — enfants relais filtrés J-2/J+2 autour du relais
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -336,16 +336,24 @@ export default function Agenda({ profile }) {
       }
 
     } else {
-      // AF → ses enfants principaux + enfants relais
+      // AF → ses enfants principaux + enfants relais ACTIFS (relais en cours aujourd'hui)
       const { data: enfantsPrincipaux } = await supabase
         .from('enfants')
         .select('id, nom, prenom, af_principal_id')
         .eq('af_principal_id', profile.id)
 
+      // Fenêtre J-2 / J+2 autour du relais : AF relais peut voir l'enfant 2 jours avant (préparer) et 2 jours après (journaux)
+      const now = new Date()
+      const j2avant = new Date(now); j2avant.setDate(j2avant.getDate() - 2)
+      const j2apres = new Date(now); j2apres.setDate(j2apres.getDate() + 2)
       const { data: evtsRelaisParticipant } = await supabase
-        .from('evenements').select('enfant_ids').contains('participants_ids', [profile.id]).eq('categorie', 'relais')
+        .from('evenements').select('enfant_ids, date_debut, date_fin')
+        .contains('participants_ids', [profile.id]).eq('categorie', 'relais')
+        .lte('date_debut', j2apres.toISOString()).gte('date_fin', j2avant.toISOString())
       const { data: evtsRelaisProprio } = await supabase
-        .from('evenements').select('enfant_ids').eq('af_id', profile.id).eq('categorie', 'relais')
+        .from('evenements').select('enfant_ids, date_debut, date_fin')
+        .eq('af_id', profile.id).eq('categorie', 'relais')
+        .lte('date_debut', j2apres.toISOString()).gte('date_fin', j2avant.toISOString())
 
       const idsRelais = []
       const ajouterIds = (evts) => {
