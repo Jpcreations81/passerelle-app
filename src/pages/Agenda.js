@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-09d — séparation visuelle enfant/AF relais dans modal import
+// Agenda.js — v2026-06-09e — recherche enfant dans toute la base si non trouvé localement
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -980,10 +980,11 @@ export default function Agenda({ profile }) {
           // Trouver les enfants correspondants — matching robuste
           const ids = []
           if (evt.enfants_noms && evt.enfants_noms.length > 0) {
-            evt.enfants_noms.forEach(nom => {
+            for (const nom of evt.enfants_noms) {
               const nomLower = nom.toLowerCase().trim()
-              const parts = nomLower.split(/\s+/) // ["lou", "pereira"]
-              const enf = enfants.find(e => {
+              const parts = nomLower.split(/\s+/)
+              // Chercher d'abord dans le state local (enfants de l'AF)
+              let enf = enfants.find(e => {
                 const prenomLower = e.prenom.toLowerCase().trim()
                 const nomFamilleLower = e.nom.toLowerCase().trim()
                 const fullLower = `${prenomLower} ${nomFamilleLower}`
@@ -995,8 +996,27 @@ export default function Agenda({ profile }) {
                   nomLower.includes(prenomLower)
                 )
               })
+              // Si pas trouvé localement → chercher dans toute la base Supabase
+              if (!enf && parts.length > 0) {
+                const nomPart = parts.find(p => p.length >= 3) || parts[0]
+                const { data: found } = await supabase
+                  .from('enfants')
+                  .select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)')
+                  .or(`nom.ilike.%${nomPart}%,prenom.ilike.%${nomPart}%`)
+                  .limit(5)
+                if (found && found.length > 0) {
+                  // Affiner : trouver le meilleur candidat
+                  enf = found.find(e => {
+                    const p = e.prenom.toLowerCase().trim()
+                    const n = e.nom.toLowerCase().trim()
+                    return parts.some(part => p.includes(part) || n.includes(part))
+                  }) || found[0]
+                  // Ajouter au state local pour l'affichage dans le select
+                  setEnfants(prev => prev.find(x => x.id === enf.id) ? prev : [...prev, enf])
+                }
+              }
               if (enf && !ids.includes(enf.id)) ids.push(enf.id)
-            })
+            }
           }
 
           // Stocker les candidats enfants pour l'UI
