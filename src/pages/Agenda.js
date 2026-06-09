@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-05b — pré-sélection AF + synchro relais + fix enfant temporaire + mois courant
+// Agenda.js — v2026-06-09a — fix doublon relais congé + suppression doSaveEdit en double
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -474,65 +474,6 @@ export default function Agenda({ profile }) {
         setEditMode(false); setShowDetailModal(false); fetchEvenements()
       } else showToast('❌ Erreur')
     } else {
-      const updateData = {
-        titre: editEvt.titre, categorie: editEvt.categorie,
-        date_debut: debut.toISOString(), date_fin: fin.toISOString(),
-        lieu: editEvt.lieu, notes: editEvt.notes,
-      }
-      if (modifierSerie && selectedEvt.serie_id) {
-        // Modifier tous les événements de la série — seulement titre, lieu, notes, heures (pas les dates)
-        const { data: serieEvts } = await supabase
-          .from('evenements')
-          .select('id, date_debut, date_fin')
-          .eq('serie_id', selectedEvt.serie_id)
-        if (serieEvts) {
-          for (const evt of serieEvts) {
-            const evtDebut = new Date(evt.date_debut)
-            const evtFin = new Date(evt.date_fin)
-            evtDebut.setHours(debut.getHours(), debut.getMinutes())
-            evtFin.setHours(fin.getHours(), fin.getMinutes())
-            await supabase.from('evenements').update({
-              titre: editEvt.titre,
-              lieu: editEvt.lieu,
-              notes: editEvt.notes,
-              date_debut: evtDebut.toISOString(),
-              date_fin: evtFin.toISOString(),
-            }).eq('id', evt.id)
-          }
-          showToast(`✅ ${serieEvts.length} événements de la série modifiés !`)
-        }
-      } else {
-        const { error } = await supabase.from('evenements').update(updateData).eq('id', selectedEvt.id)
-        if (!error) showToast('✅ Événement modifié !')
-        else { showToast('❌ Erreur'); return }
-      }
-      setEditMode(false); setShowDetailModal(false); fetchEvenements()
-    }
-    setShowSerieModal(false)
-  }
-  async function doSaveEdit(modifierSerie) {
-    if (!editEvt.titre) { showToast('⚠️ Titre requis'); return }
-    const hDeb = editEvt.heure_debut?.slice(0,5) || '00:00'
-    const hFin = editEvt.heure_fin?.slice(0,5) || '00:00'
-    const debut = new Date(`${editEvt.date_debut}T${hDeb}:00`)
-    const fin = new Date(`${editEvt.date_fin}T${hFin}:00`)
-
-    if (selectedEvt.af_id !== profile?.id && selectedEvt.participants_ids?.includes(profile?.id)) {
-      const { error } = await supabase.from('evenements_modifications').insert({
-        evenement_id: selectedEvt.id,
-        demandeur_id: profile.id,
-        valideur_id: selectedEvt.af_id,
-        anciennes_valeurs: { titre: selectedEvt.titre, date_debut: selectedEvt.date_debut, date_fin: selectedEvt.date_fin, lieu: selectedEvt.lieu, notes: selectedEvt.notes },
-        nouvelles_valeurs: { titre: editEvt.titre, date_debut: debut.toISOString(), date_fin: fin.toISOString(), lieu: editEvt.lieu, notes: editEvt.notes },
-        statut: 'en_attente',
-        message: editEvt.message || '',
-        vu_par_demandeur: false,
-      })
-      if (!error) {
-        showToast('📤 Demande envoyée — en attente de validation')
-        setEditMode(false); setShowDetailModal(false); fetchEvenements()
-      } else showToast('❌ Erreur')
-    } else {
       if (modifierSerie && selectedEvt.serie_id) {
         const { data: serieEvts } = await supabase
           .from('evenements')
@@ -722,7 +663,9 @@ export default function Agenda({ profile }) {
     const isPersonnel = newEvt.categorie === 'personnel'
 
     // Si personnel ou aucun enfant sélectionné → 1 seul événement sans enfant
-    const enfantsACree = (!isPersonnel && newEvt.enfantsSelectionnes.length > 0)
+    // Pour congé/formation : les relais enfants sont créés séparément via congeRelais → pas d'enfants dans l'événement principal
+    const isCongeOuFormation = ['conge', 'formation'].includes(newEvt.categorie)
+    const enfantsACree = (!isPersonnel && !isCongeOuFormation && newEvt.enfantsSelectionnes.length > 0)
       ? newEvt.enfantsSelectionnes
       : [null]
 
