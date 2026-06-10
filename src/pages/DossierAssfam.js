@@ -1,5 +1,5 @@
 
-// DossierAssfam.js — v2026-06-02a — champ Secteur (Nord/Sud/Ouest) modifiable par encadrant/admin uniquement
+// DossierAssfam.js — v2026-06-02a — champ Secteur (Nord/ Sud/ Ouest) modifiable par encadrant/admin uniquement
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
