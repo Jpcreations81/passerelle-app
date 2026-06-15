@@ -1,12 +1,22 @@
-// ListeEnfants.js — v2026-06-04a — AF peut créer dossier enfant + pas de barre recherche pour AF
+// ListeEnfants.js — v2026-06-15a — ouverture automatique modal via ?nouveau=1
 import React, { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
 
 export default function ListeEnfants({ profile }) {
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Ouvrir automatiquement le modal si ?nouveau=1 dans l'URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get('nouveau') === '1') {
+      setShowModal(true)
+      navigate('/enfants', { replace: true }) // nettoyer l'URL
+    }
+  }, [location.search])
   const [enfants, setEnfants] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
