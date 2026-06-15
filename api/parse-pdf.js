@@ -1,4 +1,4 @@
-// parse-pdf.js — v2026-06-16b — titre relais = nom enfant, pas nom AF
+// parse-pdf.js — v2026-06-16d — Sonnet dynamique avec fallback claude-sonnet-4-6
 // api/parse-pdf.js
 // Vercel Serverless Function — lit un PDF et extrait les événements via Claude API
 // Variables d'environnement requises dans Vercel :
@@ -91,16 +91,16 @@ Réponds UNIQUEMENT avec un JSON valide, rien d'autre, pas de markdown :
 
 Si aucun événement n'est trouvé : {"evenements": []}`
 
-  // Récupérer le dernier modèle Haiku disponible
-  let model = 'claude-haiku-4-5-20251001' // fallback
+  // Récupérer le dernier modèle Sonnet disponible (meilleure extraction que Haiku)
+  let model = 'claude-sonnet-4-6' // fallback
   try {
     const modelsResp = await fetch('https://api.anthropic.com/v1/models', {
       headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
     })
     if (modelsResp.ok) {
       const modelsData = await modelsResp.json()
-      const haiku = modelsData.data?.find(m => m.id.includes('haiku'))
-      if (haiku) model = haiku.id
+      const sonnet = modelsData.data?.find(m => m.id.includes('sonnet'))
+      if (sonnet) model = sonnet.id
     }
   } catch(e) { /* utilise le fallback */ }
   console.log('Modèle utilisé:', model)
