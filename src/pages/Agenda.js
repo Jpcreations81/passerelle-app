@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-15d — useNavigate dans RechercheEnfantImport corrige bouton nouveau dossier
+// Agenda.js — v2026-06-16a — création enfant/AF temporaire inline sans quitter la fenêtre import
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -51,11 +51,14 @@ function fmtHeure(iso) {
 }
 
 // Composant recherche enfant dans la fenêtre d'import PDF
-function RechercheEnfantImport({ evtIndex, nomDetecte, evt, onSelect }) {
-  const navigate = useNavigate()
+function RechercheEnfantImport({ nomDetecte, onSelect }) {
   const [query, setQuery] = React.useState(nomDetecte || '')
   const [resultats, setResultats] = React.useState([])
   const [cherche, setCherche] = React.useState(false)
+  const [modeCreation, setModeCreation] = React.useState(false)
+  const [newPrenom, setNewPrenom] = React.useState('')
+  const [newNom, setNewNom] = React.useState(nomDetecte || '')
+  const [saving, setSaving] = React.useState(false)
 
   const rechercher = async () => {
     if (!query.trim()) return
@@ -68,11 +71,45 @@ function RechercheEnfantImport({ evtIndex, nomDetecte, evt, onSelect }) {
     setCherche(false)
   }
 
+  const creerTemporaire = async () => {
+    if (!newPrenom.trim() || !newNom.trim()) return
+    setSaving(true)
+    const { data, error } = await supabase.from('enfants').insert({
+      prenom: newPrenom.trim(),
+      nom: newNom.trim().toUpperCase(),
+      statut_profil: 'temporaire'
+    }).select().single()
+    setSaving(false)
+    if (error) { alert('Erreur : ' + error.message); return }
+    onSelect(data)
+    setModeCreation(false)
+  }
+
+  if (modeCreation) return (
+    <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'8px 10px', marginTop:4 }}>
+      <div style={{ fontSize:10, fontWeight:700, color:'#b45309', marginBottom:6 }}>⏳ Nouvel enfant temporaire</div>
+      <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
+        <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }}
+          placeholder="Prénom *" value={newPrenom} onChange={e => setNewPrenom(e.target.value)} autoFocus />
+        <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:110 }}
+          placeholder="NOM *" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())} />
+        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
+          onClick={creerTemporaire} disabled={saving}>
+          {saving ? '⏳' : '✅ Créer'}
+        </button>
+        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
+          onClick={() => setModeCreation(false)}>
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:4 }}>
-      <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+      <div style={{ display:'flex', gap:4, alignItems:'center', flexWrap:'wrap' }}>
         <input
-          style={{ fontSize:11, border:'1px solid #dde3f0', borderRadius:6, padding:'3px 8px', width:130 }}
+          style={{ fontSize:11, border:'1px solid #dde3f0', borderRadius:6, padding:'3px 8px', width:120 }}
           placeholder="Rechercher…"
           value={query}
           onChange={e => { setQuery(e.target.value); setResultats([]) }}
@@ -84,17 +121,16 @@ function RechercheEnfantImport({ evtIndex, nomDetecte, evt, onSelect }) {
           🔍
         </button>
         <button
-          style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:600 }}
-          onClick={() => navigate('/enfants?nouveau=1', { state: { evenementEnAttente: { ...(evt || {}), _nomDetecte: nomDetecte } } })}>
-          📁 Nouveau dossier
+          style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
+          onClick={() => { setModeCreation(true); setNewNom(query || nomDetecte || '') }}>
+          ⏳ Nouveau temporaire
         </button>
       </div>
       {cherche && <span style={{ fontSize:10, color:'#888' }}>Recherche…</span>}
       {resultats.length > 0 && (
         <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:6, maxHeight:120, overflowY:'auto' }}>
           {resultats.map(enf => (
-            <div
-              key={enf.id}
+            <div key={enf.id}
               style={{ padding:'4px 8px', fontSize:11, cursor:'pointer', borderBottom:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between', alignItems:'center' }}
               onClick={() => { onSelect(enf); setResultats([]) }}>
               <span>{enf.prenom} {enf.nom}</span>
@@ -103,10 +139,65 @@ function RechercheEnfantImport({ evtIndex, nomDetecte, evt, onSelect }) {
           ))}
         </div>
       )}
-      {resultats.length === 0 && cherche === false && query !== nomDetecte && query.length > 1 && (
-        <span style={{ fontSize:10, color:'#888', fontStyle:'italic' }}>Aucun résultat — créez un nouveau dossier</span>
+      {resultats.length === 0 && !cherche && query.length > 1 && (
+        <span style={{ fontSize:10, color:'#888', fontStyle:'italic' }}>Aucun résultat</span>
       )}
     </div>
+  )
+}
+
+// Composant recherche + création AF temporaire inline
+function RechercheAfImport({ nomDetecte, afTousListe, onSelect }) {
+  const [modeCreation, setModeCreation] = React.useState(false)
+  const [newPrenom, setNewPrenom] = React.useState('')
+  const [newNom, setNewNom] = React.useState(nomDetecte || '')
+  const [newVille, setNewVille] = React.useState('')
+  const [saving, setSaving] = React.useState(false)
+
+  const creerTemporaire = async () => {
+    if (!newPrenom.trim() || !newNom.trim()) return
+    setSaving(true)
+    const { data, error } = await supabase.from('profiles').insert({
+      prenom: newPrenom.trim(),
+      nom: newNom.trim().toUpperCase(),
+      ville: newVille.trim() || null,
+      role: 'af',
+      statut_profil: 'temporaire'
+    }).select().single()
+    setSaving(false)
+    if (error) { alert('Erreur : ' + error.message); return }
+    onSelect(data)
+    setModeCreation(false)
+  }
+
+  if (modeCreation) return (
+    <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'8px 10px', marginTop:4 }}>
+      <div style={{ fontSize:10, fontWeight:700, color:'#b45309', marginBottom:6 }}>⏳ Nouvel AF temporaire</div>
+      <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
+        <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }}
+          placeholder="Prénom *" value={newPrenom} onChange={e => setNewPrenom(e.target.value)} autoFocus />
+        <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:100 }}
+          placeholder="NOM *" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())} />
+        <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }}
+          placeholder="Ville" value={newVille} onChange={e => setNewVille(e.target.value)} />
+        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
+          onClick={creerTemporaire} disabled={saving}>
+          {saving ? '⏳' : '✅ Créer'}
+        </button>
+        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
+          onClick={() => setModeCreation(false)}>
+          ✕
+        </button>
+      </div>
+    </div>
+  )
+
+  return (
+    <button
+      style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
+      onClick={() => { setModeCreation(true); setNewNom(nomDetecte || '') }}>
+      ⏳ AF temporaire
+    </button>
   )
 }
 
@@ -2666,9 +2757,7 @@ export default function Agenda({ profile }) {
                               </select>
                               {!evt.enfant_ids?.[0] && (
                                 <RechercheEnfantImport
-                                  evtIndex={i}
                                   nomDetecte={evt.titre?.replace(/^(Relais|VM|Visite)[\s—-]*/i,'') || ''}
-                                  evt={evt}
                                   onSelect={(enf) => {
                                     setEnfants(prev => prev.find(e => e.id === enf.id) ? prev : [...(prev||[]), enf])
                                     setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
@@ -2713,11 +2802,20 @@ export default function Agenda({ profile }) {
                                   </span>
                                 )}
                                 {!evt.participants_ids?.[0] && (
-                                  <button
-                                    style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #0891b2', background:'#e0f2fe', color:'#0369a1', cursor:'pointer', fontWeight:600 }}
-                                    onClick={() => navigate('/assfam')}>
-                                    📁 Nouveau dossier AF
-                                  </button>
+                                  <RechercheAfImport
+                                    nomDetecte={evt._relaisNomBrut || ''}
+                                    afTousListe={afTousListe}
+                                    onSelect={(af) => {
+                                      setAfTousListe(prev => prev.find(a => a.id === af.id) ? prev : [...prev, af])
+                                      const nomBrut = evt._relaisNomBrut
+                                      setEvtsImportes(prev => prev.map((ev,j) => {
+                                        if (j === i || (nomBrut && ev._relaisNomBrut === nomBrut)) {
+                                          return { ...ev, participants_ids: [af.id], _relaisLabel: `${af.prenom} ${af.nom}` }
+                                        }
+                                        return ev
+                                      }))
+                                    }}
+                                  />
                                 )}
                               </div>
                             )}
@@ -3367,4 +3465,3 @@ export default function Agenda({ profile }) {
     </div>
   )
 }
-    
