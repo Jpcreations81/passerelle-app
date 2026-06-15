@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-06-15c — modal 2 étapes : choix AF existant/temporaire puis fiche enfant
+// ListeEnfants.js — v2026-06-15d — correction apostrophes syntaxe
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -176,7 +176,7 @@ export default function ListeEnfants({ profile }) {
     // Étape 0 : créer l'AF temporaire si nécessaire
     let afPrincipalId = newEnfant.af_principal_id || null
     if (evenementEnAttente && afChoix === 'temporaire') {
-      if (!afTemp.prenom || !afTemp.nom) { showToast('⚠️ Prénom et nom de l'AF requis'); setSaving(false); return }
+      if (!afTemp.prenom || !afTemp.nom) { showToast("⚠️ Prénom et nom de l'AF requis"); setSaving(false); return }
       const { data: newAf, error: errAf } = await supabase.from('profiles').insert({
         prenom: afTemp.prenom.trim(),
         nom: afTemp.nom.trim().toUpperCase(),
@@ -359,7 +359,7 @@ export default function ListeEnfants({ profile }) {
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal-box" style={{ maxWidth:560 }} onClick={e => e.stopPropagation()}>
               <div className="modal-title">
-                {evenementEnAttente && etapeModal === 1 ? '👨‍👧 AF principal de l'enfant' : '👶 Nouveau dossier enfant'}
+                {evenementEnAttente && etapeModal === 1 ? "👨‍👧 AF principal de l'enfant" : '👶 Nouveau dossier enfant'}
                 {evenementEnAttente && <span style={{ fontSize:11, background:'#fef3c7', color:'#b45309', borderRadius:6, padding:'2px 8px', marginLeft:10, fontWeight:600 }}>⏳ Profil temporaire</span>}
               </div>
 
