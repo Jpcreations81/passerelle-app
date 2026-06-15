@@ -1,4 +1,4 @@
-// Agenda.js — v2026-05-25b — ouverture modal congé via URL params + PDF FicheConges
+// Agenda.js — v2026-06-09i — couleurs agenda persistées dans profiles.couleurs_agenda
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -50,13 +50,72 @@ function fmtHeure(iso) {
   return new Date(iso).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' })
 }
 
+// Composant recherche enfant dans la fenêtre d'import PDF
+function RechercheEnfantImport({ evtIndex, nomDetecte, onSelect, navigate }) {
+  const [query, setQuery] = React.useState(nomDetecte || '')
+  const [resultats, setResultats] = React.useState([])
+  const [cherche, setCherche] = React.useState(false)
+
+  const rechercher = async () => {
+    if (!query.trim()) return
+    setCherche(true)
+    const { data } = await supabase.from('enfants')
+      .select('id, prenom, nom, statut_profil')
+      .or(`nom.ilike.%${query.trim()}%,prenom.ilike.%${query.trim()}%`)
+      .limit(6)
+    setResultats(data || [])
+    setCherche(false)
+  }
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', gap:4, marginTop:4 }}>
+      <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+        <input
+          style={{ fontSize:11, border:'1px solid #dde3f0', borderRadius:6, padding:'3px 8px', width:130 }}
+          placeholder="Rechercher…"
+          value={query}
+          onChange={e => { setQuery(e.target.value); setResultats([]) }}
+          onKeyDown={e => e.key === 'Enter' && rechercher()}
+        />
+        <button
+          style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #6366f1', background:'#eef2ff', color:'#4338ca', cursor:'pointer', fontWeight:600 }}
+          onClick={rechercher}>
+          🔍
+        </button>
+        <button
+          style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:600 }}
+          onClick={() => navigate('/enfants/nouveau')}>
+          📁 Nouveau dossier
+        </button>
+      </div>
+      {cherche && <span style={{ fontSize:10, color:'#888' }}>Recherche…</span>}
+      {resultats.length > 0 && (
+        <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:6, maxHeight:120, overflowY:'auto' }}>
+          {resultats.map(enf => (
+            <div
+              key={enf.id}
+              style={{ padding:'4px 8px', fontSize:11, cursor:'pointer', borderBottom:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between', alignItems:'center' }}
+              onClick={() => { onSelect(enf); setResultats([]) }}>
+              <span>{enf.prenom} {enf.nom}</span>
+              {enf.statut_profil === 'temporaire' && <span style={{ fontSize:9, color:'#f59e0b', fontWeight:600 }}>TEMP</span>}
+            </div>
+          ))}
+        </div>
+      )}
+      {resultats.length === 0 && cherche === false && query !== nomDetecte && query.length > 1 && (
+        <span style={{ fontSize:10, color:'#888', fontStyle:'italic' }}>Aucun résultat — créez un nouveau dossier</span>
+      )}
+    </div>
+  )
+}
+
 export default function Agenda({ profile }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [showFicheCongesPDF, setShowFicheCongesPDF] = useState(false)
   const [dernierConge, setDernierConge] = useState(null)
   const [vue, setVue] = useState('mois')
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 3, 6))
+  const [currentDate, setCurrentDate] = useState(new Date())
   const [evenements, setEvenements] = useState([])
   const [partages, setPartages] = useState([])
   const [filtres, setFiltres] = useState(['tous'])
@@ -112,6 +171,11 @@ export default function Agenda({ profile }) {
 
   useEffect(() => {
     if (!profile) return
+    // Charger les couleurs personnalisées en premier pour éviter le flash
+    supabase.from('profiles').select('couleurs_agenda').eq('id', profile.id).single()
+      .then(({ data }) => {
+        if (data?.couleurs_agenda) setCouleursEnfants(prev => ({ ...prev, ...data.couleurs_agenda }))
+      })
     Promise.all([
       fetchEvenements(),
       fetchPartages(),
@@ -150,7 +214,7 @@ export default function Agenda({ profile }) {
     const allEnfantIds = []
     data.forEach(e => { if (e.enfant_ids) e.enfant_ids.forEach(id => { if (!allEnfantIds.includes(id)) allEnfantIds.push(id) }) })
     if (allEnfantIds.length > 0) {
-      const { data: enf } = await supabase.from('enfants').select('id, nom, prenom').in('id', allEnfantIds)
+      const { data: enf } = await supabase.from('enfants').select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)').in('id', allEnfantIds)
       if (enf) {
         setEnfants(prev => {
           const merged = [...prev]
@@ -172,6 +236,8 @@ export default function Agenda({ profile }) {
         if (e.participants_ids) e.participants_ids.forEach(id => afIds.add(id))
       }
     })
+    // Ajouter aussi les AF principaux des enfants pour le titrePOV
+    if (enf) enf.forEach(e => { if (e.af_principal_id) afIds.add(e.af_principal_id) })
     if (afIds.size > 0) {
       const { data: profiles } = await supabase.from('profiles').select('id, nom, prenom').in('id', Array.from(afIds))
       if (profiles) {
@@ -336,16 +402,24 @@ export default function Agenda({ profile }) {
       }
 
     } else {
-      // AF → ses enfants principaux + enfants relais
+      // AF → ses enfants principaux + enfants relais ACTIFS (relais en cours aujourd'hui)
       const { data: enfantsPrincipaux } = await supabase
         .from('enfants')
         .select('id, nom, prenom, af_principal_id')
         .eq('af_principal_id', profile.id)
 
+      // Fenêtre J-2 / J+2 autour du relais : AF relais peut voir l'enfant 2 jours avant (préparer) et 2 jours après (journaux)
+      const now = new Date()
+      const j2avant = new Date(now); j2avant.setDate(j2avant.getDate() - 2)
+      const j2apres = new Date(now); j2apres.setDate(j2apres.getDate() + 2)
       const { data: evtsRelaisParticipant } = await supabase
-        .from('evenements').select('enfant_ids').contains('participants_ids', [profile.id]).eq('categorie', 'relais')
+        .from('evenements').select('enfant_ids, date_debut, date_fin')
+        .contains('participants_ids', [profile.id]).eq('categorie', 'relais')
+        .lte('date_debut', j2apres.toISOString()).gte('date_fin', j2avant.toISOString())
       const { data: evtsRelaisProprio } = await supabase
-        .from('evenements').select('enfant_ids').eq('af_id', profile.id).eq('categorie', 'relais')
+        .from('evenements').select('enfant_ids, date_debut, date_fin')
+        .eq('af_id', profile.id).eq('categorie', 'relais')
+        .lte('date_debut', j2apres.toISOString()).gte('date_fin', j2avant.toISOString())
 
       const idsRelais = []
       const ajouterIds = (evts) => {
@@ -369,10 +443,17 @@ export default function Agenda({ profile }) {
       enfantsRelais.forEach(e => { if (!tous.find(x => x.id === e.id)) tous.push(e) })
     }
 
-    setEnfants(tous)
-    const couleurs = {}
-    tous.forEach((en, i) => { couleurs[en.id] = DEFCOLORS[i % DEFCOLORS.length] })
-    setCouleursEnfants(couleurs)
+    // Merger avec les enfants déjà chargés par fetchEvenements (ex: enfants en relais hors périmètre AF)
+    setEnfants(prev => {
+      const merged = [...tous]
+      prev.forEach(e => { if (!merged.find(x => x.id === e.id)) merged.push(e) })
+      return merged
+    })
+    setCouleursEnfants(prev => {
+      const updated = { ...prev }
+      tous.forEach((en, i) => { if (!updated[en.id]) updated[en.id] = DEFCOLORS[i % DEFCOLORS.length] })
+      return updated
+    })
   }, [profile])
 
   // ── Accepter une demande ──────────────────────────────────────────────────
@@ -451,65 +532,6 @@ export default function Agenda({ profile }) {
     await doSaveEdit(false)
   }
 
-  async function doSaveEdit(modifierSerie) {
-    if (!editEvt.titre) { showToast('⚠️ Titre requis'); return }
-    const hDeb = editEvt.heure_debut?.slice(0,5) || '00:00'
-    const hFin = editEvt.heure_fin?.slice(0,5) || '00:00'
-    const debut = new Date(`${editEvt.date_debut}T${hDeb}:00`)
-    const fin = new Date(`${editEvt.date_fin}T${hFin}:00`)
-
-    if (selectedEvt.af_id !== profile?.id && selectedEvt.participants_ids?.includes(profile?.id)) {
-      const { error } = await supabase.from('evenements_modifications').insert({
-        evenement_id: selectedEvt.id,
-        demandeur_id: profile.id,
-        valideur_id: selectedEvt.af_id,
-        anciennes_valeurs: { titre: selectedEvt.titre, date_debut: selectedEvt.date_debut, date_fin: selectedEvt.date_fin, lieu: selectedEvt.lieu, notes: selectedEvt.notes },
-        nouvelles_valeurs: { titre: editEvt.titre, date_debut: debut.toISOString(), date_fin: fin.toISOString(), lieu: editEvt.lieu, notes: editEvt.notes },
-        statut: 'en_attente',
-        message: editEvt.message || '',
-        vu_par_demandeur: false,
-      })
-      if (!error) {
-        showToast('📤 Demande envoyée — en attente de validation')
-        setEditMode(false); setShowDetailModal(false); fetchEvenements()
-      } else showToast('❌ Erreur')
-    } else {
-      const updateData = {
-        titre: editEvt.titre, categorie: editEvt.categorie,
-        date_debut: debut.toISOString(), date_fin: fin.toISOString(),
-        lieu: editEvt.lieu, notes: editEvt.notes,
-      }
-      if (modifierSerie && selectedEvt.serie_id) {
-        // Modifier tous les événements de la série — seulement titre, lieu, notes, heures (pas les dates)
-        const { data: serieEvts } = await supabase
-          .from('evenements')
-          .select('id, date_debut, date_fin')
-          .eq('serie_id', selectedEvt.serie_id)
-        if (serieEvts) {
-          for (const evt of serieEvts) {
-            const evtDebut = new Date(evt.date_debut)
-            const evtFin = new Date(evt.date_fin)
-            evtDebut.setHours(debut.getHours(), debut.getMinutes())
-            evtFin.setHours(fin.getHours(), fin.getMinutes())
-            await supabase.from('evenements').update({
-              titre: editEvt.titre,
-              lieu: editEvt.lieu,
-              notes: editEvt.notes,
-              date_debut: evtDebut.toISOString(),
-              date_fin: evtFin.toISOString(),
-            }).eq('id', evt.id)
-          }
-          showToast(`✅ ${serieEvts.length} événements de la série modifiés !`)
-        }
-      } else {
-        const { error } = await supabase.from('evenements').update(updateData).eq('id', selectedEvt.id)
-        if (!error) showToast('✅ Événement modifié !')
-        else { showToast('❌ Erreur'); return }
-      }
-      setEditMode(false); setShowDetailModal(false); fetchEvenements()
-    }
-    setShowSerieModal(false)
-  }
   async function doSaveEdit(modifierSerie) {
     if (!editEvt.titre) { showToast('⚠️ Titre requis'); return }
     const hDeb = editEvt.heure_debut?.slice(0,5) || '00:00'
@@ -914,7 +936,8 @@ export default function Agenda({ profile }) {
             const relaisParts = relaisNomLower.split(' ').filter(p => p.length > 2)
             // Chercher dans afProfiles (chargés depuis Supabase pour tous les relais)
             const allProfiles = Object.values(afProfiles)
-            const relaisProfile = allProfiles.find(c => {
+            // Trouver TOUS les AF qui correspondent (pas juste le premier)
+            const candidatsRelais = allProfiles.filter(c => {
               const cNomLower = c.nom.toLowerCase().trim()
               const cPrenomLower = c.prenom.toLowerCase().trim()
               return relaisParts.some(part =>
@@ -922,9 +945,17 @@ export default function Agenda({ profile }) {
                 cPrenomLower.includes(part) || part.includes(cPrenomLower)
               )
             })
+            const relaisProfile = candidatsRelais.length === 1 ? candidatsRelais[0] : null
+            // Stocker les candidats pour affichage select dans l'UI
+            evt._candidatsRelais = candidatsRelais
+            evt._relaisNomBrut = relaisNomBrut
             if (relaisProfile) {
               participantsIds = [relaisProfile.id]
               relaisLabel = `${relaisProfile.prenom} ${relaisProfile.nom}`
+            } else if (candidatsRelais.length > 1) {
+              // Ambiguïté : plusieurs AF avec ce nom → pré-sélectionner le premier, l'utilisateur peut changer
+              participantsIds = [candidatsRelais[0].id]
+              relaisLabel = `${candidatsRelais[0].prenom} ${candidatsRelais[0].nom}`
             } else {
               // Non trouvé en mémoire → recherche Supabase sur tous les territoires
               // Cherche dans Supabase par nom (tous territoires)
@@ -963,10 +994,11 @@ export default function Agenda({ profile }) {
           // Trouver les enfants correspondants — matching robuste
           const ids = []
           if (evt.enfants_noms && evt.enfants_noms.length > 0) {
-            evt.enfants_noms.forEach(nom => {
+            for (const nom of evt.enfants_noms) {
               const nomLower = nom.toLowerCase().trim()
-              const parts = nomLower.split(/\s+/) // ["lou", "pereira"]
-              const enf = enfants.find(e => {
+              const parts = nomLower.split(/\s+/)
+              // Chercher d'abord dans le state local (enfants de l'AF)
+              let enf = enfants.find(e => {
                 const prenomLower = e.prenom.toLowerCase().trim()
                 const nomFamilleLower = e.nom.toLowerCase().trim()
                 const fullLower = `${prenomLower} ${nomFamilleLower}`
@@ -978,31 +1010,62 @@ export default function Agenda({ profile }) {
                   nomLower.includes(prenomLower)
                 )
               })
+              // Si pas trouvé localement → chercher dans toute la base Supabase
+              if (!enf && parts.length > 0) {
+                const nomPart = parts.find(p => p.length >= 3) || parts[0]
+                const { data: found } = await supabase
+                  .from('enfants')
+                  .select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)')
+                  .or(`nom.ilike.%${nomPart}%,prenom.ilike.%${nomPart}%`)
+                  .limit(5)
+                if (found && found.length > 0) {
+                  // Affiner : trouver le meilleur candidat
+                  enf = found.find(e => {
+                    const p = e.prenom.toLowerCase().trim()
+                    const n = e.nom.toLowerCase().trim()
+                    return parts.some(part => p.includes(part) || n.includes(part))
+                  }) || found[0]
+                  // Ajouter au state local pour l'affichage dans le select
+                  setEnfants(prev => prev.find(x => x.id === enf.id) ? prev : [...prev, enf])
+                }
+              }
               if (enf && !ids.includes(enf.id)) ids.push(enf.id)
-            })
+            }
           }
+
+          // Stocker les candidats enfants pour l'UI
+          evt._candidatsEnfants = ids.map(id => enfants.find(e => e.id === id)).filter(Boolean)
 
           // Dupliquer : 1 événement par enfant trouvé
           if (ids.length > 0) {
             ids.forEach(enfantId => {
               const enf = enfants.find(e => e.id === enfantId)
-              // Si référent/ASE : af_id = AF principal de l'enfant
-              // Si AF : af_id = profile.id (soi-même)
+              // af_id = AF principal de l'enfant (si connu), sinon soi-même
+              // Si AF relais importe un relais pour un enfant pas le sien → af_id = AF principal, elle-même dans participants_ids
               const isASE = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
-              const afId = isASE && enf?.af_principal_id ? enf.af_principal_id : profile.id
-              const afLabel = isASE && enf?.af_principal
+              const afPrincipalId = enf?.af_principal_id || (typeof enf?.af_principal === 'object' ? enf?.af_principal?.id : null)
+              const afId = afPrincipalId ? afPrincipalId : profile.id
+              const isAfRelais = !isASE && afPrincipalId && afPrincipalId !== profile.id
+              const afLabel = afPrincipalId && enf?.af_principal
                 ? `${enf.af_principal.prenom} ${enf.af_principal.nom}`
                 : null
+              // Si AF relais : elle-même dans participants_ids (en plus des relais détectés)
+              const participantsIdsFinaux = isAfRelais
+                ? [...new Set([...participantsIds, profile.id])]
+                : participantsIds
               evtsExpanded.push({
                 ...evt,
                 enfant_ids: [enfantId],
-                participants_ids: participantsIds,
+                participants_ids: participantsIdsFinaux,
                 _af_id: afId,
                 notes,
                 vm_presents: evt.vm_presents || [],
                 _enfantLabel: enf ? `${enf.prenom} ${enf.nom}` : '',
                 _afLabel: afLabel,
-                _relaisLabel: relaisLabel
+                _relaisLabel: relaisLabel,
+                _candidatsRelais: evt._candidatsRelais || [],
+                _relaisNomBrut: evt._relaisNomBrut || '',
+                _candidatsEnfants: evt._candidatsEnfants || []
               })
             })
           } else {
@@ -1015,7 +1078,10 @@ export default function Agenda({ profile }) {
               notes,
               _enfantLabel: '',
               _afLabel: null,
-              _relaisLabel: relaisLabel
+              _relaisLabel: relaisLabel,
+              _candidatsRelais: evt._candidatsRelais || [],
+              _relaisNomBrut: evt._relaisNomBrut || '',
+              _candidatsEnfants: evt._candidatsEnfants || []
             })
           }
         }
@@ -1620,6 +1686,12 @@ export default function Agenda({ profile }) {
               </button>
             )}
             <button className="btn btn-secondary" onClick={() => setShowPartageModal(true)}>🔗 Partage</button>
+            {profile?.role === 'af' && (
+              <button className="btn" style={{ background:'#fef9ec', color:'#b45309', border:'1px solid #fcd34d', fontFamily:'Sora,sans-serif', fontSize:11, padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:600 }}
+                onClick={() => setShowPartageModal(true)}>
+                🎨 Couleurs
+              </button>
+            )}
             <button className="btn" style={{ background:'#f0f9ff', color:'#0891b2', border:'1px solid #bae6fd', fontFamily:'Sora,sans-serif', fontSize:11, padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:600 }}
               onClick={() => setShowModifModal(true)}>
               📝 Modifier calendrier
@@ -2410,9 +2482,24 @@ export default function Agenda({ profile }) {
 
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Annuler</button>
-              <button className="btn btn-primary" onClick={saveEvt}>
-                💾 {newEvt.enfantsSelectionnes.length > 1 ? `Créer ${newEvt.enfantsSelectionnes.length} événements` : 'Enregistrer'}
-              </button>
+              {newEvt.categorie === 'conge' ? (
+                <button className="btn btn-primary" onClick={() => {
+                  if (!newEvt.date_debut) { showToast('⚠️ Date de début requise'); return }
+                  setDernierConge({
+                    dateDebut: newEvt.date_debut,
+                    dateFin: newEvt.date_fin || newEvt.date_debut,
+                    congeRelais: newEvt.congeRelais || {},
+                  })
+                  setShowModal(false)
+                  setShowFicheCongesPDF(true)
+                }}>
+                  Suivant →
+                </button>
+              ) : (
+                <button className="btn btn-primary" onClick={saveEvt}>
+                  💾 {newEvt.enfantsSelectionnes.length > 1 ? `Créer ${newEvt.enfantsSelectionnes.length} événements` : 'Enregistrer'}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -2555,24 +2642,85 @@ export default function Agenda({ profile }) {
                             </div>
                           )}
                           {/* Enfant + AF associé */}
-                          <div style={{ marginTop:5, display:'flex', gap:4, alignItems:'center', flexWrap:'wrap' }}>
-                            {evt._enfantLabel ? (
-                              <span style={{ fontSize:10, padding:'2px 8px', borderRadius:10, background: evt.enfant_ids?.[0] ? (couleursEnfants[evt.enfant_ids[0]] || '#1a4b8f') : '#1a4b8f', color:'#fff', fontWeight:600 }}>
-                                {evt._enfantLabel}
-                              </span>
-                            ) : (
-                              <span style={{ fontSize:10, color:'#d97706', fontStyle:'italic' }}>⚠️ Enfant non reconnu</span>
+                          <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:6 }}>
+
+                            {/* SELECT ENFANT */}
+                            <div style={{ background:'#f0faf4', border:'1px solid #b6e2c7', borderRadius:8, padding:'6px 10px', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                              <span style={{ fontSize:10, color:'#2e8b4a', fontWeight:700, minWidth:60 }}>👶 Enfant :</span>
+                              <select
+                                style={{ fontSize:11, border:'1px solid #dde3f0', borderRadius:6, padding:'3px 8px', background:'#fff', maxWidth:200 }}
+                                value={evt.enfant_ids?.[0] || ''}
+                                onChange={e => {
+                                  const enf = enfants.find(en => en.id === e.target.value)
+                                  setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
+                                    ...ev,
+                                    enfant_ids: e.target.value ? [e.target.value] : [],
+                                    _enfantLabel: enf ? `${enf.prenom} ${enf.nom}` : ''
+                                  } : ev))
+                                }}>
+                                <option value=''>— Non lié —</option>
+                                {enfants.map(en => (
+                                  <option key={en.id} value={en.id}>{en.prenom} {en.nom}</option>
+                                ))}
+                              </select>
+                              {!evt.enfant_ids?.[0] && (
+                                <RechercheEnfantImport
+                                  evtIndex={i}
+                                  nomDetecte={evt.titre?.replace(/^(Relais|VM|Visite)[\s—-]*/i,'') || ''}
+                                  onSelect={(enf) => {
+                                    setEnfants(prev => prev.find(e => e.id === enf.id) ? prev : [...(prev||[]), enf])
+                                    setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
+                                      ...ev, enfant_ids: [enf.id],
+                                      _enfantLabel: `${enf.prenom} ${enf.nom}`
+                                    } : ev))
+                                  }}
+                                  navigate={navigate}
+                                />
+                              )}
+                            </div>
+
+                            {/* SELECT AF RELAIS (seulement pour les relais) */}
+                            {evt.categorie === 'relais' && (
+                              <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                                <span style={{ fontSize:10, color:'#0891b2', fontWeight:600, minWidth:50 }}>🔄 Relais :</span>
+                                <select
+                                  style={{ fontSize:11, border:`1px solid ${evt.participants_ids?.[0] ? '#0891b2' : '#f59e0b'}`, borderRadius:6, padding:'3px 8px', background: evt.participants_ids?.[0] ? '#fff' : '#fffbeb', maxWidth:200 }}
+                                  value={evt.participants_ids?.[0] || ''}
+                                  onChange={e => {
+                                    const af = afTousListe.find(a => a.id === e.target.value)
+                                    const nomBrut = evt._relaisNomBrut
+                                    // Synchroniser tous les événements avec le même nom de relais détecté
+                                    setEvtsImportes(prev => prev.map((ev,j) => {
+                                      if (j === i || (nomBrut && ev._relaisNomBrut === nomBrut)) {
+                                        return {
+                                          ...ev,
+                                          participants_ids: e.target.value ? [e.target.value] : [],
+                                          _relaisLabel: af ? `${af.prenom} ${af.nom}` : ''
+                                        }
+                                      }
+                                      return ev
+                                    }))
+                                  }}>
+                                  <option value=''>— Choisir l'AF relais —</option>
+                                  {afTousListe.map(af => (
+                                    <option key={af.id} value={af.id}>{af.prenom} {af.nom}</option>
+                                  ))}
+                                </select>
+                                {!evt.participants_ids?.[0] && evt._relaisNomBrut && (
+                                  <span style={{ fontSize:10, color:'#d97706', fontStyle:'italic' }}>
+                                    (détecté : {evt._relaisNomBrut})
+                                  </span>
+                                )}
+                                {!evt.participants_ids?.[0] && (
+                                  <button
+                                    style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #0891b2', background:'#e0f2fe', color:'#0369a1', cursor:'pointer', fontWeight:600 }}
+                                    onClick={() => navigate('/assfam/nouveau')}>
+                                    📁 Nouveau dossier AF
+                                  </button>
+                                )}
+                              </div>
                             )}
-                            {evt._afLabel && (
-                              <span style={{ fontSize:10, padding:'2px 8px', borderRadius:10, background:'#eef1f8', color:'#1a4b8f', fontWeight:600, border:'1px solid #c4d4f5' }}>
-                                👤 {evt._afLabel}
-                              </span>
-                            )}
-                            {evt._relaisLabel && (
-                              <span style={{ fontSize:10, padding:'2px 8px', borderRadius:10, background:'#e0f2fe', color:'#0891b2', fontWeight:600, border:'1px solid #bae6fd' }}>
-                                🔄 Relais : {evt._relaisLabel}
-                              </span>
-                            )}
+
                           </div>
                         </div>
                       </div>
@@ -2914,7 +3062,11 @@ export default function Agenda({ profile }) {
                     <div style={{ width:20, height:20, borderRadius:'50%', background: couleursEnfants[en.id] || '#1a4b8f', flexShrink:0 }}></div>
                     <span style={{ fontSize:12, flex:1 }}>{en.prenom} {en.nom}</span>
                     <input type="color" value={couleursEnfants[en.id] || '#1a4b8f'}
-                      onChange={e => setCouleursEnfants(prev => ({ ...prev, [en.id]: e.target.value }))}
+                      onChange={async e => {
+                        const nouvCouleurs = { ...couleursEnfants, [en.id]: e.target.value }
+                        setCouleursEnfants(nouvCouleurs)
+                        await supabase.from('profiles').update({ couleurs_agenda: nouvCouleurs }).eq('id', profile.id)
+                      }}
                       style={{ width:36, height:30, border:'1px solid #dde3f0', borderRadius:5, cursor:'pointer', padding:2 }} />
                   </div>
                 ))}
