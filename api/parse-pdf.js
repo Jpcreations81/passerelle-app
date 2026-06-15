@@ -1,4 +1,4 @@
-// parse-pdf.js — v2026-06-09a — fix détection enfant vs AF relais dans courrier relais
+// parse-pdf.js — v2026-06-16a — détection enfant renforcée : "concernant NOM", "sera accueilli(e)"
 // api/parse-pdf.js
 // Vercel Serverless Function — lit un PDF et extrait les événements via Claude API
 // Variables d'environnement requises dans Vercel :
@@ -28,10 +28,14 @@ Analyse ce document PDF et extrait TOUS les événements (rendez-vous, visites, 
 
 RÈGLE sur les enfants :
 - L'enfant est TOUJOURS le mineur confié à l'ASE, JAMAIS l'assistante familiale.
+- Dans un courrier dont l'objet contient un nom propre : "Calendrier relais concernant Madyson NAVARRO" → l'enfant est "Madyson NAVARRO".
 - Dans un courrier dont l'objet est "Calendrier d'accueils relais Léna BOYOT" → l'enfant est "Léna BOYOT".
+- Toute formulation "concernant [Prénom NOM]", "relatif à [Prénom NOM]", "pour [Prénom NOM]" dans l'objet → c'est l'enfant.
+- Si le document dit "[Prénom] sera accueilli(e)" ou "[Prénom] sera hébergé(e)" → c'est l'enfant.
 - Si le document dit "votre fille/fils [Prénom]" ou "l'enfant [Prénom NOM]" → c'est l'enfant.
 - "Madame LAURENT, assistante familiale" ou "Madame ABOUDAOUD, assistante familiale" → c'est l'AF relais, PAS l'enfant. Ne jamais mettre le nom de l'AF dans enfants_noms.
-- Le nom dans l'objet du courrier ("Objet: Calendrier d'accueils relais [Prénom NOM]") = toujours l'enfant.
+- "assistant familial", "assistante familiale", "famille d'accueil", "famille relais" = toujours un AF adulte, JAMAIS l'enfant.
+- Le nom dans l'objet du courrier = toujours l'enfant (sauf si explicitement qualifié d'AF).
 - Liste tous les enfants concernés dans enfants_noms.
 - Si l'événement ne concerne qu'un enfant : enfants_noms: ["Léna BOYOT"]
 - Si plusieurs enfants : enfants_noms: ["Lou Pereira", "Ava Pereira"]
