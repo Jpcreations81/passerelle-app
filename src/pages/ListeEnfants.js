@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-06-15b — création automatique événement + badge TEMP + pré-remplissage depuis PDF
+// ListeEnfants.js — v2026-06-15c — modal 2 étapes : choix AF existant/temporaire puis fiche enfant
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -10,6 +10,11 @@ export default function ListeEnfants({ profile }) {
   const location = useLocation()
 
   const [evenementEnAttente, setEvenementEnAttente] = useState(null)
+  const [etapeModal, setEtapeModal] = useState(1) // 1=choix AF, 2=fiche enfant
+  const [afChoix, setAfChoix] = useState('existant') // 'existant' ou 'temporaire'
+  const [afTemp, setAfTemp] = useState({ prenom:'', nom:'', ville:'' })
+  const [afTempId, setAfTempId] = useState(null) // UUID de l'AF temporaire créé
+  const [afListe, setAfListe] = useState([]) // liste des AF existants
   const [enfants, setEnfants] = useState([])
 
   // Ouvrir automatiquement le modal si ?nouveau=1 dans l'URL
@@ -25,6 +30,13 @@ export default function ListeEnfants({ profile }) {
         const nom = parts.slice(1).join(' ') || ''
         setNewEnfant(n => ({ ...n, prenom, nom: nom.toUpperCase(), statut_profil: 'temporaire' }))
       }
+      // Charger la liste des AF existants
+      supabase.from('profiles').select('id, prenom, nom, ville').eq('role', 'af').order('nom')
+        .then(({ data }) => setAfListe(data || []))
+      setEtapeModal(1)
+      setAfChoix('existant')
+      setAfTemp({ prenom:'', nom:'', ville:'' })
+      setAfTempId(null)
       setShowModal(true)
       navigate('/enfants', { replace: true, state: {} })
     }
@@ -160,6 +172,23 @@ export default function ListeEnfants({ profile }) {
   async function createEnfant() {
     if (!newEnfant.prenom || !newEnfant.nom) { showToast('⚠️ Prénom et nom requis'); return }
     setSaving(true)
+
+    // Étape 0 : créer l'AF temporaire si nécessaire
+    let afPrincipalId = newEnfant.af_principal_id || null
+    if (evenementEnAttente && afChoix === 'temporaire') {
+      if (!afTemp.prenom || !afTemp.nom) { showToast('⚠️ Prénom et nom de l'AF requis'); setSaving(false); return }
+      const { data: newAf, error: errAf } = await supabase.from('profiles').insert({
+        prenom: afTemp.prenom.trim(),
+        nom: afTemp.nom.trim().toUpperCase(),
+        ville: afTemp.ville.trim() || null,
+        role: 'af',
+        statut_profil: 'temporaire'
+      }).select().single()
+      if (errAf) { showToast('❌ Erreur AF : ' + errAf.message); setSaving(false); return }
+      afPrincipalId = newAf.id
+      setAfTempId(newAf.id)
+    }
+
     const { data, error } = await supabase.from('enfants').insert({
       prenom: newEnfant.prenom,
       nom: newEnfant.nom,
@@ -168,10 +197,11 @@ export default function ListeEnfants({ profile }) {
       numero_dossier: newEnfant.numero_dossier || null,
       type_placement: newEnfant.type_placement || 'judiciaire',
       lieu_accueil: newEnfant.lieu_accueil || 'af_principal',
-      af_principal_id: newEnfant.lieu_accueil === 'af_principal' ? (newEnfant.af_principal_id || null) : null,
+      af_principal_id: afPrincipalId,
       fratrie: newEnfant.fratrie?.length > 0 ? newEnfant.fratrie : null,
       referent_id: newEnfant.referent_id || null,
       territoire: profile.territoire,
+      statut_profil: evenementEnAttente ? 'temporaire' : null,
     }).select().single()
 
     if (!error && data) {
@@ -329,10 +359,81 @@ export default function ListeEnfants({ profile }) {
           <div className="modal-overlay" onClick={() => setShowModal(false)}>
             <div className="modal-box" style={{ maxWidth:560 }} onClick={e => e.stopPropagation()}>
               <div className="modal-title">
-                👶 Nouveau dossier enfant
+                {evenementEnAttente && etapeModal === 1 ? '👨‍👧 AF principal de l'enfant' : '👶 Nouveau dossier enfant'}
                 {evenementEnAttente && <span style={{ fontSize:11, background:'#fef3c7', color:'#b45309', borderRadius:6, padding:'2px 8px', marginLeft:10, fontWeight:600 }}>⏳ Profil temporaire</span>}
               </div>
-              <div style={{ fontSize:11, fontWeight:700, color:'#1a4b8f', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>Identité</div>
+
+              {/* ÉTAPE 1 — Choix AF principal (uniquement si import PDF) */}
+              {evenementEnAttente && etapeModal === 1 && (
+                <div>
+                  <p style={{ fontSize:13, color:'#5a6478', marginBottom:16 }}>
+                    L'AF principal de cet enfant est-il déjà inscrit sur Passerelle ?
+                  </p>
+                  <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+                    <button
+                      style={{ flex:1, padding:'10px', borderRadius:8, border:`2px solid ${afChoix==='existant' ? '#1a4b8f' : '#dde3f0'}`, background: afChoix==='existant' ? '#e8eef8' : '#fff', color: afChoix==='existant' ? '#1a4b8f' : '#5a6478', fontWeight:700, cursor:'pointer', fontSize:13 }}
+                      onClick={() => setAfChoix('existant')}>
+                      ✅ Oui — je le sélectionne
+                    </button>
+                    <button
+                      style={{ flex:1, padding:'10px', borderRadius:8, border:`2px solid ${afChoix==='temporaire' ? '#f59e0b' : '#dde3f0'}`, background: afChoix==='temporaire' ? '#fef3c7' : '#fff', color: afChoix==='temporaire' ? '#b45309' : '#5a6478', fontWeight:700, cursor:'pointer', fontSize:13 }}
+                      onClick={() => setAfChoix('temporaire')}>
+                      ⏳ Non — créer un AF temporaire
+                    </button>
+                  </div>
+
+                  {afChoix === 'existant' && (
+                    <div className="form-group" style={{ marginBottom:16 }}>
+                      <label className="form-label">Sélectionner l'AF principal</label>
+                      <select className="form-control" value={newEnfant.af_principal_id}
+                        onChange={e => setNewEnfant(n => ({...n, af_principal_id: e.target.value}))}>
+                        <option value=''>— Choisir un AF —</option>
+                        {afListe.map(af => (
+                          <option key={af.id} value={af.id}>{af.nom} {af.prenom}{af.ville ? ` — ${af.ville}` : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {afChoix === 'temporaire' && (
+                    <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:14, marginBottom:16 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#b45309', marginBottom:10 }}>⏳ Créer un AF temporaire</div>
+                      <div className="form-grid-2">
+                        <div className="form-group">
+                          <label className="form-label">Prénom *</label>
+                          <input className="form-control" value={afTemp.prenom}
+                            onChange={e => setAfTemp(a => ({...a, prenom: e.target.value}))} autoFocus />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Nom *</label>
+                          <input className="form-control" value={afTemp.nom}
+                            onChange={e => setAfTemp(a => ({...a, nom: e.target.value.toUpperCase()}))} />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Ville</label>
+                          <input className="form-control" value={afTemp.ville}
+                            onChange={e => setAfTemp(a => ({...a, ville: e.target.value}))} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:8 }}>
+                    <button className="btn btn-secondary" onClick={() => { setShowModal(false); setEvenementEnAttente(null) }}>Annuler</button>
+                    <button className="btn btn-primary"
+                      disabled={afChoix === 'existant' && !newEnfant.af_principal_id}
+                      onClick={() => setEtapeModal(2)}>
+                      Continuer → Fiche enfant
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ÉTAPE 2 — Fiche enfant (ou formulaire normal sans import PDF) */}
+              {(!evenementEnAttente || etapeModal === 2) && (
+                <div>
+                  {evenementEnAttente && <div style={{ fontSize:11, color:'#888', marginBottom:12, cursor:'pointer' }} onClick={() => setEtapeModal(1)}>← Retour choix AF</div>}
+                  <div style={{ fontSize:11, fontWeight:700, color:'#1a4b8f', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>Identité</div>
               <div className="form-grid-2" style={{ marginBottom:16 }}>
                 <div className="form-group">
                   <label className="form-label">Prénom *</label>
@@ -434,12 +535,14 @@ export default function ListeEnfants({ profile }) {
                   ) : null
                 })()}
               </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Annuler</button>
-                <button className="btn btn-primary" onClick={createEnfant} disabled={saving}>
-                  {saving ? '⏳...' : '👶 Créer le dossier'}
-                </button>
-              </div>
+                <div className="modal-footer">
+                  <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Annuler</button>
+                  <button className="btn btn-primary" onClick={createEnfant} disabled={saving}>
+                    {saving ? '⏳...' : evenementEnAttente ? '✅ Créer dossier + événement' : '👶 Créer le dossier'}
+                  </button>
+                </div>
+                </div>
+              )}
             </div>
           </div>
         )}
