@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-09i — couleurs agenda persistées dans profiles.couleurs_agenda
+// Agenda.js — v2026-06-09c — recherche enfant + nouveau dossier remplace créer temporaire
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -171,11 +171,6 @@ export default function Agenda({ profile }) {
 
   useEffect(() => {
     if (!profile) return
-    // Charger les couleurs personnalisées en premier pour éviter le flash
-    supabase.from('profiles').select('couleurs_agenda').eq('id', profile.id).single()
-      .then(({ data }) => {
-        if (data?.couleurs_agenda) setCouleursEnfants(prev => ({ ...prev, ...data.couleurs_agenda }))
-      })
     Promise.all([
       fetchEvenements(),
       fetchPartages(),
@@ -214,7 +209,7 @@ export default function Agenda({ profile }) {
     const allEnfantIds = []
     data.forEach(e => { if (e.enfant_ids) e.enfant_ids.forEach(id => { if (!allEnfantIds.includes(id)) allEnfantIds.push(id) }) })
     if (allEnfantIds.length > 0) {
-      const { data: enf } = await supabase.from('enfants').select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)').in('id', allEnfantIds)
+      const { data: enf } = await supabase.from('enfants').select('id, nom, prenom').in('id', allEnfantIds)
       if (enf) {
         setEnfants(prev => {
           const merged = [...prev]
@@ -236,8 +231,6 @@ export default function Agenda({ profile }) {
         if (e.participants_ids) e.participants_ids.forEach(id => afIds.add(id))
       }
     })
-    // Ajouter aussi les AF principaux des enfants pour le titrePOV
-    if (enf) enf.forEach(e => { if (e.af_principal_id) afIds.add(e.af_principal_id) })
     if (afIds.size > 0) {
       const { data: profiles } = await supabase.from('profiles').select('id, nom, prenom').in('id', Array.from(afIds))
       if (profiles) {
@@ -443,17 +436,10 @@ export default function Agenda({ profile }) {
       enfantsRelais.forEach(e => { if (!tous.find(x => x.id === e.id)) tous.push(e) })
     }
 
-    // Merger avec les enfants déjà chargés par fetchEvenements (ex: enfants en relais hors périmètre AF)
-    setEnfants(prev => {
-      const merged = [...tous]
-      prev.forEach(e => { if (!merged.find(x => x.id === e.id)) merged.push(e) })
-      return merged
-    })
-    setCouleursEnfants(prev => {
-      const updated = { ...prev }
-      tous.forEach((en, i) => { if (!updated[en.id]) updated[en.id] = DEFCOLORS[i % DEFCOLORS.length] })
-      return updated
-    })
+    setEnfants(tous)
+    const couleurs = {}
+    tous.forEach((en, i) => { couleurs[en.id] = DEFCOLORS[i % DEFCOLORS.length] })
+    setCouleursEnfants(couleurs)
   }, [profile])
 
   // ── Accepter une demande ──────────────────────────────────────────────────
@@ -994,11 +980,10 @@ export default function Agenda({ profile }) {
           // Trouver les enfants correspondants — matching robuste
           const ids = []
           if (evt.enfants_noms && evt.enfants_noms.length > 0) {
-            for (const nom of evt.enfants_noms) {
+            evt.enfants_noms.forEach(nom => {
               const nomLower = nom.toLowerCase().trim()
-              const parts = nomLower.split(/\s+/)
-              // Chercher d'abord dans le state local (enfants de l'AF)
-              let enf = enfants.find(e => {
+              const parts = nomLower.split(/\s+/) // ["lou", "pereira"]
+              const enf = enfants.find(e => {
                 const prenomLower = e.prenom.toLowerCase().trim()
                 const nomFamilleLower = e.nom.toLowerCase().trim()
                 const fullLower = `${prenomLower} ${nomFamilleLower}`
@@ -1010,27 +995,8 @@ export default function Agenda({ profile }) {
                   nomLower.includes(prenomLower)
                 )
               })
-              // Si pas trouvé localement → chercher dans toute la base Supabase
-              if (!enf && parts.length > 0) {
-                const nomPart = parts.find(p => p.length >= 3) || parts[0]
-                const { data: found } = await supabase
-                  .from('enfants')
-                  .select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)')
-                  .or(`nom.ilike.%${nomPart}%,prenom.ilike.%${nomPart}%`)
-                  .limit(5)
-                if (found && found.length > 0) {
-                  // Affiner : trouver le meilleur candidat
-                  enf = found.find(e => {
-                    const p = e.prenom.toLowerCase().trim()
-                    const n = e.nom.toLowerCase().trim()
-                    return parts.some(part => p.includes(part) || n.includes(part))
-                  }) || found[0]
-                  // Ajouter au state local pour l'affichage dans le select
-                  setEnfants(prev => prev.find(x => x.id === enf.id) ? prev : [...prev, enf])
-                }
-              }
               if (enf && !ids.includes(enf.id)) ids.push(enf.id)
-            }
+            })
           }
 
           // Stocker les candidats enfants pour l'UI
@@ -1040,23 +1006,17 @@ export default function Agenda({ profile }) {
           if (ids.length > 0) {
             ids.forEach(enfantId => {
               const enf = enfants.find(e => e.id === enfantId)
-              // af_id = AF principal de l'enfant (si connu), sinon soi-même
-              // Si AF relais importe un relais pour un enfant pas le sien → af_id = AF principal, elle-même dans participants_ids
+              // Si référent/ASE : af_id = AF principal de l'enfant
+              // Si AF : af_id = profile.id (soi-même)
               const isASE = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
-              const afPrincipalId = enf?.af_principal_id || (typeof enf?.af_principal === 'object' ? enf?.af_principal?.id : null)
-              const afId = afPrincipalId ? afPrincipalId : profile.id
-              const isAfRelais = !isASE && afPrincipalId && afPrincipalId !== profile.id
-              const afLabel = afPrincipalId && enf?.af_principal
+              const afId = isASE && enf?.af_principal_id ? enf.af_principal_id : profile.id
+              const afLabel = isASE && enf?.af_principal
                 ? `${enf.af_principal.prenom} ${enf.af_principal.nom}`
                 : null
-              // Si AF relais : elle-même dans participants_ids (en plus des relais détectés)
-              const participantsIdsFinaux = isAfRelais
-                ? [...new Set([...participantsIds, profile.id])]
-                : participantsIds
               evtsExpanded.push({
                 ...evt,
                 enfant_ids: [enfantId],
-                participants_ids: participantsIdsFinaux,
+                participants_ids: participantsIds,
                 _af_id: afId,
                 notes,
                 vm_presents: evt.vm_presents || [],
@@ -1686,12 +1646,6 @@ export default function Agenda({ profile }) {
               </button>
             )}
             <button className="btn btn-secondary" onClick={() => setShowPartageModal(true)}>🔗 Partage</button>
-            {profile?.role === 'af' && (
-              <button className="btn" style={{ background:'#fef9ec', color:'#b45309', border:'1px solid #fcd34d', fontFamily:'Sora,sans-serif', fontSize:11, padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:600 }}
-                onClick={() => setShowPartageModal(true)}>
-                🎨 Couleurs
-              </button>
-            )}
             <button className="btn" style={{ background:'#f0f9ff', color:'#0891b2', border:'1px solid #bae6fd', fontFamily:'Sora,sans-serif', fontSize:11, padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:600 }}
               onClick={() => setShowModifModal(true)}>
               📝 Modifier calendrier
@@ -2642,11 +2596,11 @@ export default function Agenda({ profile }) {
                             </div>
                           )}
                           {/* Enfant + AF associé */}
-                          <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:6 }}>
+                          <div style={{ marginTop:6, display:'flex', flexDirection:'column', gap:5 }}>
 
                             {/* SELECT ENFANT */}
-                            <div style={{ background:'#f0faf4', border:'1px solid #b6e2c7', borderRadius:8, padding:'6px 10px', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                              <span style={{ fontSize:10, color:'#2e8b4a', fontWeight:700, minWidth:60 }}>👶 Enfant :</span>
+                            <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                              <span style={{ fontSize:10, color:'#5a6478', fontWeight:600, minWidth:50 }}>👶 Enfant :</span>
                               <select
                                 style={{ fontSize:11, border:'1px solid #dde3f0', borderRadius:6, padding:'3px 8px', background:'#fff', maxWidth:200 }}
                                 value={evt.enfant_ids?.[0] || ''}
@@ -3062,11 +3016,7 @@ export default function Agenda({ profile }) {
                     <div style={{ width:20, height:20, borderRadius:'50%', background: couleursEnfants[en.id] || '#1a4b8f', flexShrink:0 }}></div>
                     <span style={{ fontSize:12, flex:1 }}>{en.prenom} {en.nom}</span>
                     <input type="color" value={couleursEnfants[en.id] || '#1a4b8f'}
-                      onChange={async e => {
-                        const nouvCouleurs = { ...couleursEnfants, [en.id]: e.target.value }
-                        setCouleursEnfants(nouvCouleurs)
-                        await supabase.from('profiles').update({ couleurs_agenda: nouvCouleurs }).eq('id', profile.id)
-                      }}
+                      onChange={e => setCouleursEnfants(prev => ({ ...prev, [en.id]: e.target.value }))}
                       style={{ width:36, height:30, border:'1px solid #dde3f0', borderRadius:5, cursor:'pointer', padding:2 }} />
                   </div>
                 ))}
@@ -3366,4 +3316,3 @@ export default function Agenda({ profile }) {
     </div>
   )
 }
-      
