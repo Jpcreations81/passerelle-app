@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-15b — nouveau dossier enfant ouvre formulaire direct via ?nouveau=1
+// Agenda.js — v2026-06-15c — passage événement en attente via navigate state pour création enfant
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -84,7 +84,7 @@ function RechercheEnfantImport({ evtIndex, nomDetecte, onSelect, navigate }) {
         </button>
         <button
           style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:600 }}
-          onClick={() => navigate('/enfants?nouveau=1')}>
+          onClick={() => navigate('/enfants?nouveau=1', { state: { evenementEnAttente: { ...evt, _nomDetecte: nomDetecte } } })}>
           📁 Nouveau dossier
         </button>
       </div>
