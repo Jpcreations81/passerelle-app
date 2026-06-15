@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-09i — couleurs agenda persistées dans profiles.couleurs_agenda
+// Agenda.js — v2026-06-15a — correction routes nouveau dossier enfant et AF
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -84,7 +84,7 @@ function RechercheEnfantImport({ evtIndex, nomDetecte, onSelect, navigate }) {
         </button>
         <button
           style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:600 }}
-          onClick={() => navigate('/enfants/nouveau')}>
+          onClick={() => navigate('/enfants')}>
           📁 Nouveau dossier
         </button>
       </div>
@@ -2714,7 +2714,7 @@ export default function Agenda({ profile }) {
                                 {!evt.participants_ids?.[0] && (
                                   <button
                                     style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #0891b2', background:'#e0f2fe', color:'#0369a1', cursor:'pointer', fontWeight:600 }}
-                                    onClick={() => navigate('/assfam/nouveau')}>
+                                    onClick={() => navigate('/assfam')}>
                                     📁 Nouveau dossier AF
                                   </button>
                                 )}
