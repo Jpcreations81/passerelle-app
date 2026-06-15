@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-15c — passage événement en attente via navigate state pour création enfant
+// Agenda.js — v2026-06-15d — useNavigate dans RechercheEnfantImport corrige bouton nouveau dossier
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -51,7 +51,8 @@ function fmtHeure(iso) {
 }
 
 // Composant recherche enfant dans la fenêtre d'import PDF
-function RechercheEnfantImport({ evtIndex, nomDetecte, onSelect, navigate }) {
+function RechercheEnfantImport({ evtIndex, nomDetecte, evt, onSelect }) {
+  const navigate = useNavigate()
   const [query, setQuery] = React.useState(nomDetecte || '')
   const [resultats, setResultats] = React.useState([])
   const [cherche, setCherche] = React.useState(false)
@@ -84,7 +85,7 @@ function RechercheEnfantImport({ evtIndex, nomDetecte, onSelect, navigate }) {
         </button>
         <button
           style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:600 }}
-          onClick={() => navigate('/enfants?nouveau=1', { state: { evenementEnAttente: { ...evt, _nomDetecte: nomDetecte } } })}>
+          onClick={() => navigate('/enfants?nouveau=1', { state: { evenementEnAttente: { ...(evt || {}), _nomDetecte: nomDetecte } } })}>
           📁 Nouveau dossier
         </button>
       </div>
@@ -2667,6 +2668,7 @@ export default function Agenda({ profile }) {
                                 <RechercheEnfantImport
                                   evtIndex={i}
                                   nomDetecte={evt.titre?.replace(/^(Relais|VM|Visite)[\s—-]*/i,'') || ''}
+                                  evt={evt}
                                   onSelect={(enf) => {
                                     setEnfants(prev => prev.find(e => e.id === enf.id) ? prev : [...(prev||[]), enf])
                                     setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
@@ -2674,7 +2676,6 @@ export default function Agenda({ profile }) {
                                       _enfantLabel: `${enf.prenom} ${enf.nom}`
                                     } : ev))
                                   }}
-                                  navigate={navigate}
                                 />
                               )}
                             </div>
@@ -3366,3 +3367,4 @@ export default function Agenda({ profile }) {
     </div>
   )
 }
+    
