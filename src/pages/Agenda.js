@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-16a — création enfant/AF temporaire inline sans quitter la fenêtre import
+// Agenda.js — v2026-06-16b — matching enfant strict dans toute la base, pas dans state AF
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1090,35 +1090,28 @@ export default function Agenda({ profile }) {
               const nomLower = nom.toLowerCase().trim()
               const parts = nomLower.split(/\s+/)
               // Chercher d'abord dans le state local (enfants de l'AF)
-              let enf = enfants.find(e => {
-                const prenomLower = e.prenom.toLowerCase().trim()
-                const nomFamilleLower = e.nom.toLowerCase().trim()
-                const fullLower = `${prenomLower} ${nomFamilleLower}`
-                const fullInverse = `${nomFamilleLower} ${prenomLower}`
-                return (
-                  fullLower === nomLower ||
-                  fullInverse === nomLower ||
-                  parts.includes(prenomLower) ||
-                  nomLower.includes(prenomLower)
-                )
-              })
-              // Si pas trouvé localement → chercher dans toute la base Supabase
-              if (!enf && parts.length > 0) {
-                const nomPart = parts.find(p => p.length >= 3) || parts[0]
-                const { data: found } = await supabase
-                  .from('enfants')
-                  .select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)')
-                  .or(`nom.ilike.%${nomPart}%,prenom.ilike.%${nomPart}%`)
-                  .limit(5)
-                if (found && found.length > 0) {
-                  // Affiner : trouver le meilleur candidat
-                  enf = found.find(e => {
-                    const p = e.prenom.toLowerCase().trim()
-                    const n = e.nom.toLowerCase().trim()
-                    return parts.some(part => p.includes(part) || n.includes(part))
-                  }) || found[0]
-                  // Ajouter au state local pour l'affichage dans le select
-                  setEnfants(prev => prev.find(x => x.id === enf.id) ? prev : [...prev, enf])
+              // Chercher UNIQUEMENT dans toute la base Supabase (pas dans le state local AF)
+              // Le matching doit être strict : le nom de famille doit correspondre
+              let enf = null
+              if (parts.length > 0) {
+                // Prendre la partie la plus longue (nom de famille probable)
+                const nomPart = parts.reduce((a, b) => a.length >= b.length ? a : b)
+                if (nomPart.length >= 3) {
+                  const { data: found } = await supabase
+                    .from('enfants')
+                    .select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)')
+                    .or(`nom.ilike.%${nomPart}%,prenom.ilike.%${nomPart}%`)
+                    .limit(5)
+                  if (found && found.length > 0) {
+                    // Matching strict : les deux parties (prénom ET nom) doivent matcher
+                    enf = found.find(e => {
+                      const p = e.prenom.toLowerCase().trim()
+                      const n = e.nom.toLowerCase().trim()
+                      return parts.some(part => n.includes(part)) && parts.some(part => p.includes(part))
+                    })
+                    // Si match trouvé, ajouter au state local
+                    if (enf) setEnfants(prev => prev.find(x => x.id === enf.id) ? prev : [...prev, enf])
+                  }
                 }
               }
               if (enf && !ids.includes(enf.id)) ids.push(enf.id)
