@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-16c — ambiguïté relais : pas de pré-sélection si plusieurs candidats
+// Agenda.js — v2026-06-16d — séparation modal Partage et modal Couleurs
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -215,6 +215,7 @@ export default function Agenda({ profile }) {
   const [toast, setToast] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [showPartageModal, setShowPartageModal] = useState(false)
+  const [showCouleursModal, setShowCouleursModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showValidationModal, setShowValidationModal] = useState(false)
   const [selectedEvt, setSelectedEvt] = useState(null)
@@ -1773,7 +1774,7 @@ export default function Agenda({ profile }) {
             <button className="btn btn-secondary" onClick={() => setShowPartageModal(true)}>🔗 Partage</button>
             {profile?.role === 'af' && (
               <button className="btn" style={{ background:'#fef9ec', color:'#b45309', border:'1px solid #fcd34d', fontFamily:'Sora,sans-serif', fontSize:11, padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:600 }}
-                onClick={() => setShowPartageModal(true)}>
+                onClick={() => setShowCouleursModal(true)}>
                 🎨 Couleurs
               </button>
             )}
@@ -3146,9 +3147,19 @@ export default function Agenda({ profile }) {
               ))}
               {collegues.length === 0 && <div style={{ fontSize:12, color:'#9aa3b8', textAlign:'center', padding:12 }}>Aucun collègue dans votre territoire</div>}
             </div>
-            {enfants.length > 0 && (
-              <div style={{ marginTop:14, borderTop:'1px solid #dde3f0', paddingTop:12 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', marginBottom:8 }}>🎨 Couleurs des enfants dans l'agenda</div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowPartageModal(false)}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCouleursModal && (
+        <div className="modal-overlay" onClick={() => setShowCouleursModal(false)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-title">🎨 Couleurs des enfants dans l'agenda</div>
+            {enfants.length > 0 ? (
+              <div>
                 {enfants.map(en => (
                   <div key={en.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', background:'#eef1f8', borderRadius:8, marginBottom:5 }}>
                     <div style={{ width:20, height:20, borderRadius:'50%', background: couleursEnfants[en.id] || '#1a4b8f', flexShrink:0 }}></div>
@@ -3163,9 +3174,11 @@ export default function Agenda({ profile }) {
                   </div>
                 ))}
               </div>
+            ) : (
+              <div style={{ fontSize:12, color:'#9aa3b8', textAlign:'center', padding:12 }}>Aucun enfant dans l'agenda</div>
             )}
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowPartageModal(false)}>Fermer</button>
+              <button className="btn btn-secondary" onClick={() => setShowCouleursModal(false)}>Fermer</button>
             </div>
           </div>
         </div>
