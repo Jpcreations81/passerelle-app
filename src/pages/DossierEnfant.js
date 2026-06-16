@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-16b — AF relais voit identité (lecture), AF principal peut éditer
+// DossierEnfant.js — v2026-06-16c — onglets Vie quotidienne/Journal visibles pour enfants temporaires sans type_placement
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -142,7 +142,7 @@ export default function DossierEnfant({ profile }) {
   const [newProf, setNewProf] = useState({ nom:'', specialite:'', adresse:'', telephone:'', email:'', notes:'' })
   const [editProfIdx, setEditProfIdx] = useState(null)
 
-  const nonPlace = enfant?.type_placement === 'non_place' || !enfant?.type_placement
+  const nonPlace = enfant?.statut_profil !== 'temporaire' && (enfant?.type_placement === 'non_place' || !enfant?.type_placement)
   const isReferent = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
   const isAF = profile?.role === 'af'
   const isAfPrincipalEnfant = isAF && enfant?.af_principal_id === profile?.id
