@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-16d — séparation modal Partage et modal Couleurs
+// Agenda.js — v2026-06-16e — recherche AF pour partage + limite 1 demande/1 partage actif
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -223,6 +223,8 @@ export default function Agenda({ profile }) {
   const [editEvt, setEditEvt] = useState({})
   const [selectedDate, setSelectedDate] = useState(null)
   const [collegues, setCollegues] = useState([])
+  const [rechercheAfPartage, setRechercheAfPartage] = useState('')
+  const [resultatsAfPartage, setResultatsAfPartage] = useState([])
   const [afProfiles, setAfProfiles] = useState({})
   const [enfants, setEnfants] = useState([])
   const [couleursEnfants, setCouleursEnfants] = useState({})
@@ -1555,6 +1557,12 @@ export default function Agenda({ profile }) {
   }
 
   async function demanderPartage(destinataireId) {
+    // Limite : 1 seule demande envoyée à la fois (en attente)
+    const demandeEnCours = partages.some(p => p.demandeur_id === profile.id && p.statut === 'en_attente')
+    if (demandeEnCours) { showToast('⚠️ Vous avez déjà une demande en attente'); return }
+    // Limite : 1 seul partage actif à la fois
+    const partageActif = partages.some(p => p.statut === 'accepte' && (p.demandeur_id === profile.id || p.destinataire_id === profile.id))
+    if (partageActif) { showToast('⚠️ Vous avez déjà un partage actif. Retirez-le avant d\'en demander un autre.'); return }
     const { error } = await supabase.from('agenda_partages').insert({
       demandeur_id: profile.id, destinataire_id: destinataireId, statut: 'en_attente'
     })
@@ -1564,6 +1572,18 @@ export default function Agenda({ profile }) {
   async function accepterPartage(id) {
     await supabase.from('agenda_partages').update({ statut: 'accepte' }).eq('id', id)
     showToast('✅ Partage accepté !'); fetchPartages()
+  }
+
+  async function rechercherAfPourPartage() {
+    if (!rechercheAfPartage.trim()) { setResultatsAfPartage([]); return }
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, nom, prenom, role, matricule, territoire')
+      .eq('role', 'af')
+      .neq('id', profile.id)
+      .or(`nom.ilike.%${rechercheAfPartage.trim()}%,prenom.ilike.%${rechercheAfPartage.trim()}%`)
+      .limit(8)
+    setResultatsAfPartage(data || [])
   }
 
   function prev() {
@@ -3128,25 +3148,42 @@ export default function Agenda({ profile }) {
                 })}
               </div>
             )}
-            <div>
-              <div style={{ fontSize:11, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', marginBottom:8 }}>Partager avec...</div>
-              {collegues.filter(c => !partages.some(p =>
-                (p.demandeur_id === profile?.id && p.destinataire_id === c.id) ||
-                (p.destinataire_id === profile?.id && p.demandeur_id === c.id)
-              )).map(c => (
-                <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 13px', background:'#eef1f8', borderRadius:9, marginBottom:6, border:'1px solid #dde3f0' }}>
-                  <div style={{ width:32, height:32, borderRadius:'50%', background:'#1a4b8f', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0 }}>
-                    {c.prenom?.[0]}{c.nom?.[0]}
+            {(() => {
+              const demandeEnCours = partages.some(p => p.demandeur_id === profile?.id && p.statut === 'en_attente')
+              const partageActif = partages.some(p => p.statut === 'accepte' && (p.demandeur_id === profile?.id || p.destinataire_id === profile?.id))
+              if (demandeEnCours || partageActif) return null
+              return (
+                <div>
+                  <div style={{ fontSize:11, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', marginBottom:8 }}>🔍 Rechercher un AF</div>
+                  <div style={{ display:'flex', gap:6, marginBottom:8 }}>
+                    <input
+                      className="form-control"
+                      style={{ flex:1, fontSize:13 }}
+                      placeholder="Nom ou prénom..."
+                      value={rechercheAfPartage}
+                      onChange={e => setRechercheAfPartage(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && rechercherAfPourPartage()}
+                    />
+                    <button className="btn btn-secondary" onClick={rechercherAfPourPartage}>🔍</button>
                   </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontSize:12, fontWeight:600 }}>{c.prenom} {c.nom}</div>
-                    <div style={{ fontSize:10, color:'#9aa3b8' }}>{c.role}{c.matricule ? ` · N° ${c.matricule}` : ''}</div>
-                  </div>
-                  <button className="btn btn-primary" style={{ padding:'5px 10px', fontSize:11 }} onClick={() => demanderPartage(c.id)}>📤 Demander</button>
+                  {resultatsAfPartage.map(c => (
+                    <div key={c.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 13px', background:'#eef1f8', borderRadius:9, marginBottom:6, border:'1px solid #dde3f0' }}>
+                      <div style={{ width:32, height:32, borderRadius:'50%', background:'#1a4b8f', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, flexShrink:0 }}>
+                        {c.prenom?.[0]}{c.nom?.[0]}
+                      </div>
+                      <div style={{ flex:1 }}>
+                        <div style={{ fontSize:12, fontWeight:600 }}>{c.prenom} {c.nom}</div>
+                        <div style={{ fontSize:10, color:'#9aa3b8' }}>{c.territoire || c.role}{c.matricule ? ` · N° ${c.matricule}` : ''}</div>
+                      </div>
+                      <button className="btn btn-primary" style={{ padding:'5px 10px', fontSize:11 }} onClick={() => { demanderPartage(c.id); setResultatsAfPartage([]); setRechercheAfPartage('') }}>📤 Demander</button>
+                    </div>
+                  ))}
+                  {resultatsAfPartage.length === 0 && rechercheAfPartage.length > 1 && (
+                    <div style={{ fontSize:12, color:'#9aa3b8', textAlign:'center', padding:8 }}>Aucun AF trouvé</div>
+                  )}
                 </div>
-              ))}
-              {collegues.length === 0 && <div style={{ fontSize:12, color:'#9aa3b8', textAlign:'center', padding:12 }}>Aucun collègue dans votre territoire</div>}
-            </div>
+              )
+            })()}
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowPartageModal(false)}>Fermer</button>
             </div>
