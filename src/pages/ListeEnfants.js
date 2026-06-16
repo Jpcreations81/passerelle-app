@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-06-15d — correction apostrophes syntaxe
+// ListeEnfants.js — v2026-06-15e — ajout statut_profil dans les 3 selects enfants (badge TEMP fonctionnel)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -63,14 +63,14 @@ export default function ListeEnfants({ profile }) {
   const fetchEnfants = useCallback(async () => {
     if (!profile) return
     let q = supabase.from('enfants').select(`
-      id, prenom, nom, date_naissance, sexe, numero_dossier, type_placement, date_placement,
+      id, prenom, nom, date_naissance, sexe, numero_dossier, type_placement, date_placement, statut_profil,
       af_principal:af_principal_id(nom, prenom),
       referent:referent_id(nom, prenom)
     `)
     if (profile.role === 'af') {
       // 1. Charger les enfants principaux
       const { data: enfantsPrincipaux } = await supabase.from('enfants').select(`
-        id, prenom, nom, date_naissance, sexe, numero_dossier, type_placement, date_placement,
+        id, prenom, nom, date_naissance, sexe, numero_dossier, type_placement, date_placement, statut_profil,
         af_principal:af_principal_id(nom, prenom),
         referent:referent_id(nom, prenom)
       `).eq('af_principal_id', profile.id).neq('type_placement', 'non_place')
@@ -105,7 +105,7 @@ export default function ListeEnfants({ profile }) {
         const idsACharger = enfantIdsRelais.filter(id => !idsPrincipaux.includes(id))
         if (idsACharger.length > 0) {
           const { data } = await supabase.from('enfants').select(`
-            id, prenom, nom, date_naissance, sexe, numero_dossier, type_placement, date_placement,
+            id, prenom, nom, date_naissance, sexe, numero_dossier, type_placement, date_placement, statut_profil,
             af_principal:af_principal_id(nom, prenom),
             referent:referent_id(nom, prenom)
           `).in('id', idsACharger)
