@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-16b — matching enfant strict dans toute la base, pas dans state AF
+// Agenda.js — v2026-06-16c — ambiguïté relais : pas de pré-sélection si plusieurs candidats
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1045,9 +1045,9 @@ export default function Agenda({ profile }) {
               participantsIds = [relaisProfile.id]
               relaisLabel = `${relaisProfile.prenom} ${relaisProfile.nom}`
             } else if (candidatsRelais.length > 1) {
-              // Ambiguïté : plusieurs AF avec ce nom → pré-sélectionner le premier, l'utilisateur peut changer
-              participantsIds = [candidatsRelais[0].id]
-              relaisLabel = `${candidatsRelais[0].prenom} ${candidatsRelais[0].nom}`
+              // Ambiguïté : plusieurs AF avec ce nom → NE PAS pré-sélectionner, laisser l'utilisateur choisir
+              participantsIds = []
+              relaisLabel = null
             } else {
               // Non trouvé en mémoire → recherche Supabase sur tous les territoires
               // Cherche dans Supabase par nom (tous territoires)
