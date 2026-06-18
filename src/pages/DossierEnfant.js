@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-16c — onglets Vie quotidienne/Journal visibles pour enfants temporaires sans type_placement
+// DossierEnfant.js — v2026-06-17a — onglet Placement visible pour profils temporaires
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -880,7 +880,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
   const ONGLETS = [
     { id:'identite',  icon:'🪪',  label:'Identité',         hidden: nonPlace },
     { id:'famille',   icon:'👨‍👩‍👧', label:'Famille',          hidden: nonPlace || isAfRelaisActif },
-    { id:'placement', icon:'🏠',  label:'Placement',         hidden: nonPlace || isAfRelaisActif },
+    { id:'placement', icon:'🏠',  label:'Placement',         hidden: (nonPlace && enfant?.statut_profil !== 'temporaire') || isAfRelaisActif },
     { id:'judiciaire',icon:'⚖️',  label:'Judiciaire',        restricted: isAF, hidden: nonPlace || isAfRelaisActif },
     { id:'quotidien', icon:'🌱',  label:'Vie quotidienne',   hidden: nonPlace },
     { id:'docs',      icon:'📂',  label:'Docs',              hidden: nonPlace || isAfRelaisActif },
