@@ -1,4 +1,4 @@
-// App.js — v2026-06-17b — bucket signatures corrigé (était documents)
+// App.js — v2026-06-17c — CGU mises à jour : JP Créations, sans mention ASE comme partenaire
 import React, { useState, useEffect, useRef } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
@@ -144,12 +144,13 @@ export default function App() {
           <div style={{ fontSize:22, fontWeight:800, color:'#1a4b8f', marginBottom:4 }}>📋 Conditions Générales d'Utilisation</div>
           <div style={{ fontSize:12, color:'#9aa3b8', marginBottom:20 }}>Passerelle — ASE Tarn (81)</div>
           <div style={{ background:'#f4f6fb', borderRadius:10, padding:16, maxHeight:280, overflowY:'auto', fontSize:12, color:'#3a4460', lineHeight:1.7, marginBottom:20 }}>
-            <p><strong>1. Objet</strong><br/>L'application Passerelle est un outil collaboratif destiné aux assistants familiaux (AF) et aux équipes de l'Aide Sociale à l'Enfance du Tarn. Elle permet la gestion des dossiers enfants, des agendas, des présences et des documents administratifs.</p>
-            <p><strong>2. Accès et confidentialité</strong><br/>L'accès à Passerelle est strictement personnel. Chaque utilisateur est responsable de la confidentialité de ses identifiants. Les données relatives aux enfants confiés sont soumises au secret professionnel et au RGPD.</p>
-            <p><strong>3. Données personnelles</strong><br/>Les données sont hébergées sur des serveurs européens (Supabase, eu-west-1 / Irlande), conformément au RGPD. Elles ne sont ni vendues ni transmises à des tiers. Vous disposez d'un droit d'accès, de rectification et de suppression.</p>
-            <p><strong>4. Utilisation</strong><br/>L'application est mise à disposition à titre professionnel. Toute utilisation abusive ou non conforme aux missions de l'ASE est interdite.</p>
-            <p><strong>5. Responsabilité</strong><br/>JP Créations 3D, développeur de l'application, ne saurait être tenu responsable des décisions administratives ou éducatives prises à partir des informations saisies dans l'application.</p>
-            <p><strong>6. Modifications</strong><br/>Ces CGU peuvent être mises à jour. Vous serez informé de toute modification substantielle lors de votre prochaine connexion.</p>
+            <p><strong>Éditeur de l'application</strong><br/>Passerelle est développée et éditée par JP Créations, entreprise individuelle (auto-entrepreneur), immatriculée au R.C.S. de Paris sous le numéro 505 232 504, dont le siège social est situé 60 rue François 1er, 75008 Paris. Contact : jpcreations3d@gmail.com</p>
+            <p><strong>1. Objet</strong><br/>L'application Passerelle est un outil de gestion administrative destiné aux assistants familiaux (AF). Elle permet la gestion des dossiers enfants confiés, des agendas, des fiches de présence et des documents professionnels. Elle est mise à disposition à titre professionnel, indépendamment de tout partenariat institutionnel.</p>
+            <p><strong>2. Accès et confidentialité</strong><br/>L'accès à Passerelle est strictement personnel et nominatif. Chaque utilisateur est seul responsable de la confidentialité de ses identifiants. Les données relatives aux enfants confiés sont soumises au secret professionnel. Toute divulgation est interdite.</p>
+            <p><strong>3. Données personnelles (RGPD)</strong><br/>Les données sont hébergées sur des serveurs européens (Supabase, région eu-west-1, Irlande), conformément au Règlement Général sur la Protection des Données (RGPD). Elles ne sont ni vendues ni transmises à des tiers. Vous disposez d'un droit d'accès, de rectification, de portabilité et de suppression, exerceable à l'adresse : jpcreations3d@gmail.com</p>
+            <p><strong>4. Utilisation</strong><br/>L'application est mise à disposition à titre professionnel exclusivement. Toute utilisation abusive, détournement de données ou accès non autorisé est strictement interdit et susceptible d'engager la responsabilité de l'utilisateur.</p>
+            <p><strong>5. Responsabilité</strong><br/>JP Créations, en tant qu'éditeur, ne saurait être tenu responsable des décisions professionnelles, administratives ou éducatives prises à partir des informations saisies dans l'application, ni des interruptions de service liées à des tiers (hébergeur, fournisseur d'accès).</p>
+            <p><strong>6. Modifications</strong><br/>Ces CGU peuvent être mises à jour à tout moment. Vous serez informé de toute modification substantielle lors de votre prochaine connexion et devrez les accepter à nouveau.</p>
           </div>
           <button
             style={{ width:'100%', padding:'13px', background:'#1a4b8f', color:'#fff', border:'none', borderRadius:10, fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'Sora,sans-serif' }}
