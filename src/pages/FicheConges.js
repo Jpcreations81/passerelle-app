@@ -1,5 +1,6 @@
-// FicheConges.js — v2026-05-25m — Formulaire demande congés AF + génération PDF + événement agenda
+// FicheConges.js — v2026-05-25n — signature AF + date du jour automatiques dans le PDF
 import React, { useState, useEffect } from 'react'
+import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { supabase } from '../lib/supabase'
 
@@ -52,6 +53,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   const [relais2ParEnfant, setRelais2ParEnfant] = useState({})
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+  const { getSignatureBytes, SignatureModal } = useSignature(profile)
 
   useEffect(() => {
     if (!profile?.id) return
@@ -119,6 +121,8 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   async function genererPDF(overrideDebut, overrideFin) {
     const dateDebut = overrideDebut || form.dateDebut
     const dateFin   = overrideFin   || form.dateFin
+    // Récupérer la signature (ouvre le canvas si mode=chaque_fois)
+    const sigBytes = await getSignatureBytes()
     const W = 841.89, H = 595.28
     const pdfDoc = await PDFDocument.create()
     const page   = pdfDoc.addPage([W, H])
@@ -241,7 +245,19 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     dt('inclus', M+278, yD, 9, font)
     dt('Date de la demande :', M+344, yD, 9, font)
     dt(fmtDate(form.dateDemandeAffichee), M+448, yD, 9.5, fontB)
+    // Date du jour automatique
+    const today = new Date()
+    const todayStr = today.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' })
+    dt(`Fait le : ${todayStr}`, W-M-160, yD+10, 9, font)
     dt('Signature :', W-M-160, yD, 9, font)
+    // Insérer l'image de signature si disponible
+    if (sigBytes) {
+      try {
+        const sigImg = await pdfDoc.embedPng(sigBytes)
+        const sigDims = sigImg.scale(0.3)
+        page.drawImage(sigImg, { x: W-M-155, y: yD-45, width: Math.min(sigDims.width, 150), height: Math.min(sigDims.height, 40) })
+      } catch(e) { /* signature non insérée si erreur */ }
+    }
     const yD2 = yD-14
     dt('Nombre total de jours demandes :', M, yD2, 9, font)
     dt(`${nbJours} jours`, M+184, yD2, 9.5, fontB)
@@ -466,6 +482,9 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   }
 
   return (
+    <>
+    {SignatureModal}
+
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.55)', zIndex:300, display:'flex', alignItems:'flex-start', justifyContent:'center', overflow:'auto', padding:'24px 0' }}>
       <div style={{ background:'#fff', borderRadius:14, width:640, maxWidth:'95vw', fontFamily:'Sora,sans-serif', boxShadow:'0 8px 40px rgba(0,0,0,.2)' }}>
 
@@ -569,5 +588,6 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
         </div>
       </div>
     </div>
+    </>
   )
 }
