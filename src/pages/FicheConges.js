@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-05-25n — signature AF + date du jour automatiques dans le PDF
+// FicheConges.js — v2026-05-25o — zone date/signature descendue d'une ligne
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -248,23 +248,23 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     // Date du jour automatique
     const today = new Date()
     const todayStr = today.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' })
-    dt(`Fait le : ${todayStr}`, W-M-160, yD+10, 9, font)
-    dt('Signature :', W-M-160, yD, 9, font)
+    dt(`Fait le : ${todayStr}`, W-M-160, yD-4, 9, font)
+    dt('Signature :', W-M-160, yD-18, 9, font)
     // Insérer l'image de signature si disponible
     if (sigBytes) {
       try {
         const sigImg = await pdfDoc.embedPng(sigBytes)
         const sigDims = sigImg.scale(0.3)
-        page.drawImage(sigImg, { x: W-M-155, y: yD-45, width: Math.min(sigDims.width, 150), height: Math.min(sigDims.height, 40) })
+        page.drawImage(sigImg, { x: W-M-155, y: yD-59, width: Math.min(sigDims.width, 150), height: Math.min(sigDims.height, 40) })
       } catch(e) { /* signature non insérée si erreur */ }
     }
     const yD2 = yD-14
     dt('Nombre total de jours demandes :', M, yD2, 9, font)
     dt(`${nbJours} jours`, M+184, yD2, 9.5, fontB)
-    ln(M, yD2-6, W-M, yD2-6, BLACK, 0.5)
+    ln(M, yD2-62, W-M, yD2-62, BLACK, 0.5)
 
     // ── BANDEAU DECISION ──────────────────────────────────────────
-    const yDecB = yD2-6
+    const yDecB = yD2-62
     box(M, yDecB-12, TW, 12, GRIS, BLACK, 0.6)
     ctr('DECISION', M, TW, yDecB-9, 9, fontB)
 
