@@ -1,4 +1,4 @@
-// App.js — v2026-06-17d — retrait "ASE Tarn (81)" du sous-titre CGU
+// App.js — v2026-06-17e — correction sauvegarde signature : lecture directe canvas + vérif canvas non vide
 import React, { useState, useEffect, useRef } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
@@ -105,11 +105,17 @@ export default function App() {
     setSignatureDataUrl(dataUrl)
   }
   async function sauvegarderSignatureDessinee() {
-    if (!signatureDataUrl) return
-    // Convertir dataUrl en blob et uploader dans Supabase Storage
-    const res = await fetch(signatureDataUrl)
+    if (!canvasRef.current) return
+    // Lire directement le canvas sans passer par signatureDataUrl
+    const dataUrl = canvasRef.current.toDataURL('image/png')
+    // Vérifier que le canvas n'est pas vide (pixel alpha > 0)
+    const ctx = canvasRef.current.getContext('2d')
+    const pixels = ctx.getImageData(0, 0, canvasRef.current.width, canvasRef.current.height).data
+    const hasContent = pixels.some((v, i) => i % 4 === 3 && v > 0)
+    if (!hasContent) { alert('Veuillez dessiner votre signature avant de sauvegarder.'); return }
+    const res = await fetch(dataUrl)
     const blob = await res.blob()
-    const path = `signatures/${profile.id}/signature.png`
+    const path = `${profile.id}/signature.png`
     const { error } = await supabase.storage.from('signatures').upload(path, blob, { upsert: true, contentType: 'image/png' })
     if (error) { alert('Erreur upload : ' + error.message); return }
     const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(path)
