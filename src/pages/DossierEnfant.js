@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-17d — AF principal : liste ou saisie manuelle pour profils temporaires
+// DossierEnfant.js — v2026-06-17e — AF principal ET référent : liste ou saisie manuelle pour profils temporaires
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1471,24 +1471,24 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                             {icon} {label}
                           </div>
                           {editMode ? (
-                            role === 'af' && enfant?.statut_profil === 'temporaire' ? (
+                            (role === 'af' || role === 'referent') && enfant?.statut_profil === 'temporaire' ? (
                               <div>
                                 <div style={{ display:'flex', gap:6, marginBottom:8 }}>
-                                  <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${!form._afManuel ? '#1a4b8f' : '#dde3f0'}`, background: !form._afManuel ? '#e8eef8' : '#f4f6fb', color: !form._afManuel ? '#1a4b8f' : '#5a6478', cursor:'pointer', fontWeight:600 }}
-                                    onClick={() => F('_afManuel')(false)}>📋 Liste</button>
-                                  <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${form._afManuel ? '#f59e0b' : '#dde3f0'}`, background: form._afManuel ? '#fef3c7' : '#f4f6fb', color: form._afManuel ? '#b45309' : '#5a6478', cursor:'pointer', fontWeight:600 }}
-                                    onClick={() => F('_afManuel')(true)}>✏️ Manuel</button>
+                                  <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${!form[`_${role}Manuel`] ? '#1a4b8f' : '#dde3f0'}`, background: !form[`_${role}Manuel`] ? '#e8eef8' : '#f4f6fb', color: !form[`_${role}Manuel`] ? '#1a4b8f' : '#5a6478', cursor:'pointer', fontWeight:600 }}
+                                    onClick={() => F(`_${role}Manuel`)(false)}>📋 Liste</button>
+                                  <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${form[`_${role}Manuel`] ? '#f59e0b' : '#dde3f0'}`, background: form[`_${role}Manuel`] ? '#fef3c7' : '#f4f6fb', color: form[`_${role}Manuel`] ? '#b45309' : '#5a6478', cursor:'pointer', fontWeight:600 }}
+                                    onClick={() => F(`_${role}Manuel`)(true)}>✏️ Manuel</button>
                                 </div>
-                                {form._afManuel ? (
+                                {form[`_${role}Manuel`] ? (
                                   <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                                    <input className="form-control" style={{ fontSize:12 }} value={v('af_principal_nom_temp')||''} onChange={e=>F('af_principal_nom_temp')(e.target.value)} placeholder="NOM" />
-                                    <input className="form-control" style={{ fontSize:12 }} value={v('af_principal_prenom_temp')||''} onChange={e=>F('af_principal_prenom_temp')(e.target.value)} placeholder="Prénom" />
-                                    <input className="form-control" style={{ fontSize:12 }} value={v('af_principal_ville_temp')||''} onChange={e=>F('af_principal_ville_temp')(e.target.value)} placeholder="Ville" />
+                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${role}_nom_temp`)||''} onChange={e=>F(`${role}_nom_temp`)(e.target.value)} placeholder="NOM" />
+                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${role}_prenom_temp`)||''} onChange={e=>F(`${role}_prenom_temp`)(e.target.value)} placeholder="Prénom" />
+                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${role}_ville_temp`)||''} onChange={e=>F(`${role}_ville_temp`)(e.target.value)} placeholder="Ville" />
                                   </div>
                                 ) : (
                                   <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
                                     <option value="">— Sélectionner —</option>
-                                    {collegues.filter(c => c.role === 'af').map(c => (
+                                    {collegues.filter(c => role === 'af' ? c.role === 'af' : ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
                                       <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
                                     ))}
                                   </select>
