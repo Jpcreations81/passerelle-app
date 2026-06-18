@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-05-25o — zone date/signature descendue d'une ligne
+// FicheConges.js — v2026-06-17a — signature AF + date du jour + cadre DECISION décalé
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
