@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-17b — onglet Placement visible pour AF relais sur profils temporaires
+// DossierEnfant.js — v2026-06-17c — AF relais peut modifier un profil temporaire (canEdit)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -146,7 +146,8 @@ export default function DossierEnfant({ profile }) {
   const isReferent = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
   const isAF = profile?.role === 'af'
   const isAfPrincipalEnfant = isAF && enfant?.af_principal_id === profile?.id
-  const canEdit = isReferent || isAfPrincipalEnfant
+  const isAfRelaisTemporaire = isAF && isAfRelaisActif && enfant?.statut_profil === 'temporaire'
+  const canEdit = isReferent || isAfPrincipalEnfant || isAfRelaisTemporaire
 
   // ── Vérifier si l'AF connecté est AF relais actif pour cet enfant (fenêtre J-2/J+2) ──
   const fetchRelaisActif = useCallback(async () => {
@@ -2717,3 +2718,4 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
     </div>
   )
 }
+        
