@@ -1,4 +1,4 @@
-// App.js — v2026-06-17a — modal CGU + choix signature AF à la première connexion
+// App.js — v2026-06-17b — bucket signatures corrigé (était documents)
 import React, { useState, useEffect, useRef } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
@@ -110,18 +110,18 @@ export default function App() {
     const res = await fetch(signatureDataUrl)
     const blob = await res.blob()
     const path = `signatures/${profile.id}/signature.png`
-    const { error } = await supabase.storage.from('documents').upload(path, blob, { upsert: true, contentType: 'image/png' })
+    const { error } = await supabase.storage.from('signatures').upload(path, blob, { upsert: true, contentType: 'image/png' })
     if (error) { alert('Erreur upload : ' + error.message); return }
-    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+    const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(path)
     await sauvegarderSignatureMode('sauvegardee', urlData.publicUrl)
   }
   async function importerSignature(e) {
     const file = e.target.files?.[0]
     if (!file) return
     const path = `signatures/${profile.id}/signature.png`
-    const { error } = await supabase.storage.from('documents').upload(path, file, { upsert: true, contentType: file.type })
+    const { error } = await supabase.storage.from('signatures').upload(path, file, { upsert: true, contentType: file.type })
     if (error) { alert('Erreur upload : ' + error.message); return }
-    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+    const { data: urlData } = supabase.storage.from('signatures').getPublicUrl(path)
     await sauvegarderSignatureMode('importee', urlData.publicUrl)
   }
 
