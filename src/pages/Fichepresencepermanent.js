@@ -1,4 +1,4 @@
-// Fichepresencepermanent.js — v2026-06-02a — motif relais raccourci (initiale prénom + ASSFAM court) — utilise FichePresence2 pdf-lib
+// Fichepresencepermanent.js — v2026-06-17a — mois par défaut = mois en cours
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -51,8 +51,8 @@ export default function FichePresence({ profile }) {
   const navigate = useNavigate()
   const [enfants, setEnfants] = useState([])
   const [selectedEnfant, setSelectedEnfant] = useState(null)
-  const [selectedMois, setSelectedMois] = useState(3)
-  const [selectedAnnee, setSelectedAnnee] = useState(2026)
+  const [selectedMois, setSelectedMois] = useState(new Date().getMonth())
+  const [selectedAnnee, setSelectedAnnee] = useState(new Date().getFullYear())
   const [presences, setPresences] = useState({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
