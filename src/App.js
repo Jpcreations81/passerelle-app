@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+// App.js — v2026-06-17a — modal CGU + choix signature AF à la première connexion
+import React, { useState, useEffect, useRef } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
@@ -22,6 +23,12 @@ export default function App() {
   const [session, setSession] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [showCGU, setShowCGU] = useState(false)
+  const [showSignature, setShowSignature] = useState(false)
+  const [signatureEtape, setSignatureEtape] = useState('choix') // 'choix' | 'dessiner' | 'importer'
+  const [signatureDataUrl, setSignatureDataUrl] = useState(null)
+  const canvasRef = useRef(null)
+  const [drawing, setDrawing] = useState(false)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -41,6 +48,81 @@ export default function App() {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
     setProfile(data)
     setLoading(false)
+    // Vérifier si l'AF doit voir le modal CGU/signature
+    if (data?.role === 'af' && !data?.cgu_acceptee) {
+      setShowCGU(true)
+    } else if (data?.role === 'af' && data?.cgu_acceptee && !data?.signature_mode) {
+      setShowSignature(true)
+    }
+  }
+
+  async function accepterCGU() {
+    await supabase.from('profiles').update({ cgu_acceptee: true }).eq('id', profile?.id)
+    setProfile(p => ({ ...p, cgu_acceptee: true }))
+    setShowCGU(false)
+    setShowSignature(true)
+  }
+
+  async function sauvegarderSignatureMode(mode, url = null) {
+    await supabase.from('profiles').update({
+      signature_mode: mode,
+      ...(url ? { signature_url: url } : {})
+    }).eq('id', profile?.id)
+    setProfile(p => ({ ...p, signature_mode: mode, ...(url ? { signature_url: url } : {}) }))
+    setShowSignature(false)
+    setSignatureEtape('choix')
+  }
+
+  // Canvas signature — dessin
+  function startDraw(e) {
+    if (!canvasRef.current) return
+    setDrawing(true)
+    const ctx = canvasRef.current.getContext('2d')
+    const rect = canvasRef.current.getBoundingClientRect()
+    const x = (e.touches?.[0]?.clientX ?? e.clientX) - rect.left
+    const y = (e.touches?.[0]?.clientY ?? e.clientY) - rect.top
+    ctx.beginPath(); ctx.moveTo(x, y)
+  }
+  function draw(e) {
+    if (!drawing || !canvasRef.current) return
+    e.preventDefault()
+    const ctx = canvasRef.current.getContext('2d')
+    const rect = canvasRef.current.getBoundingClientRect()
+    const x = (e.touches?.[0]?.clientX ?? e.clientX) - rect.left
+    const y = (e.touches?.[0]?.clientY ?? e.clientY) - rect.top
+    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#1a2340'
+    ctx.lineTo(x, y); ctx.stroke()
+  }
+  function stopDraw() { setDrawing(false) }
+  function clearCanvas() {
+    if (!canvasRef.current) return
+    canvasRef.current.getContext('2d').clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+    setSignatureDataUrl(null)
+  }
+  function validerSignatureDessinee() {
+    if (!canvasRef.current) return
+    const dataUrl = canvasRef.current.toDataURL('image/png')
+    setSignatureDataUrl(dataUrl)
+  }
+  async function sauvegarderSignatureDessinee() {
+    if (!signatureDataUrl) return
+    // Convertir dataUrl en blob et uploader dans Supabase Storage
+    const res = await fetch(signatureDataUrl)
+    const blob = await res.blob()
+    const path = `signatures/${profile.id}/signature.png`
+    const { error } = await supabase.storage.from('documents').upload(path, blob, { upsert: true, contentType: 'image/png' })
+    if (error) { alert('Erreur upload : ' + error.message); return }
+    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+    await sauvegarderSignatureMode('sauvegardee', urlData.publicUrl)
+  }
+  async function importerSignature(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const path = `signatures/${profile.id}/signature.png`
+    const { error } = await supabase.storage.from('documents').upload(path, file, { upsert: true, contentType: file.type })
+    if (error) { alert('Erreur upload : ' + error.message); return }
+    const { data: urlData } = supabase.storage.from('documents').getPublicUrl(path)
+    await sauvegarderSignatureMode('importee', urlData.publicUrl)
   }
 
   if (loading) return (
@@ -54,6 +136,93 @@ export default function App() {
   )
 
   return (
+    <>
+    {/* ===== MODAL CGU ===== */}
+    {showCGU && (
+      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+        <div style={{ background:'#fff', borderRadius:16, padding:32, maxWidth:520, width:'100%', boxShadow:'0 8px 40px rgba(0,0,0,0.18)', fontFamily:'Sora,sans-serif' }}>
+          <div style={{ fontSize:22, fontWeight:800, color:'#1a4b8f', marginBottom:4 }}>📋 Conditions Générales d'Utilisation</div>
+          <div style={{ fontSize:12, color:'#9aa3b8', marginBottom:20 }}>Passerelle — ASE Tarn (81)</div>
+          <div style={{ background:'#f4f6fb', borderRadius:10, padding:16, maxHeight:280, overflowY:'auto', fontSize:12, color:'#3a4460', lineHeight:1.7, marginBottom:20 }}>
+            <p><strong>1. Objet</strong><br/>L'application Passerelle est un outil collaboratif destiné aux assistants familiaux (AF) et aux équipes de l'Aide Sociale à l'Enfance du Tarn. Elle permet la gestion des dossiers enfants, des agendas, des présences et des documents administratifs.</p>
+            <p><strong>2. Accès et confidentialité</strong><br/>L'accès à Passerelle est strictement personnel. Chaque utilisateur est responsable de la confidentialité de ses identifiants. Les données relatives aux enfants confiés sont soumises au secret professionnel et au RGPD.</p>
+            <p><strong>3. Données personnelles</strong><br/>Les données sont hébergées sur des serveurs européens (Supabase, eu-west-1 / Irlande), conformément au RGPD. Elles ne sont ni vendues ni transmises à des tiers. Vous disposez d'un droit d'accès, de rectification et de suppression.</p>
+            <p><strong>4. Utilisation</strong><br/>L'application est mise à disposition à titre professionnel. Toute utilisation abusive ou non conforme aux missions de l'ASE est interdite.</p>
+            <p><strong>5. Responsabilité</strong><br/>JP Créations 3D, développeur de l'application, ne saurait être tenu responsable des décisions administratives ou éducatives prises à partir des informations saisies dans l'application.</p>
+            <p><strong>6. Modifications</strong><br/>Ces CGU peuvent être mises à jour. Vous serez informé de toute modification substantielle lors de votre prochaine connexion.</p>
+          </div>
+          <button
+            style={{ width:'100%', padding:'13px', background:'#1a4b8f', color:'#fff', border:'none', borderRadius:10, fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'Sora,sans-serif' }}
+            onClick={accepterCGU}>
+            ✅ J'accepte les CGU et je continue
+          </button>
+        </div>
+      </div>
+    )}
+
+    {/* ===== MODAL SIGNATURE ===== */}
+    {showSignature && (
+      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+        <div style={{ background:'#fff', borderRadius:16, padding:32, maxWidth:520, width:'100%', boxShadow:'0 8px 40px rgba(0,0,0,0.18)', fontFamily:'Sora,sans-serif' }}>
+
+          {signatureEtape === 'choix' && (<>
+            <div style={{ fontSize:20, fontWeight:800, color:'#1a4b8f', marginBottom:6 }}>✍️ Votre signature</div>
+            <div style={{ fontSize:13, color:'#5a6478', marginBottom:24 }}>
+              Choisissez comment vous souhaitez signer vos documents (fiches de présence, congés...).
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              <button onClick={() => sauvegarderSignatureMode('chaque_fois')}
+                style={{ padding:16, borderRadius:10, border:'2px solid #dde3f0', background:'#f4f6fb', color:'#1a2340', fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'left' }}>
+                ✏️ <strong>Signer à chaque fois</strong>
+                <div style={{ fontSize:11, color:'#9aa3b8', marginTop:3 }}>Un canvas s'ouvrira à chaque génération de document</div>
+              </button>
+              <button onClick={() => setSignatureEtape('importer')}
+                style={{ padding:16, borderRadius:10, border:'2px solid #dde3f0', background:'#f4f6fb', color:'#1a2340', fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'left' }}>
+                📎 <strong>Importer une signature</strong>
+                <div style={{ fontSize:11, color:'#9aa3b8', marginTop:3 }}>Uploadez une image ou PDF de votre signature scannée</div>
+              </button>
+              <button onClick={() => setSignatureEtape('dessiner')}
+                style={{ padding:16, borderRadius:10, border:'2px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:13, fontWeight:600, cursor:'pointer', textAlign:'left' }}>
+                🖊️ <strong>Dessiner et sauvegarder</strong>
+                <div style={{ fontSize:11, color:'#4a6aa0', marginTop:3 }}>Dessinez votre signature une fois, réutilisée automatiquement</div>
+              </button>
+            </div>
+            <button onClick={() => sauvegarderSignatureMode('chaque_fois')}
+              style={{ marginTop:16, width:'100%', padding:10, background:'none', border:'none', color:'#9aa3b8', fontSize:11, cursor:'pointer' }}>
+              Ignorer pour l'instant
+            </button>
+          </>)}
+
+          {signatureEtape === 'dessiner' && (<>
+            <div style={{ fontSize:18, fontWeight:800, color:'#1a4b8f', marginBottom:4 }}>🖊️ Dessinez votre signature</div>
+            <div style={{ fontSize:12, color:'#9aa3b8', marginBottom:12 }}>Utilisez votre doigt ou la souris dans le cadre ci-dessous</div>
+            <canvas ref={canvasRef} width={440} height={160}
+              style={{ border:'2px solid #dde3f0', borderRadius:10, width:'100%', touchAction:'none', background:'#fafbff', cursor:'crosshair' }}
+              onMouseDown={startDraw} onMouseMove={draw} onMouseUp={stopDraw} onMouseLeave={stopDraw}
+              onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={stopDraw} />
+            <div style={{ display:'flex', gap:8, marginTop:10 }}>
+              <button onClick={clearCanvas} style={{ flex:1, padding:10, borderRadius:8, border:'1px solid #dde3f0', background:'#f4f6fb', color:'#5a6478', fontSize:12, cursor:'pointer', fontWeight:600 }}>🗑️ Effacer</button>
+              <button onClick={() => setSignatureEtape('choix')} style={{ flex:1, padding:10, borderRadius:8, border:'1px solid #dde3f0', background:'#f4f6fb', color:'#5a6478', fontSize:12, cursor:'pointer', fontWeight:600 }}>← Retour</button>
+              <button onClick={sauvegarderSignatureDessinee} style={{ flex:2, padding:10, borderRadius:8, border:'none', background:'#1a4b8f', color:'#fff', fontSize:12, cursor:'pointer', fontWeight:700 }}>✅ Sauvegarder</button>
+            </div>
+          </>)}
+
+          {signatureEtape === 'importer' && (<>
+            <div style={{ fontSize:18, fontWeight:800, color:'#1a4b8f', marginBottom:4 }}>📎 Importer votre signature</div>
+            <div style={{ fontSize:12, color:'#9aa3b8', marginBottom:20 }}>Sélectionnez une image (PNG, JPG) ou un PDF contenant votre signature</div>
+            <label style={{ display:'block', border:'2px dashed #dde3f0', borderRadius:10, padding:28, textAlign:'center', cursor:'pointer', background:'#f4f6fb' }}>
+              <div style={{ fontSize:28, marginBottom:8 }}>📁</div>
+              <div style={{ fontSize:13, color:'#5a6478', fontWeight:600 }}>Cliquez pour choisir un fichier</div>
+              <div style={{ fontSize:11, color:'#9aa3b8', marginTop:4 }}>PNG, JPG, PDF acceptés</div>
+              <input type="file" accept="image/*,application/pdf" style={{ display:'none' }} onChange={importerSignature} />
+            </label>
+            <button onClick={() => setSignatureEtape('choix')} style={{ marginTop:12, width:'100%', padding:10, borderRadius:8, border:'1px solid #dde3f0', background:'#f4f6fb', color:'#5a6478', fontSize:12, cursor:'pointer', fontWeight:600 }}>← Retour</button>
+          </>)}
+
+        </div>
+      </div>
+    )}
+
     <Router>
       <Routes>
         <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
@@ -74,5 +243,6 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
+    </>
   )
 }
