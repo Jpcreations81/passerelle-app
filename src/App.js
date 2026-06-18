@@ -1,4 +1,4 @@
-// App.js — v2026-06-17c — CGU mises à jour : JP Créations, sans mention ASE comme partenaire
+// App.js — v2026-06-17d — retrait "ASE Tarn (81)" du sous-titre CGU
 import React, { useState, useEffect, useRef } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
@@ -142,7 +142,7 @@ export default function App() {
       <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
         <div style={{ background:'#fff', borderRadius:16, padding:32, maxWidth:520, width:'100%', boxShadow:'0 8px 40px rgba(0,0,0,0.18)', fontFamily:'Sora,sans-serif' }}>
           <div style={{ fontSize:22, fontWeight:800, color:'#1a4b8f', marginBottom:4 }}>📋 Conditions Générales d'Utilisation</div>
-          <div style={{ fontSize:12, color:'#9aa3b8', marginBottom:20 }}>Passerelle — ASE Tarn (81)</div>
+          <div style={{ fontSize:12, color:'#9aa3b8', marginBottom:20 }}>Passerelle</div>
           <div style={{ background:'#f4f6fb', borderRadius:10, padding:16, maxHeight:280, overflowY:'auto', fontSize:12, color:'#3a4460', lineHeight:1.7, marginBottom:20 }}>
             <p><strong>Éditeur de l'application</strong><br/>Passerelle est développée et éditée par JP Créations, entreprise individuelle (auto-entrepreneur), immatriculée au R.C.S. de Paris sous le numéro 505 232 504, dont le siège social est situé 60 rue François 1er, 75008 Paris. Contact : jpcreations3d@gmail.com</p>
             <p><strong>1. Objet</strong><br/>L'application Passerelle est un outil de gestion administrative destiné aux assistants familiaux (AF). Elle permet la gestion des dossiers enfants confiés, des agendas, des fiches de présence et des documents professionnels. Elle est mise à disposition à titre professionnel, indépendamment de tout partenariat institutionnel.</p>
