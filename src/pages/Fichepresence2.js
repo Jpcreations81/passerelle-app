@@ -1,4 +1,4 @@
-// FichePresence2.js — v2026-06-17a — signature AF + date du jour automatiques dans le PDF
+// FichePresence2.js — v2026-06-17d — lignes horizontales à 0.5 (cohérence avec verticales) + couleur #666666
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 
@@ -148,7 +148,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         drawText(label, M, yy, 9, font)
         const lw = font.widthOfTextAtSize(label, 9)
         drawText(valeur, M+lw, yy, 9, fontB)
-        drawLine(M+lw, yy-11, W-M, yy-11, BLACK, 0.4)
+        drawLine(M+lw, yy-11, W-M, yy-11, BLACK, 0.7)
       }
       if (isRelais) {
         ligneFiche("Nom et prénom de l'enfant (obligatoire) : ", `${enfant.prenom} ${enfant.nom}`, y)
@@ -259,13 +259,13 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         }
 
         // Ligne horizontale
-        drawLine(COL[0], ry-ROW_H, COL[5], ry-ROW_H, hexToRgb('#999999'), 0.4)
+        drawLine(COL[0], ry-ROW_H, COL[5], ry-ROW_H, hexToRgb('#666666'), 0.5)
       })
 
       // Ligne vide finale
       const ryFin = TY - 13 - days.length * ROW_H
       drawRect(COL[0], ryFin, COL[5]-COL[0], ROW_H, WHITE)
-      drawLine(COL[0], ryFin-ROW_H, COL[5], ryFin-ROW_H, hexToRgb('#999999'), 0.4)
+      drawLine(COL[0], ryFin-ROW_H, COL[5], ryFin-ROW_H, hexToRgb('#666666'), 0.5)
 
       // Bordures verticales
       const bot = TY - 13 - (days.length+1) * ROW_H
