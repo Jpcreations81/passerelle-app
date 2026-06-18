@@ -1,4 +1,4 @@
-// FichePresence2.js — v2026-06-02b — coche Temps complet dans PDF
+// FichePresence2.js — v2026-06-17a — signature AF + date du jour automatiques dans le PDF
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 
@@ -33,12 +33,17 @@ function hexToRgb(hex) {
   return rgb(r,g,b)
 }
 
+import { useSignature } from './useSignature'
+
 export default function FichePresence2({ enfant, profile, mois, annee, presences, moisComplet, onClose, typeFiche, afPrincipal, hasAdaptation, hasFormation }) {
   const [status, setStatus] = useState('generating')
 
   useEffect(() => { genererPDF() }, [])
 
+  const { getSignatureBytes, SignatureModal } = useSignature(profile)
+
   async function genererPDF() {
+    const sigBytes = await getSignatureBytes()
     try {
       const isRelais = typeFiche === 'relais'
       const W = 595.28, H = 841.89
@@ -267,12 +272,24 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       COL.forEach(cx => drawLine(cx, TY, cx, bot, BLACK, 0.5))
       page.drawRectangle({ x:COL[0], y:bot, width:COL[5]-COL[0], height:TY-bot, borderColor:BLACK, borderWidth:1 })
 
-      // Signature
+      // Signature + date automatique
       const sy = bot - 10
-      drawText('Date :', M, sy, 9, font)
+      const today = new Date()
+      const todayStr = today.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' })
+      drawText(`Fait le : ${todayStr}`, M, sy, 9, font)
       drawText("Signature de l'Assistant(e) familial(e)", M, sy-14, 9, font)
       const sigLw = font.widthOfTextAtSize("Signature de l'Assistant(e) familial(e)", 9)
-      page.drawRectangle({ x:M+sigLw+6, y:sy-32, width:160, height:26, borderColor:BLACK, borderWidth:2 })
+      if (sigBytes) {
+        try {
+          const sigImg = await pdfDoc.embedPng(sigBytes)
+          const sigDims = sigImg.scale(0.3)
+          page.drawImage(sigImg, { x: M+sigLw+6, y: sy-46, width: Math.min(sigDims.width, 150), height: Math.min(sigDims.height, 36) })
+        } catch(e) {
+          page.drawRectangle({ x:M+sigLw+6, y:sy-32, width:160, height:26, borderColor:BLACK, borderWidth:2 })
+        }
+      } else {
+        page.drawRectangle({ x:M+sigLw+6, y:sy-32, width:160, height:26, borderColor:BLACK, borderWidth:2 })
+      }
 
       // Télécharger
       const pdfBytes = await pdfDoc.save()
@@ -292,6 +309,8 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
   }
 
   return (
+    <>
+    {SignatureModal}
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:300, display:'flex', alignItems:'center', justifyContent:'center' }}>
       <div style={{ background:'#fff', borderRadius:12, padding:'32px 40px', textAlign:'center', fontFamily:'Sora,sans-serif', minWidth:280 }}>
         <div style={{ fontSize:36, marginBottom:12 }}>
@@ -307,5 +326,6 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         )}
       </div>
     </div>
+    </>
   )
 }
