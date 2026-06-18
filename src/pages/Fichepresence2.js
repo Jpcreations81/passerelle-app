@@ -1,4 +1,4 @@
-// FichePresence2.js — v2026-06-17d — lignes horizontales à 0.5 (cohérence avec verticales) + couleur #666666
+// FichePresence2.js — v2026-06-17e — lignes horizontales à 0.7 couleur #444444
 import React, { useState, useEffect } from 'react'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 
@@ -259,13 +259,13 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         }
 
         // Ligne horizontale
-        drawLine(COL[0], ry-ROW_H, COL[5], ry-ROW_H, hexToRgb('#666666'), 0.5)
+        drawLine(COL[0], ry-ROW_H, COL[5], ry-ROW_H, hexToRgb('#444444'), 0.7)
       })
 
       // Ligne vide finale
       const ryFin = TY - 13 - days.length * ROW_H
       drawRect(COL[0], ryFin, COL[5]-COL[0], ROW_H, WHITE)
-      drawLine(COL[0], ryFin-ROW_H, COL[5], ryFin-ROW_H, hexToRgb('#666666'), 0.5)
+      drawLine(COL[0], ryFin-ROW_H, COL[5], ryFin-ROW_H, hexToRgb('#444444'), 0.7)
 
       // Bordures verticales
       const bot = TY - 13 - (days.length+1) * ROW_H
