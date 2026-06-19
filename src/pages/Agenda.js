@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-18c — AF principal obligatoire à la création de l enfant temporaire
+// Agenda.js — v2026-06-18d — génération UUID manuelle pour profils temporaires (id non auto)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -93,6 +93,7 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
   const creerAfTemporaire = async () => {
     if (!afNewPrenom.trim() || !afNewNom.trim()) return
     const { data, error } = await supabase.from('profiles').insert({
+      id: crypto.randomUUID(),
       prenom: afNewPrenom.trim(),
       nom: afNewNom.trim().toUpperCase(),
       ville: afNewVille.trim() || null,
@@ -240,6 +241,7 @@ function RechercheAfImport({ nomDetecte, afTousListe, onSelect }) {
     if (!newPrenom.trim() || !newNom.trim()) return
     setSaving(true)
     const { data, error } = await supabase.from('profiles').insert({
+      id: crypto.randomUUID(),
       prenom: newPrenom.trim(),
       nom: newNom.trim().toUpperCase(),
       ville: newVille.trim() || null,
