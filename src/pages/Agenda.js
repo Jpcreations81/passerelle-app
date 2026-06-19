@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-18a — bouton Importer bloqué tant qu un événement n a pas d enfant identifié
+// Agenda.js — v2026-06-18b — bouton Importer bloqué sans enfant + rappel AF principal
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -101,6 +101,9 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
           onClick={() => setModeCreation(false)}>
           ✕
         </button>
+      </div>
+      <div style={{ fontSize:10, color:'#b45309', marginTop:6, fontStyle:'italic' }}>
+        ℹ️ Pensez à renseigner l'AF principal dans la fiche de l'enfant après création
       </div>
     </div>
   )
@@ -3522,3 +3525,4 @@ export default function Agenda({ profile }) {
     </div>
   )
 }
+                                                                      
