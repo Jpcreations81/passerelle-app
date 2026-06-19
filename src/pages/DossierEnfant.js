@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-17e — AF principal ET référent : liste ou saisie manuelle pour profils temporaires
+// DossierEnfant.js — v2026-06-18a — Référent 1/2 + recherche AF + création profil réel en base
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -83,6 +83,59 @@ function ContactCard({ icon, role, nom, prenom, tel, email, onEdit, bg }) {
         {email && <button onClick={() => window.open(`mailto:${email}`)} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>✉️</button>}
         {onEdit && <button onClick={onEdit} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>✏️</button>}
       </div>
+    </div>
+  )
+}
+
+// ── Composant recherche AF (select remplacé par recherche, trop d'AF pour un menu) ────
+function RechercheAfSelect({ value, onSelect }) {
+  const [query, setQuery] = useState('')
+  const [resultats, setResultats] = useState([])
+  const [selectedLabel, setSelectedLabel] = useState('')
+
+  useEffect(() => {
+    if (value && !selectedLabel) {
+      supabase.from('profiles').select('id, nom, prenom').eq('id', value).single()
+        .then(({ data }) => { if (data) setSelectedLabel(`${data.nom} ${data.prenom}`) })
+    }
+  }, [value])
+
+  async function rechercher(q) {
+    setQuery(q)
+    if (q.trim().length < 2) { setResultats([]); return }
+    const { data } = await supabase.from('profiles')
+      .select('id, nom, prenom, ville')
+      .eq('role', 'af')
+      .or(`nom.ilike.%${q.trim()}%,prenom.ilike.%${q.trim()}%`)
+      .limit(8)
+    setResultats(data || [])
+  }
+
+  if (value && selectedLabel && !query) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+        <div className="form-control" style={{ fontSize:12, flex:1, background:'#fff' }}>{selectedLabel}</div>
+        <button type="button" style={{ fontSize:11, padding:'4px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f4f6fb', cursor:'pointer' }}
+          onClick={() => { setSelectedLabel(''); onSelect(null) }}>✕</button>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <input className="form-control" style={{ fontSize:12 }} placeholder="🔍 Rechercher un AF..." value={query}
+        onChange={e => rechercher(e.target.value)} />
+      {resultats.length > 0 && (
+        <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:6, marginTop:4, maxHeight:140, overflowY:'auto' }}>
+          {resultats.map(af => (
+            <div key={af.id}
+              style={{ padding:'6px 8px', fontSize:12, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}
+              onClick={() => { onSelect(af.id); setSelectedLabel(`${af.nom} ${af.prenom}`); setQuery(''); setResultats([]) }}>
+              {af.nom} {af.prenom}{af.ville ? ` — ${af.ville}` : ''}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -175,6 +228,29 @@ export default function DossierEnfant({ profile }) {
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2800) }
 
+  // Créer un nouveau profil (référent ou AF) en base et l'assigner immédiatement.
+  // Le profil créé devient automatiquement disponible pour les futures recherches/listes.
+  async function creerProfilEtAssigner(role, idKey) {
+    const nom = v(`${idKey}_nom_new`)?.trim()
+    const prenom = v(`${idKey}_prenom_new`)?.trim()
+    const ville = v(`${idKey}_ville_new`)?.trim()
+    if (!nom || !prenom) { showToast('⚠️ Nom et prénom requis'); return }
+    const payload = {
+      nom: nom.toUpperCase(),
+      prenom,
+      role: role === 'af' ? 'af' : 'referent',
+      ...(role === 'af' ? { ville: ville || null } : {})
+    }
+    const { data, error } = await supabase.from('profiles').insert(payload).select().single()
+    if (error) { showToast('❌ ' + error.message); return }
+    F(idKey)(data.id)
+    F(`_${idKey}Manuel`)(false)
+    F(`${idKey}_nom_new`)('')
+    F(`${idKey}_prenom_new`)('')
+    F(`${idKey}_ville_new`)('')
+    showToast(`✅ ${prenom} ${nom} créé(e) et assigné(e)`)
+  }
+
   // ── Chargement ──────────────────────────────────────────────────────────────
   const fetchPhoto = useCallback(async () => {
     const { data } = await supabase.storage.from('documents-enfants').list(`enfants/${id}/photos`)
@@ -191,6 +267,7 @@ export default function DossierEnfant({ profile }) {
       .select(`*, 
         af_principal:af_principal_id(id, nom, prenom, telephone, email, territoire), 
         referent:referent_id(id, nom, prenom, telephone, email),
+        referent2:referent2_id(id, nom, prenom, telephone, email),
         pere:pere_id(*),
         mere:mere_id(*)
       `)
@@ -670,10 +747,11 @@ export default function DossierEnfant({ profile }) {
   async function saveForm() {
     setSaving(true)
     // Exclure TOUTES les relations et champs non-colonnes
-    const champsExclus = ['af_principal', 'referent', 'pere', 'mere', 'id', 'created_at', 'updated_at']
+    const champsExclus = ['af_principal', 'referent', 'referent2', 'pere', 'mere', 'id', 'created_at', 'updated_at']
     const formData = Object.fromEntries(
       Object.entries(form).filter(([k, v]) => {
         if (champsExclus.includes(k)) return false
+        if (k.startsWith('_') || k.endsWith('_new')) return false
         if (v !== null && typeof v === 'object' && !Array.isArray(v)) return false
         return true
       }).map(([k, v]) => {
@@ -1458,37 +1536,51 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
 
                   {/* Contacts ASE */}
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:12, marginTop:12 }}>
-                    {/* AF, Référent et Gestionnaire — sélecteurs profils */}
+                    {/* Référent 1, Référent 2, AF Principal et Gestionnaire — sélecteurs profils */}
                     {[
-                      { role:'referent',     icon:'👩‍💼', label:'Référent(e) Enfant',   bg:'#e8eef8', idKey:'referent_id',     data: enfant.referent },
+                      { role:'referent',  icon:'👩‍💼', label:'Référent(e) 1',  bg:'#e8eef8', idKey:'referent_id',     data: enfant.referent },
+                      { role:'referent',  icon:'👩‍💼', label:'Référent(e) 2',  bg:'#e8eef8', idKey:'referent2_id',    data: enfant.referent2 },
                       { role:'af',           icon:'👨‍👩‍👧', label:'AF Principal',         bg:'#e6f5eb', idKey:'af_principal_id', data: enfant.af_principal },
                       { role:'gestionnaire', icon:'👨‍💼', label:'Gestionnaire Enfant',   bg:'#fef3e2', idKey:'gestionnaire_id', data: null },
                     ].map(({ role, icon, label, bg, idKey, data }) => {
                       const profil = collegues.find(c => c.id === v(idKey)) || data
+                      const manuelKey = `_${idKey}Manuel`
                       return (
-                        <div key={role} style={{ background: bg, borderRadius:10, padding:14, border:'1px solid #dde3f0' }}>
+                        <div key={idKey} style={{ background: bg, borderRadius:10, padding:14, border:'1px solid #dde3f0' }}>
                           <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.3px', marginBottom:8 }}>
                             {icon} {label}
                           </div>
                           {editMode ? (
-                            (role === 'af' || role === 'referent') && enfant?.statut_profil === 'temporaire' ? (
+                            (role === 'referent' || role === 'af') ? (
                               <div>
                                 <div style={{ display:'flex', gap:6, marginBottom:8 }}>
-                                  <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${!form[`_${role}Manuel`] ? '#1a4b8f' : '#dde3f0'}`, background: !form[`_${role}Manuel`] ? '#e8eef8' : '#f4f6fb', color: !form[`_${role}Manuel`] ? '#1a4b8f' : '#5a6478', cursor:'pointer', fontWeight:600 }}
-                                    onClick={() => F(`_${role}Manuel`)(false)}>📋 Liste</button>
-                                  <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${form[`_${role}Manuel`] ? '#f59e0b' : '#dde3f0'}`, background: form[`_${role}Manuel`] ? '#fef3c7' : '#f4f6fb', color: form[`_${role}Manuel`] ? '#b45309' : '#5a6478', cursor:'pointer', fontWeight:600 }}
-                                    onClick={() => F(`_${role}Manuel`)(true)}>✏️ Manuel</button>
+                                  <button type="button" style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${!form[manuelKey] ? '#1a4b8f' : '#dde3f0'}`, background: !form[manuelKey] ? '#e8eef8' : '#f4f6fb', color: !form[manuelKey] ? '#1a4b8f' : '#5a6478', cursor:'pointer', fontWeight:600 }}
+                                    onClick={() => F(manuelKey)(false)}>📋 Liste</button>
+                                  <button type="button" style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${form[manuelKey] ? '#f59e0b' : '#dde3f0'}`, background: form[manuelKey] ? '#fef3c7' : '#f4f6fb', color: form[manuelKey] ? '#b45309' : '#5a6478', cursor:'pointer', fontWeight:600 }}
+                                    onClick={() => F(manuelKey)(true)}>✏️ Ajouter manuellement</button>
                                 </div>
-                                {form[`_${role}Manuel`] ? (
+                                {form[manuelKey] ? (
                                   <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${role}_nom_temp`)||''} onChange={e=>F(`${role}_nom_temp`)(e.target.value)} placeholder="NOM" />
-                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${role}_prenom_temp`)||''} onChange={e=>F(`${role}_prenom_temp`)(e.target.value)} placeholder="Prénom" />
-                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${role}_ville_temp`)||''} onChange={e=>F(`${role}_ville_temp`)(e.target.value)} placeholder="Ville" />
+                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_nom_new`)||''} onChange={e=>F(`${idKey}_nom_new`)(e.target.value)} placeholder="NOM" />
+                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_prenom_new`)||''} onChange={e=>F(`${idKey}_prenom_new`)(e.target.value)} placeholder="Prénom" />
+                                    {role === 'af' && (
+                                      <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_ville_new`)||''} onChange={e=>F(`${idKey}_ville_new`)(e.target.value)} placeholder="Ville" />
+                                    )}
+                                    <button type="button"
+                                      style={{ fontSize:11, padding:'6px 10px', borderRadius:6, border:'none', background:'#1a4b8f', color:'#fff', cursor:'pointer', fontWeight:600 }}
+                                      onClick={() => creerProfilEtAssigner(role, idKey)}>
+                                      ✅ Créer et assigner
+                                    </button>
                                   </div>
+                                ) : role === 'af' ? (
+                                  <RechercheAfSelect
+                                    value={v(idKey)}
+                                    onSelect={(id) => F(idKey)(id)}
+                                  />
                                 ) : (
                                   <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
                                     <option value="">— Sélectionner —</option>
-                                    {collegues.filter(c => role === 'af' ? c.role === 'af' : ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
+                                    {collegues.filter(c => ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
                                       <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
                                     ))}
                                   </select>
@@ -1497,7 +1589,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                             ) : (
                               <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
                                 <option value="">— Sélectionner —</option>
-                                {collegues.filter(c => role === 'af' ? c.role === 'af' : ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
+                                {collegues.filter(c => ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
                                   <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
                                 ))}
                               </select>
@@ -1514,6 +1606,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                         </div>
                       )
                     })}
+
 
                     {/* Santé, Gestionnaire, RTASE — champs texte libres */}
                     {[
