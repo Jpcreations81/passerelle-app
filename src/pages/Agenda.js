@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-16e — recherche AF pour partage + limite 1 demande/1 partage actif
+// Agenda.js — v2026-06-18a — bouton Importer bloqué tant qu un événement n a pas d enfant identifié
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2851,11 +2851,25 @@ export default function Agenda({ profile }) {
 
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => { setShowImportModal(false); setEvtsImportes([]); setPdfFile(null) }}>Annuler</button>
-              {evtsImportes.length > 0 && !pdfParsing && (
-                <button className="btn btn-primary" onClick={() => saveEvtsImportes(null)}>
-                  💾 Importer {Object.values(evtsImportesChecked).filter(Boolean).length} événement{Object.values(evtsImportesChecked).filter(Boolean).length > 1 ? 's' : ''}
-                </button>
-              )}
+              {evtsImportes.length > 0 && !pdfParsing && (() => {
+                const evtsSelectionnesSansEnfant = evtsImportes.filter((evt, i) =>
+                  evtsImportesChecked[i] && (!evt.enfant_ids || evt.enfant_ids.length === 0)
+                )
+                const bloque = evtsSelectionnesSansEnfant.length > 0
+                return (
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
+                    {bloque && (
+                      <div style={{ fontSize:11, color:'#dc2626', fontWeight:600 }}>
+                        ⚠️ {evtsSelectionnesSansEnfant.length} événement{evtsSelectionnesSansEnfant.length > 1 ? 's' : ''} sans enfant identifié — recherchez ou créez l'enfant avant d'importer
+                      </div>
+                    )}
+                    <button className="btn btn-primary" onClick={() => saveEvtsImportes(null)} disabled={bloque}
+                      style={bloque ? { opacity:0.45, cursor:'not-allowed' } : {}}>
+                      💾 Importer {Object.values(evtsImportesChecked).filter(Boolean).length} événement{Object.values(evtsImportesChecked).filter(Boolean).length > 1 ? 's' : ''}
+                    </button>
+                  </div>
+                )
+              })()}
             </div>
           </div>
         </div>
