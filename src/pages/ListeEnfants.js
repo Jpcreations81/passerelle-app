@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-06-15e — ajout statut_profil dans les 3 selects enfants (badge TEMP fonctionnel)
+// ListeEnfants.js — v2026-06-18b — enfants temporaires visibles toute date, enfants normaux J-2/J+2 uniquement
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -75,41 +75,65 @@ export default function ListeEnfants({ profile }) {
         referent:referent_id(nom, prenom)
       `).eq('af_principal_id', profile.id).neq('type_placement', 'non_place')
 
-      // 2. Chercher les enfants en relais actif (fenêtre J-2/J+2)
+      // 2a. Relais en fenêtre J-2/J+2 (enfants normaux)
       const now = new Date()
       const jMoins2 = new Date(now); jMoins2.setDate(jMoins2.getDate() - 2); jMoins2.setHours(0,0,0,0)
       const jPlus2 = new Date(now); jPlus2.setDate(jPlus2.getDate() + 2); jPlus2.setHours(23,59,59,999)
 
-      const { data: evtsRelais } = await supabase.from('evenements')
+      const { data: evtsRelaisProches } = await supabase.from('evenements')
         .select('enfant_ids, participants_ids')
         .eq('categorie', 'relais')
         .gte('date_fin', jMoins2.toISOString())
         .lte('date_debut', jPlus2.toISOString())
 
-      // Extraire les enfant_ids des relais où l'AF est participant
-      const enfantIdsRelais = []
-      if (evtsRelais) {
-        evtsRelais.forEach(e => {
+      // 2b. Tous les relais (toute date) — utilisés seulement pour les enfants temporaires
+      const { data: evtsRelaisTous } = await supabase.from('evenements')
+        .select('enfant_ids, participants_ids')
+        .eq('categorie', 'relais')
+
+      // Extraire les enfant_ids des relais proches (J-2/J+2) où l'AF est participant
+      const enfantIdsRelaisProches = []
+      if (evtsRelaisProches) {
+        evtsRelaisProches.forEach(e => {
           if (e.participants_ids?.includes(profile.id) && e.enfant_ids) {
             e.enfant_ids.forEach(eid => {
-              if (!enfantIdsRelais.includes(eid)) enfantIdsRelais.push(eid)
+              if (!enfantIdsRelaisProches.includes(eid)) enfantIdsRelaisProches.push(eid)
+            })
+          }
+        })
+      }
+      // Extraire les enfant_ids de TOUS les relais (toute date) où l'AF est participant
+      const enfantIdsRelaisTous = []
+      if (evtsRelaisTous) {
+        evtsRelaisTous.forEach(e => {
+          if (e.participants_ids?.includes(profile.id) && e.enfant_ids) {
+            e.enfant_ids.forEach(eid => {
+              if (!enfantIdsRelaisTous.includes(eid)) enfantIdsRelaisTous.push(eid)
             })
           }
         })
       }
 
       // 3. Charger les enfants en relais non déjà dans la liste principale
+      // On charge l'union des deux listes de candidats (proches + tous), puis on filtre :
+      // - enfant normal : seulement s'il est dans la liste "proches" (J-2/J+2)
+      // - enfant temporaire : visible peu importe la date (déjà dans "tous")
       let enfantsRelais = []
-      if (enfantIdsRelais.length > 0) {
+      const idsCandidats = [...new Set([...enfantIdsRelaisProches, ...enfantIdsRelaisTous])]
+      if (idsCandidats.length > 0) {
         const idsPrincipaux = (enfantsPrincipaux || []).map(e => e.id)
-        const idsACharger = enfantIdsRelais.filter(id => !idsPrincipaux.includes(id))
+        const idsACharger = idsCandidats.filter(id => !idsPrincipaux.includes(id))
         if (idsACharger.length > 0) {
           const { data } = await supabase.from('enfants').select(`
             id, prenom, nom, date_naissance, sexe, numero_dossier, type_placement, date_placement, statut_profil,
             af_principal:af_principal_id(nom, prenom),
             referent:referent_id(nom, prenom)
           `).in('id', idsACharger)
-          if (data) enfantsRelais = data
+          if (data) {
+            enfantsRelais = data.filter(e =>
+              e.statut_profil === 'temporaire' || enfantIdsRelaisProches.includes(e.id)
+            )
+          }
         }
       }
 
