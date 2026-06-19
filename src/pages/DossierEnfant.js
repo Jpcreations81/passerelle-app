@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-18a — Référent 1/2 + recherche AF + création profil réel en base
+// DossierEnfant.js — v2026-06-18b — accès enfant temporaire pour tout AF avec relais planifié (passé/futur)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -189,6 +189,7 @@ export default function DossierEnfant({ profile }) {
   const [newFratrie, setNewFratrie] = useState({ prenom:'', nom:'', ddn:'', sexe:'M', meme_af:false, type_placement:'non_place', lieu_type:'', lieu_nom:'', memes_parents: null })
 
   const [isAfRelaisActif, setIsAfRelaisActif] = useState(false)
+  const [isAfRelaisPlanifie, setIsAfRelaisPlanifie] = useState(false)
   const [relaisInfo, setRelaisInfo] = useState(null) // { date_debut, date_fin } du relais en cours
 
   const [showProfModal, setShowProfModal] = useState(false)
@@ -209,19 +210,30 @@ export default function DossierEnfant({ profile }) {
     const jMoins2 = new Date(now); jMoins2.setDate(jMoins2.getDate() - 2); jMoins2.setHours(0,0,0,0)
     const jPlus2 = new Date(now); jPlus2.setDate(jPlus2.getDate() + 2); jPlus2.setHours(23,59,59,999)
 
+    // Tous les relais (passés, présents, futurs) où cet AF est participant pour cet enfant
     const { data } = await supabase
       .from('evenements')
       .select('id, date_debut, date_fin, participants_ids, enfant_ids')
       .eq('categorie', 'relais')
       .contains('enfant_ids', [id])
-      .gte('date_fin', jMoins2.toISOString())
-      .lte('date_debut', jPlus2.toISOString())
 
     if (data) {
-      const relais = data.find(e => e.participants_ids?.includes(profile.id))
-      if (relais) {
-        setIsAfRelaisActif(true)
-        setRelaisInfo({ date_debut: relais.date_debut, date_fin: relais.date_fin })
+      const relaisAvecMoi = data.filter(e => e.participants_ids?.includes(profile.id))
+      if (relaisAvecMoi.length > 0) {
+        // Accès accordé dès qu'un relais (peu importe la date) existe avec cet AF
+        setIsAfRelaisPlanifie(true)
+        // isAfRelaisActif reste réservé à la fenêtre J-2/J+2 (utilisé pour le badge "Relais actif")
+        const relaisProche = relaisAvecMoi.find(e =>
+          new Date(e.date_fin) >= jMoins2 && new Date(e.date_debut) <= jPlus2
+        )
+        if (relaisProche) {
+          setIsAfRelaisActif(true)
+          setRelaisInfo({ date_debut: relaisProche.date_debut, date_fin: relaisProche.date_fin })
+        } else {
+          // Garder la première date pour affichage informatif même hors fenêtre
+          const prochain = relaisAvecMoi.sort((a,b) => new Date(a.date_debut) - new Date(b.date_debut))[0]
+          setRelaisInfo({ date_debut: prochain.date_debut, date_fin: prochain.date_fin })
+        }
       }
     }
   }, [isAF, id, profile?.id])
