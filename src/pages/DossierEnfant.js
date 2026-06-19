@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-18d — génération UUID manuelle + statut_profil temporaire pour profils créés
+// DossierEnfant.js — v2026-06-18c — canEdit basé sur isAfRelaisPlanifie (accès édition même hors fenêtre J-2/J+2)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -248,11 +248,9 @@ export default function DossierEnfant({ profile }) {
     const ville = v(`${idKey}_ville_new`)?.trim()
     if (!nom || !prenom) { showToast('⚠️ Nom et prénom requis'); return }
     const payload = {
-      id: crypto.randomUUID(),
       nom: nom.toUpperCase(),
       prenom,
       role: role === 'af' ? 'af' : 'referent',
-      statut_profil: 'temporaire',
       ...(role === 'af' ? { ville: ville || null } : {})
     }
     const { data, error } = await supabase.from('profiles').insert(payload).select().single()
