@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-18d — génération UUID manuelle + statut_profil temporaire pour profils créés
+// DossierEnfant.js — v2026-06-18e — email factice ajouté pour profils temporaires (contrainte NOT NULL)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -253,6 +253,7 @@ export default function DossierEnfant({ profile }) {
       prenom,
       role: role === 'af' ? 'af' : 'referent',
       statut_profil: 'temporaire',
+      email: `temp.${Date.now()}@passerelle.local`,
       ...(role === 'af' ? { ville: ville || null } : {})
     }
     const { data, error } = await supabase.from('profiles').insert(payload).select().single()
