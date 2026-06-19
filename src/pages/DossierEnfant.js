@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-18f — profil créé ajouté immédiatement à collegues (visible dans le select)
+// DossierEnfant.js — v2026-06-18g — 6 contacts unifiés (liste+création) + protection tél perso AF + ref_sante/rtase migrés vers profiles
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -242,19 +242,22 @@ export default function DossierEnfant({ profile }) {
 
   // Créer un nouveau profil (référent ou AF) en base et l'assigner immédiatement.
   // Le profil créé devient automatiquement disponible pour les futures recherches/listes.
-  async function creerProfilEtAssigner(role, idKey) {
+  async function creerProfilEtAssigner(roleDb, idKey) {
     const nom = v(`${idKey}_nom_new`)?.trim()
     const prenom = v(`${idKey}_prenom_new`)?.trim()
     const ville = v(`${idKey}_ville_new`)?.trim()
+    const tel = v(`${idKey}_tel_new`)?.trim()
+    const emailSaisi = v(`${idKey}_email_new`)?.trim()
     if (!nom || !prenom) { showToast('⚠️ Nom et prénom requis'); return }
     const payload = {
       id: crypto.randomUUID(),
       nom: nom.toUpperCase(),
       prenom,
-      role: role === 'af' ? 'af' : 'referent',
+      role: roleDb,
       statut_profil: 'temporaire',
-      email: `temp.${Date.now()}@passerelle.local`,
-      ...(role === 'af' ? { ville: ville || null } : {})
+      email: emailSaisi || `temp.${Date.now()}@passerelle.local`,
+      ...(tel ? { telephone: tel } : {}),
+      ...(roleDb === 'af' ? { ville: ville || null } : {})
     }
     const { data, error } = await supabase.from('profiles').insert(payload).select().single()
     if (error) { showToast('❌ ' + error.message); return }
@@ -263,6 +266,8 @@ export default function DossierEnfant({ profile }) {
     F(`_${idKey}Manuel`)(false)
     F(`${idKey}_nom_new`)('')
     F(`${idKey}_prenom_new`)('')
+    F(`${idKey}_tel_new`)('')
+    F(`${idKey}_email_new`)('')
     F(`${idKey}_ville_new`)('')
     showToast(`✅ ${prenom} ${nom} créé(e) et assigné(e)`)
   }
@@ -1552,68 +1557,66 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
 
                   {/* Contacts ASE */}
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:12, marginTop:12 }}>
-                    {/* Référent 1, Référent 2, AF Principal et Gestionnaire — sélecteurs profils */}
+                    {/* Référent 1, Référent 2, AF Principal, Gestionnaire, Référent Santé, RTASE — tous unifiés */}
                     {[
-                      { role:'referent',  icon:'👩‍💼', label:'Référent(e) 1',  bg:'#e8eef8', idKey:'referent_id',     data: enfant.referent },
-                      { role:'referent',  icon:'👩‍💼', label:'Référent(e) 2',  bg:'#e8eef8', idKey:'referent2_id',    data: enfant.referent2 },
-                      { role:'af',           icon:'👨‍👩‍👧', label:'AF Principal',         bg:'#e6f5eb', idKey:'af_principal_id', data: enfant.af_principal },
-                      { role:'gestionnaire', icon:'👨‍💼', label:'Gestionnaire Enfant',   bg:'#fef3e2', idKey:'gestionnaire_id', data: null },
+                      { role:'referent',       icon:'👩‍💼', label:'Référent(e) 1',           bg:'#e8eef8', idKey:'referent_id',     data: enfant.referent },
+                      { role:'referent',       icon:'👩‍💼', label:'Référent(e) 2',           bg:'#e8eef8', idKey:'referent2_id',    data: enfant.referent2 },
+                      { role:'af',             icon:'👨‍👩‍👧', label:'AF Principal',            bg:'#e6f5eb', idKey:'af_principal_id', data: enfant.af_principal },
+                      { role:'gestionnaire',   icon:'👨‍💼', label:'Gestionnaire Enfant',      bg:'#fef3e2', idKey:'gestionnaire_id', data: null },
+                      { role:'referent_sante', icon:'👩‍⚕️', label:'Référent(e) Santé',        bg:'#f0ebfb', idKey:'ref_sante_id',    data: null },
+                      { role:'rtase',          icon:'🎖️', label:'Responsable Territorial ASE', bg:'#e6f5eb', idKey:'rt_ase_id',       data: null },
                     ].map(({ role, icon, label, bg, idKey, data }) => {
                       const profil = collegues.find(c => c.id === v(idKey)) || data
                       const manuelKey = `_${idKey}Manuel`
+                      // Rôle réel à utiliser en base pour la création/recherche (referent_sante n'existe pas comme rôle système, on le mappe vers 'referent')
+                      const roleDb = role === 'referent_sante' ? 'referent' : (role === 'rtase' ? 'rtase' : role)
+                      const isListeSimple = role !== 'af' // af utilise RechercheAfSelect, les autres un select classique
                       return (
                         <div key={idKey} style={{ background: bg, borderRadius:10, padding:14, border:'1px solid #dde3f0' }}>
                           <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.3px', marginBottom:8 }}>
                             {icon} {label}
                           </div>
                           {editMode ? (
-                            (role === 'referent' || role === 'af') ? (
-                              <div>
-                                <div style={{ display:'flex', gap:6, marginBottom:8 }}>
-                                  <button type="button" style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${!form[manuelKey] ? '#1a4b8f' : '#dde3f0'}`, background: !form[manuelKey] ? '#e8eef8' : '#f4f6fb', color: !form[manuelKey] ? '#1a4b8f' : '#5a6478', cursor:'pointer', fontWeight:600 }}
-                                    onClick={() => F(manuelKey)(false)}>📋 Liste</button>
-                                  <button type="button" style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${form[manuelKey] ? '#f59e0b' : '#dde3f0'}`, background: form[manuelKey] ? '#fef3c7' : '#f4f6fb', color: form[manuelKey] ? '#b45309' : '#5a6478', cursor:'pointer', fontWeight:600 }}
-                                    onClick={() => F(manuelKey)(true)}>✏️ Ajouter manuellement</button>
-                                </div>
-                                {form[manuelKey] ? (
-                                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_nom_new`)||''} onChange={e=>F(`${idKey}_nom_new`)(e.target.value)} placeholder="NOM" />
-                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_prenom_new`)||''} onChange={e=>F(`${idKey}_prenom_new`)(e.target.value)} placeholder="Prénom" />
-                                    {role === 'af' && (
-                                      <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_ville_new`)||''} onChange={e=>F(`${idKey}_ville_new`)(e.target.value)} placeholder="Ville" />
-                                    )}
-                                    <button type="button"
-                                      style={{ fontSize:11, padding:'6px 10px', borderRadius:6, border:'none', background:'#1a4b8f', color:'#fff', cursor:'pointer', fontWeight:600 }}
-                                      onClick={() => creerProfilEtAssigner(role, idKey)}>
-                                      ✅ Créer et assigner
-                                    </button>
-                                  </div>
-                                ) : role === 'af' ? (
-                                  <RechercheAfSelect
-                                    value={v(idKey)}
-                                    onSelect={(id) => F(idKey)(id)}
-                                  />
-                                ) : (
-                                  <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
-                                    <option value="">— Sélectionner —</option>
-                                    {collegues.filter(c => ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
-                                      <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
-                                    ))}
-                                  </select>
-                                )}
+                            <div>
+                              <div style={{ display:'flex', gap:6, marginBottom:8 }}>
+                                <button type="button" style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${!form[manuelKey] ? '#1a4b8f' : '#dde3f0'}`, background: !form[manuelKey] ? '#e8eef8' : '#f4f6fb', color: !form[manuelKey] ? '#1a4b8f' : '#5a6478', cursor:'pointer', fontWeight:600 }}
+                                  onClick={() => F(manuelKey)(false)}>📋 Liste</button>
+                                <button type="button" style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:`1px solid ${form[manuelKey] ? '#f59e0b' : '#dde3f0'}`, background: form[manuelKey] ? '#fef3c7' : '#f4f6fb', color: form[manuelKey] ? '#b45309' : '#5a6478', cursor:'pointer', fontWeight:600 }}
+                                  onClick={() => F(manuelKey)(true)}>✏️ Ajouter manuellement</button>
                               </div>
-                            ) : (
-                              <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
-                                <option value="">— Sélectionner —</option>
-                                {collegues.filter(c => ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
-                                  <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
-                                ))}
-                              </select>
-                            )
+                              {form[manuelKey] ? (
+                                <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                                  <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_nom_new`)||''} onChange={e=>F(`${idKey}_nom_new`)(e.target.value)} placeholder="NOM" />
+                                  <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_prenom_new`)||''} onChange={e=>F(`${idKey}_prenom_new`)(e.target.value)} placeholder="Prénom" />
+                                  {role === 'af' && (
+                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_ville_new`)||''} onChange={e=>F(`${idKey}_ville_new`)(e.target.value)} placeholder="Ville" />
+                                  )}
+                                  <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_tel_new`)||''} onChange={e=>F(`${idKey}_tel_new`)(e.target.value)} placeholder="📞 Téléphone (optionnel)" />
+                                  <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_email_new`)||''} onChange={e=>F(`${idKey}_email_new`)(e.target.value)} placeholder="✉️ Email" />
+                                  <button type="button"
+                                    style={{ fontSize:11, padding:'6px 10px', borderRadius:6, border:'none', background:'#1a4b8f', color:'#fff', cursor:'pointer', fontWeight:600 }}
+                                    onClick={() => creerProfilEtAssigner(roleDb, idKey)}>
+                                    ✅ Créer et assigner
+                                  </button>
+                                </div>
+                              ) : role === 'af' ? (
+                                <RechercheAfSelect
+                                  value={v(idKey)}
+                                  onSelect={(id) => F(idKey)(id)}
+                                />
+                              ) : (
+                                <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
+                                  <option value="">— Sélectionner —</option>
+                                  {collegues.filter(c => ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
+                                    <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
                           ) : profil ? (
                             <div>
                               <div style={{ fontSize:13, fontWeight:600 }}>{profil.nom} {profil.prenom}</div>
-                              {profil.telephone && <div style={{ fontSize:11, color:'#5a6478', marginTop:3 }}>📞 <a href={`tel:${profil.telephone}`} style={{ color:'#1a4b8f' }}>{profil.telephone}</a></div>}
+                              {profil.telephone && profil.role !== 'af' && <div style={{ fontSize:11, color:'#5a6478', marginTop:3 }}>📞 <a href={`tel:${profil.telephone}`} style={{ color:'#1a4b8f' }}>{profil.telephone}</a></div>}
                               {profil.email && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
                             </div>
                           ) : (
@@ -1622,41 +1625,11 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                         </div>
                       )
                     })}
-
-
-                    {/* Santé, Gestionnaire, RTASE — champs texte libres */}
-                    {[
-                      { icon:'👩‍⚕️', label:'Référent(e) Santé',          bg:'#f0ebfb', nomKey:'ref_sante_nom',        telKey:'ref_sante_tel',        emailKey:'ref_sante_email' },
-
-                      { icon:'🎖️', label:'Responsable Territorial ASE',  bg:'#e6f5eb', nomKey:'rt_ase_nom',            telKey:'rt_ase_tel',            emailKey:'rt_ase_email' },
-                    ].map(({ icon, label, bg, nomKey, telKey, emailKey }) => (
-                      <div key={nomKey} style={{ background: bg, borderRadius:10, padding:14, border:'1px solid #dde3f0' }}>
-                        <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.3px', marginBottom:8 }}>
-                          {icon} {label}
-                        </div>
-                        {editMode ? (
-                          <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                            <input className="form-control" style={{ fontSize:12 }} value={v(nomKey)||''} onChange={e=>F(nomKey)(e.target.value)} placeholder="Nom Prénom" />
-                            <input className="form-control" style={{ fontSize:12 }} value={v(telKey)||''} onChange={e=>F(telKey)(e.target.value)} placeholder="📞 Téléphone" />
-                            <input className="form-control" style={{ fontSize:12 }} value={v(emailKey)||''} onChange={e=>F(emailKey)(e.target.value)} placeholder="✉️ Email" />
-                          </div>
-                        ) : v(nomKey) ? (
-                          <div>
-                            <div style={{ fontSize:13, fontWeight:600, marginBottom:4 }}>{v(nomKey)}</div>
-                            <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
-                              {v(telKey)&&<a href={`tel:${v(telKey)}`} style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:6, background:'#e8eef8', color:'#1a4b8f', fontSize:11, textDecoration:'none' }}>📞 {v(telKey)}</a>}
-                              {v(emailKey)&&<a href={`mailto:${v(emailKey)}`} style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 8px', borderRadius:6, background:'#e6f5eb', color:'#2e8b4a', fontSize:11, textDecoration:'none' }}>✉️ {v(emailKey)}</a>}
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Non renseigné — cliquez sur Modifier</div>
-                        )}
-                      </div>
-                    ))}
                   </div>
                 </SectionCard>
 
                 {/* ── DOCUMENTS PLACEMENT ── */}
+
                 <SectionCard icon="📄" title="Documents placement">
                   {(() => {
                     const DOCS_PLACEMENT = [
