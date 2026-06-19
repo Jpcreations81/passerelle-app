@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-18b — accès enfant temporaire pour tout AF avec relais planifié (passé/futur)
+// DossierEnfant.js — v2026-06-18c — canEdit basé sur isAfRelaisPlanifie (accès édition même hors fenêtre J-2/J+2)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -200,7 +200,7 @@ export default function DossierEnfant({ profile }) {
   const isReferent = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
   const isAF = profile?.role === 'af'
   const isAfPrincipalEnfant = isAF && enfant?.af_principal_id === profile?.id
-  const isAfRelaisTemporaire = isAF && isAfRelaisActif && enfant?.statut_profil === 'temporaire'
+  const isAfRelaisTemporaire = isAF && isAfRelaisPlanifie && enfant?.statut_profil === 'temporaire'
   const canEdit = isReferent || isAfPrincipalEnfant || isAfRelaisTemporaire
 
   // ── Vérifier si l'AF connecté est AF relais actif pour cet enfant (fenêtre J-2/J+2) ──
