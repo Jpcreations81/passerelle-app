@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-18e — email factice ajouté pour profils temporaires (contrainte NOT NULL)
+// DossierEnfant.js — v2026-06-18f — profil créé ajouté immédiatement à collegues (visible dans le select)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -258,6 +258,7 @@ export default function DossierEnfant({ profile }) {
     }
     const { data, error } = await supabase.from('profiles').insert(payload).select().single()
     if (error) { showToast('❌ ' + error.message); return }
+    setCollegues(prev => [...prev, data])
     F(idKey)(data.id)
     F(`_${idKey}Manuel`)(false)
     F(`${idKey}_nom_new`)('')
