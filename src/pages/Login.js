@@ -1,4 +1,4 @@
-// Login.js — v2026-06-20a — retrait du bloc "Comptes de test" (faille de confidentialité)
+// Login.js — v2026-06-20b — retrait texte "Passerelle" en double (logo seul conservé)
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -48,9 +48,6 @@ export default function Login() {
             />
             <span style={{ fontSize: 40, display: 'none', color: '#fff' }}>🌉</span>
           </div>
-          <h1 style={{ fontSize: 32, fontWeight: 700, color: '#fff', letterSpacing: '-0.5px' }}>
-            Passerelle
-          </h1>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>
             Un pont entre l'Assfam et l'ASE<br />
             <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Département du Tarn (81)</span>
