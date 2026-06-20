@@ -1,4 +1,4 @@
-// Login.js — v2026-06-20c — ajout inscription AF (Nom, Prénom, Ville, Email, Mot de passe)
+// Login.js — v2026-06-20d — infos stockées en métadonnées Auth, profil créé au premier login
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -42,6 +42,14 @@ export default function Login() {
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
       password,
+      options: {
+        data: {
+          nom: nom.trim().toUpperCase(),
+          prenom: prenom.trim(),
+          ville: ville.trim() || null,
+          role: 'af',
+        }
+      }
     })
 
     if (signUpError) {
@@ -53,19 +61,8 @@ export default function Login() {
     }
 
     if (data?.user) {
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        nom: nom.trim().toUpperCase(),
-        prenom: prenom.trim(),
-        ville: ville.trim() || null,
-        email: email.trim(),
-        role: 'af',
-      })
-      if (profileError) {
-        setError('Compte créé mais erreur profil : ' + profileError.message)
-        setLoading(false)
-        return
-      }
+      // Le profil sera créé automatiquement à la première connexion réussie
+      // (après confirmation de l'email), voir App.js → fetchProfile()
       setSuccess('✅ Compte créé ! Vérifiez votre email pour confirmer votre inscription, puis connectez-vous.')
       setMode('connexion')
       setNom(''); setPrenom(''); setVille(''); setPassword('')
