@@ -1,4 +1,4 @@
-// App.js — v2026-06-20a — création automatique du profil au premier login depuis métadonnées Auth
+// App.js — v2026-06-20b — retrait création manuelle profil, géré par trigger Supabase handle_new_user
 import React, { useState, useEffect, useRef } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
@@ -45,26 +45,7 @@ export default function App() {
   }, [])
 
   async function fetchProfile(userId) {
-    let { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
-
-    // Si le profil n'existe pas encore (première connexion après inscription),
-    // le créer à partir des métadonnées stockées lors du signUp
-    if (!data) {
-      const { data: { user } } = await supabase.auth.getUser()
-      const meta = user?.user_metadata || {}
-      if (meta.nom && meta.prenom) {
-        const { data: newProfile } = await supabase.from('profiles').insert({
-          id: userId,
-          nom: meta.nom,
-          prenom: meta.prenom,
-          ville: meta.ville || null,
-          email: user.email,
-          role: meta.role || 'af',
-        }).select().single()
-        data = newProfile
-      }
-    }
-
+    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
     setProfile(data)
     setLoading(false)
     // Vérifier si l'AF doit voir le modal CGU/signature
