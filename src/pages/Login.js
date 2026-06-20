@@ -1,3 +1,4 @@
+// Login.js — v2026-06-20a — retrait du bloc "Comptes de test" (faille de confidentialité)
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -137,46 +138,6 @@ export default function Login() {
           </form>
         </div>
 
-        {/* Profils de test */}
-        <div style={{
-          background: 'rgba(255,255,255,0.1)',
-          border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: 12, padding: 14, marginTop: 16,
-          backdropFilter: 'blur(8px)'
-        }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '.4px', marginBottom: 8 }}>
-            Comptes de test
-          </div>
-          {[
-            { role: 'AF', email: 'agnes81300+af@gmail.com', label: 'Marie Laurent' },
-            { role: 'AF', email: 'jpbali81300+bernard@gmail.com', label: 'Delphine Bernard' },
-            { role: 'Référent', email: 'jpbali81300+referent@gmail.com', label: 'Mme Gondy' },
-            { role: 'Encadrant', email: 'jpbali81300+encadrant@gmail.com', label: 'M. Salles' },
-          ].map(u => (
-            <div
-              key={u.email}
-              onClick={() => setEmail(u.email)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                padding: '6px 8px', borderRadius: 6, cursor: 'pointer',
-                marginBottom: 4, transition: 'background .1s'
-              }}
-              onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-              onMouseOut={e => e.currentTarget.style.background = 'transparent'}
-            >
-              <span style={{
-                background: 'rgba(255,255,255,0.2)', color: '#fff',
-                fontSize: 9, fontWeight: 700, padding: '2px 6px',
-                borderRadius: 8, minWidth: 52, textAlign: 'center'
-              }}>{u.role}</span>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.9)' }}>{u.label}</span>
-              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginLeft: 'auto' }}>{u.email}</span>
-            </div>
-          ))}
-          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 8 }}>
-            Mot de passe : <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Passerelle2026!</strong>
-          </p>
-        </div>
       </div>
     </div>
   )
