@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-18e — email factice ajouté pour profils temporaires (contrainte NOT NULL)
+// Agenda.js — v2026-06-19a — select Relais remplacé par recherche AF (RechercheAfImport unifiée)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -231,12 +231,35 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
 }
 
 // Composant recherche + création AF temporaire inline
-function RechercheAfImport({ nomDetecte, afTousListe, onSelect }) {
+function RechercheAfImport({ value, nomDetecte, afTousListe, onSelect }) {
+  const [query, setQuery] = React.useState('')
+  const [resultats, setResultats] = React.useState([])
+  const [selectedLabel, setSelectedLabel] = React.useState('')
   const [modeCreation, setModeCreation] = React.useState(false)
   const [newPrenom, setNewPrenom] = React.useState('')
   const [newNom, setNewNom] = React.useState(nomDetecte || '')
   const [newVille, setNewVille] = React.useState('')
   const [saving, setSaving] = React.useState(false)
+
+  React.useEffect(() => {
+    if (value) {
+      const af = afTousListe.find(a => a.id === value)
+      if (af) setSelectedLabel(`${af.prenom} ${af.nom}`)
+    } else {
+      setSelectedLabel('')
+    }
+  }, [value, afTousListe])
+
+  const rechercher = async (q) => {
+    setQuery(q)
+    if (q.trim().length < 2) { setResultats([]); return }
+    const { data } = await supabase.from('profiles')
+      .select('id, nom, prenom, ville')
+      .eq('role', 'af')
+      .or(`nom.ilike.%${q.trim()}%,prenom.ilike.%${q.trim()}%`)
+      .limit(8)
+    setResultats(data || [])
+  }
 
   const creerTemporaire = async () => {
     if (!newPrenom.trim() || !newNom.trim()) return
@@ -278,12 +301,49 @@ function RechercheAfImport({ nomDetecte, afTousListe, onSelect }) {
     </div>
   )
 
+  if (value && selectedLabel) return (
+    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+      <div style={{ fontSize:11, border:'1px solid #0891b2', borderRadius:6, padding:'3px 8px', background:'#fff' }}>
+        {selectedLabel}
+      </div>
+      <button style={{ fontSize:10, padding:'3px 6px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
+        onClick={() => onSelect(null)}>✕</button>
+    </div>
+  )
+
   return (
-    <button
-      style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
-      onClick={() => { setModeCreation(true); setNewNom(nomDetecte || '') }}>
-      ⏳ AF temporaire
-    </button>
+    <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+      <div style={{ display:'flex', gap:4, alignItems:'center', flexWrap:'wrap' }}>
+        <input
+          style={{ fontSize:11, border:'1px solid #0891b2', borderRadius:6, padding:'3px 8px', width:140 }}
+          placeholder="🔍 Rechercher un AF…"
+          value={query}
+          onChange={e => rechercher(e.target.value)}
+        />
+        <button
+          style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
+          onClick={() => { setModeCreation(true); setNewNom(nomDetecte || '') }}>
+          ⏳ AF temporaire
+        </button>
+        {nomDetecte && (
+          <span style={{ fontSize:10, color:'#d97706', fontStyle:'italic' }}>(détecté : {nomDetecte})</span>
+        )}
+      </div>
+      {resultats.length > 0 && (
+        <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:6, maxHeight:120, overflowY:'auto' }}>
+          {resultats.map(af => (
+            <div key={af.id}
+              style={{ padding:'4px 8px', fontSize:11, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}
+              onClick={() => { onSelect(af); setQuery(''); setResultats([]) }}>
+              {af.prenom} {af.nom}{af.ville ? ` — ${af.ville}` : ''}
+            </div>
+          ))}
+        </div>
+      )}
+      {resultats.length === 0 && query.length > 1 && (
+        <span style={{ fontSize:10, color:'#888', fontStyle:'italic' }}>Aucun résultat — créez un AF temporaire</span>
+      )}
+    </div>
   )
 }
 
@@ -2869,55 +2929,31 @@ export default function Agenda({ profile }) {
                               )}
                             </div>
 
-                            {/* SELECT AF RELAIS (seulement pour les relais) */}
+                            {/* RECHERCHE AF RELAIS (seulement pour les relais) */}
                             {evt.categorie === 'relais' && (
-                              <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
-                                <span style={{ fontSize:10, color:'#0891b2', fontWeight:600, minWidth:50 }}>🔄 Relais :</span>
-                                <select
-                                  style={{ fontSize:11, border:`1px solid ${evt.participants_ids?.[0] ? '#0891b2' : '#f59e0b'}`, borderRadius:6, padding:'3px 8px', background: evt.participants_ids?.[0] ? '#fff' : '#fffbeb', maxWidth:200 }}
-                                  value={evt.participants_ids?.[0] || ''}
-                                  onChange={e => {
-                                    const af = afTousListe.find(a => a.id === e.target.value)
+                              <div style={{ display:'flex', alignItems:'flex-start', gap:6, flexWrap:'wrap' }}>
+                                <span style={{ fontSize:10, color:'#0891b2', fontWeight:600, minWidth:50, marginTop:4 }}>🔄 Relais :</span>
+                                <RechercheAfImport
+                                  value={evt.participants_ids?.[0] || null}
+                                  nomDetecte={evt._relaisNomBrut || ''}
+                                  afTousListe={afTousListe}
+                                  onSelect={(af) => {
+                                    if (af) setAfTousListe(prev => prev.find(a => a.id === af.id) ? prev : [...prev, af])
                                     const nomBrut = evt._relaisNomBrut
-                                    // Synchroniser tous les événements avec le même nom de relais détecté
                                     setEvtsImportes(prev => prev.map((ev,j) => {
                                       if (j === i || (nomBrut && ev._relaisNomBrut === nomBrut)) {
                                         return {
                                           ...ev,
-                                          participants_ids: e.target.value ? [e.target.value] : [],
+                                          participants_ids: af ? [af.id] : [],
                                           _relaisLabel: af ? `${af.prenom} ${af.nom}` : ''
                                         }
                                       }
                                       return ev
                                     }))
-                                  }}>
-                                  <option value=''>— Choisir l'AF relais —</option>
-                                  {afTousListe.map(af => (
-                                    <option key={af.id} value={af.id}>{af.prenom} {af.nom}</option>
-                                  ))}
-                                </select>
-                                {!evt.participants_ids?.[0] && evt._relaisNomBrut && (
-                                  <span style={{ fontSize:10, color:'#d97706', fontStyle:'italic' }}>
-                                    (détecté : {evt._relaisNomBrut})
-                                  </span>
-                                )}
-                                {!evt.participants_ids?.[0] && (
-                                  <RechercheAfImport
-                                    nomDetecte={evt._relaisNomBrut || ''}
-                                    afTousListe={afTousListe}
-                                    onSelect={(af) => {
-                                      setAfTousListe(prev => prev.find(a => a.id === af.id) ? prev : [...prev, af])
-                                      const nomBrut = evt._relaisNomBrut
-                                      setEvtsImportes(prev => prev.map((ev,j) => {
-                                        if (j === i || (nomBrut && ev._relaisNomBrut === nomBrut)) {
-                                          return { ...ev, participants_ids: [af.id], _relaisLabel: `${af.prenom} ${af.nom}` }
-                                        }
-                                        return ev
-                                      }))
-                                    }}
-                                  />
-                                )}
+                                  }}
+                                />
                               </div>
+
                             )}
 
                           </div>
