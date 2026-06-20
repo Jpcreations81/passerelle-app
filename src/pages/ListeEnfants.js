@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-06-18b — enfants temporaires visibles toute date, enfants normaux J-2/J+2 uniquement
+// ListeEnfants.js — v2026-06-20a — détection doublon enfant à la création + majuscule forcée nom
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -44,6 +44,8 @@ export default function ListeEnfants({ profile }) {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [newEnfant, setNewEnfant] = useState({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', lieu_accueil:'af_principal', af_principal_id:'', referent_id:'', fratrie:[] })
+  const [doublonsDetectes, setDoublonsDetectes] = useState([])
+  const [verifEnCours, setVerifEnCours] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
   const [collegues, setCollegues] = useState([])
@@ -191,6 +193,21 @@ export default function ListeEnfants({ profile }) {
     setNewEnfant(n => ({ ...n, fratrie: [...(n.fratrie||[]), { ...newFratrieItem }] }))
     setFratrieModal(false); setNewFratrieItem({ prenom:'', nom:'', ddn:'', sexe:'M', meme_af:true }); setFratrieMode('question')
     showToast('✅ Ajouté !')
+  }
+
+  async function verifierDoublonsEtCreer() {
+    if (!newEnfant.prenom || !newEnfant.nom) { showToast('⚠️ Prénom et nom requis'); return }
+    setVerifEnCours(true)
+    const { data: existants } = await supabase.from('enfants')
+      .select('id, prenom, nom, af_principal:af_principal_id(id, nom, prenom)')
+      .ilike('nom', newEnfant.nom.trim())
+      .ilike('prenom', newEnfant.prenom.trim())
+    setVerifEnCours(false)
+    if (existants && existants.length > 0) {
+      setDoublonsDetectes(existants)
+      return
+    }
+    await createEnfant()
   }
 
   async function createEnfant() {
@@ -465,7 +482,7 @@ export default function ListeEnfants({ profile }) {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Nom *</label>
-                  <input className="form-control" value={newEnfant.nom} onChange={e => setNewEnfant(n => ({...n, nom: e.target.value}))} />
+                  <input className="form-control" value={newEnfant.nom} onChange={e => setNewEnfant(n => ({...n, nom: e.target.value.toUpperCase()}))} style={{ textTransform:'uppercase' }} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Date de naissance</label>
@@ -559,10 +576,37 @@ export default function ListeEnfants({ profile }) {
                   ) : null
                 })()}
               </div>
+                {doublonsDetectes.length > 0 && (
+                  <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:10, padding:14, margin:'12px 0' }}>
+                    <div style={{ fontSize:13, fontWeight:700, color:'#b45309', marginBottom:8 }}>
+                      ⚠️ Un enfant similaire existe déjà
+                    </div>
+                    {doublonsDetectes.map(d => (
+                      <div key={d.id} style={{ background:'#fff', borderRadius:8, padding:10, marginBottom:8, fontSize:13 }}>
+                        <div style={{ marginBottom:8 }}>
+                          {d.af_principal
+                            ? <>{d.prenom} {d.nom} existe déjà dans la base — son AF principal est {d.af_principal.prenom} {d.af_principal.nom}. Est-ce bien cet enfant ?</>
+                            : <>{d.prenom} {d.nom} existe déjà dans la base, sans AF principal renseigné. Est-ce bien cet enfant ?</>
+                          }
+                        </div>
+                        <div style={{ display:'flex', gap:8 }}>
+                          <button className="btn btn-primary" style={{ fontSize:12 }}
+                            onClick={() => { navigate(`/enfants/${d.id}`) }}>
+                            ✅ Oui, c'est elle/lui
+                          </button>
+                          <button className="btn btn-secondary" style={{ fontSize:12 }}
+                            onClick={() => { setDoublonsDetectes([]); createEnfant() }}>
+                            ✕ Non, créer un nouveau dossier
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="modal-footer">
-                  <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Annuler</button>
-                  <button className="btn btn-primary" onClick={createEnfant} disabled={saving}>
-                    {saving ? '⏳...' : evenementEnAttente ? '✅ Créer dossier + événement' : '👶 Créer le dossier'}
+                  <button className="btn btn-secondary" onClick={() => { setShowModal(false); setDoublonsDetectes([]) }}>Annuler</button>
+                  <button className="btn btn-primary" onClick={verifierDoublonsEtCreer} disabled={saving || verifEnCours}>
+                    {saving ? '⏳...' : verifEnCours ? '🔍 Vérification...' : evenementEnAttente ? '✅ Créer dossier + événement' : '👶 Créer le dossier'}
                   </button>
                 </div>
                 </div>
