@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-18g — 6 contacts unifiés (liste+création) + protection tél perso AF + ref_sante/rtase migrés vers profiles
+// DossierEnfant.js — v2026-06-18i — transition auto enfant temporaire vers réel si AF principal réel assigné
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -39,9 +39,10 @@ function fmtDateLocal(iso) {
   return `${d}/${m}/${y}`
 }
 
-function Field({ label, value, onChange, type = 'text', options, span, placeholder, readOnly }) {
+function Field({ label, value, onChange, type = 'text', options, span, placeholder, readOnly, uppercase }) {
   const style = span ? { gridColumn: `span ${span}` } : {}
   const displayValue = readOnly && type === 'date' ? fmtDateLocal(value) : value
+  const handleChange = uppercase ? (val) => onChange(val.toUpperCase()) : onChange
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:5, ...style }}>
       <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', letterSpacing:'.4px', textTransform:'uppercase' }}>{label}</label>
@@ -59,8 +60,8 @@ function Field({ label, value, onChange, type = 'text', options, span, placehold
         <textarea value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
           style={{ padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontFamily:'Sora,sans-serif', fontSize:13, background:'#f4f6fb', color:'#1c2333', outline:'none', minHeight:80, resize:'vertical' }} />
       ) : (
-        <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-          style={{ padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontFamily:'Sora,sans-serif', fontSize:13, background:'#f4f6fb', color:'#1c2333', outline:'none' }} />
+        <input type={type} value={value || ''} onChange={e => handleChange(e.target.value)} placeholder={placeholder}
+          style={{ padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontFamily:'Sora,sans-serif', fontSize:13, background:'#f4f6fb', color:'#1c2333', outline:'none', textTransform: uppercase ? 'uppercase' : 'none' }} />
       )}
     </div>
   )
@@ -320,7 +321,7 @@ export default function DossierEnfant({ profile }) {
   }, [id])
 
   const fetchCollegues = useCallback(async () => {
-    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire, telephone, email, ville').in('role', ['af','referent','encadrant','rtase','admin'])
+    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire, telephone, email, ville, statut_profil').in('role', ['af','referent','encadrant','rtase','admin'])
     if (data) setCollegues(data)
   }, [profile])
 
@@ -783,9 +784,20 @@ export default function DossierEnfant({ profile }) {
         return [k, v]
       })
     )
+    // Transition automatique : un enfant temporaire dont l'AF principal devient un AF réel
+    // (vrai compte, non temporaire) n'a plus besoin d'être temporaire.
+    if (enfant?.statut_profil === 'temporaire' && formData.af_principal_id) {
+      const { data: afPrincipalChoisi } = await supabase.from('profiles')
+        .select('id, statut_profil').eq('id', formData.af_principal_id).single()
+      if (afPrincipalChoisi && afPrincipalChoisi.statut_profil !== 'temporaire') {
+        formData.statut_profil = null
+      }
+    }
     const { error } = await supabase.from('enfants').update(formData).eq('id', id)
     if (!error) {
-      showToast('✅ Dossier enregistré !')
+      showToast(formData.statut_profil === null && enfant?.statut_profil === 'temporaire'
+        ? '✅ Dossier enregistré ! Enfant passé en statut réel (AF principal confirmé)'
+        : '✅ Dossier enregistré !')
       setEnfant(form)
       setEditMode(false)
     } else showToast('❌ Erreur : ' + error.message)
@@ -1162,7 +1174,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                       )}
                     </div>
                     <FormGrid cols={3}>
-                    <Field label="Nom de famille" value={v('nom')} onChange={F('nom')} readOnly={!editMode} />
+                    <Field label="Nom de famille" value={v('nom')} onChange={F('nom')} readOnly={!editMode} uppercase />
                     <Field label="Prénom" value={v('prenom')} onChange={F('prenom')} readOnly={!editMode} />
                     <Field label="Date de naissance" type="date" value={v('date_naissance')} onChange={F('date_naissance')} readOnly={!editMode} />
                     <Field label="Lieu de naissance" value={v('lieu_naissance')} onChange={F('lieu_naissance')} readOnly={!editMode} placeholder="Ville (dép.)" />
@@ -1586,7 +1598,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                               </div>
                               {form[manuelKey] ? (
                                 <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
-                                  <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_nom_new`)||''} onChange={e=>F(`${idKey}_nom_new`)(e.target.value)} placeholder="NOM" />
+                                  <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_nom_new`)||''} onChange={e=>F(`${idKey}_nom_new`)(e.target.value.toUpperCase())} placeholder="NOM" />
                                   <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_prenom_new`)||''} onChange={e=>F(`${idKey}_prenom_new`)(e.target.value)} placeholder="Prénom" />
                                   {role === 'af' && (
                                     <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_ville_new`)||''} onChange={e=>F(`${idKey}_ville_new`)(e.target.value)} placeholder="Ville" />
@@ -1616,7 +1628,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                           ) : profil ? (
                             <div>
                               <div style={{ fontSize:13, fontWeight:600 }}>{profil.nom} {profil.prenom}</div>
-                              {profil.telephone && profil.role !== 'af' && <div style={{ fontSize:11, color:'#5a6478', marginTop:3 }}>📞 <a href={`tel:${profil.telephone}`} style={{ color:'#1a4b8f' }}>{profil.telephone}</a></div>}
+                              {profil.telephone && !(profil.role === 'af' && profil.statut_profil === 'temporaire') && <div style={{ fontSize:11, color:'#5a6478', marginTop:3 }}>📞 <a href={`tel:${profil.telephone}`} style={{ color:'#1a4b8f' }}>{profil.telephone}</a></div>}
                               {profil.email && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
                             </div>
                           ) : (
