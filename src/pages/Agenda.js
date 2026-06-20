@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-19a — select Relais remplacé par recherche AF (RechercheAfImport unifiée)
+// Agenda.js — v2026-06-19b — création AF temporaire retirée (recherche seule), redirige vers fiche enfant
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -235,11 +235,6 @@ function RechercheAfImport({ value, nomDetecte, afTousListe, onSelect }) {
   const [query, setQuery] = React.useState('')
   const [resultats, setResultats] = React.useState([])
   const [selectedLabel, setSelectedLabel] = React.useState('')
-  const [modeCreation, setModeCreation] = React.useState(false)
-  const [newPrenom, setNewPrenom] = React.useState('')
-  const [newNom, setNewNom] = React.useState(nomDetecte || '')
-  const [newVille, setNewVille] = React.useState('')
-  const [saving, setSaving] = React.useState(false)
 
   React.useEffect(() => {
     if (value) {
@@ -261,46 +256,6 @@ function RechercheAfImport({ value, nomDetecte, afTousListe, onSelect }) {
     setResultats(data || [])
   }
 
-  const creerTemporaire = async () => {
-    if (!newPrenom.trim() || !newNom.trim()) return
-    setSaving(true)
-    const { data, error } = await supabase.from('profiles').insert({
-      id: crypto.randomUUID(),
-      prenom: newPrenom.trim(),
-      nom: newNom.trim().toUpperCase(),
-      ville: newVille.trim() || null,
-      role: 'af',
-      statut_profil: 'temporaire',
-      email: `temp.${Date.now()}@passerelle.local`
-    }).select().single()
-    setSaving(false)
-    if (error) { alert('Erreur : ' + error.message); return }
-    onSelect(data)
-    setModeCreation(false)
-  }
-
-  if (modeCreation) return (
-    <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'8px 10px', marginTop:4 }}>
-      <div style={{ fontSize:10, fontWeight:700, color:'#b45309', marginBottom:6 }}>⏳ Nouvel AF temporaire</div>
-      <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
-        <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }}
-          placeholder="Prénom *" value={newPrenom} onChange={e => setNewPrenom(e.target.value)} autoFocus />
-        <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:100 }}
-          placeholder="NOM *" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())} />
-        <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }}
-          placeholder="Ville" value={newVille} onChange={e => setNewVille(e.target.value)} />
-        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
-          onClick={creerTemporaire} disabled={saving}>
-          {saving ? '⏳' : '✅ Créer'}
-        </button>
-        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
-          onClick={() => setModeCreation(false)}>
-          ✕
-        </button>
-      </div>
-    </div>
-  )
-
   if (value && selectedLabel) return (
     <div style={{ display:'flex', alignItems:'center', gap:6 }}>
       <div style={{ fontSize:11, border:'1px solid #0891b2', borderRadius:6, padding:'3px 8px', background:'#fff' }}>
@@ -320,11 +275,6 @@ function RechercheAfImport({ value, nomDetecte, afTousListe, onSelect }) {
           value={query}
           onChange={e => rechercher(e.target.value)}
         />
-        <button
-          style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
-          onClick={() => { setModeCreation(true); setNewNom(nomDetecte || '') }}>
-          ⏳ AF temporaire
-        </button>
         {nomDetecte && (
           <span style={{ fontSize:10, color:'#d97706', fontStyle:'italic' }}>(détecté : {nomDetecte})</span>
         )}
@@ -341,7 +291,9 @@ function RechercheAfImport({ value, nomDetecte, afTousListe, onSelect }) {
         </div>
       )}
       {resultats.length === 0 && query.length > 1 && (
-        <span style={{ fontSize:10, color:'#888', fontStyle:'italic' }}>Aucun résultat — créez un AF temporaire</span>
+        <span style={{ fontSize:10, color:'#888', fontStyle:'italic' }}>
+          ℹ️ AF introuvable — créez-le depuis la fiche de l'enfant (onglet Placement)
+        </span>
       )}
     </div>
   )
