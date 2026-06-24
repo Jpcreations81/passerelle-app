@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-06-21d — moteur de recherche AF dans modal création enfant
+// ListeEnfants.js — v2026-06-21e — profils temporaires exclus des recherches AF
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -23,6 +23,7 @@ function RechercheAfSelectLocal({ value, onSelect }) {
     const { data } = await supabase.from('profiles')
       .select('id, nom, prenom, ville')
       .eq('role', 'af')
+      .neq('statut_profil', 'temporaire')
       .or(`nom.ilike.%${q.trim()}%,prenom.ilike.%${q.trim()}%`)
       .limit(8)
     setResultats(data || [])
