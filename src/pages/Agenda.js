@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-20a — retrait définitif du champ AF obligatoire dans RechercheEnfantImport
+// Agenda.js — v2026-06-21a — profils temporaires exclus des recherches AF
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -59,6 +59,14 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
   const [newPrenom, setNewPrenom] = React.useState('')
   const [newNom, setNewNom] = React.useState(nomDetecte || '')
   const [saving, setSaving] = React.useState(false)
+  // AF principal — recherche + création manuelle (obligatoire)
+  const [afQuery, setAfQuery] = React.useState('')
+  const [afResultats, setAfResultats] = React.useState([])
+  const [afSelectionne, setAfSelectionne] = React.useState(null)
+  const [afModeCreation, setAfModeCreation] = React.useState(false)
+  const [afNewPrenom, setAfNewPrenom] = React.useState('')
+  const [afNewNom, setAfNewNom] = React.useState('')
+  const [afNewVille, setAfNewVille] = React.useState('')
 
   const rechercher = async () => {
     if (!query.trim()) return
@@ -71,13 +79,43 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
     setCherche(false)
   }
 
+  const rechercherAf = async (q) => {
+    setAfQuery(q)
+    if (q.trim().length < 2) { setAfResultats([]); return }
+    const { data } = await supabase.from('profiles')
+      .select('id, nom, prenom, ville')
+      .eq('role', 'af')
+      .neq('statut_profil', 'temporaire')
+      .or(`nom.ilike.%${q.trim()}%,prenom.ilike.%${q.trim()}%`)
+      .limit(6)
+    setAfResultats(data || [])
+  }
+
+  const creerAfTemporaire = async () => {
+    if (!afNewPrenom.trim() || !afNewNom.trim()) return
+    const { data, error } = await supabase.from('profiles').insert({
+      id: crypto.randomUUID(),
+      prenom: afNewPrenom.trim(),
+      nom: afNewNom.trim().toUpperCase(),
+      ville: afNewVille.trim() || null,
+      role: 'af',
+      statut_profil: 'temporaire',
+      email: `temp.${Date.now()}@passerelle.local`
+    }).select().single()
+    if (error) { alert('Erreur AF : ' + error.message); return }
+    setAfSelectionne(data)
+    setAfModeCreation(false)
+  }
+
   const creerTemporaire = async () => {
     if (!newPrenom.trim() || !newNom.trim()) return
+    if (!afSelectionne) { alert("L'AF principal est obligatoire avant de créer l'enfant."); return }
     setSaving(true)
     const { data, error } = await supabase.from('enfants').insert({
       prenom: newPrenom.trim(),
       nom: newNom.trim().toUpperCase(),
-      statut_profil: 'temporaire'
+      statut_profil: 'temporaire',
+      af_principal_id: afSelectionne.id
     }).select().single()
     setSaving(false)
     if (error) { alert('Erreur : ' + error.message); return }
@@ -88,22 +126,66 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
   if (modeCreation) return (
     <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'8px 10px', marginTop:4 }}>
       <div style={{ fontSize:10, fontWeight:700, color:'#b45309', marginBottom:6 }}>⏳ Nouvel enfant temporaire</div>
-      <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
+      <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center', marginBottom:8 }}>
         <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }}
           placeholder="Prénom *" value={newPrenom} onChange={e => setNewPrenom(e.target.value)} autoFocus />
         <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:110 }}
           placeholder="NOM *" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())} />
-        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
-          onClick={creerTemporaire} disabled={saving}>
-          {saving ? '⏳' : '✅ Créer'}
+      </div>
+
+      {/* AF principal — obligatoire */}
+      <div style={{ borderTop:'1px solid #fcd34d', paddingTop:8, marginBottom:8 }}>
+        <div style={{ fontSize:10, fontWeight:700, color:'#b45309', marginBottom:6 }}>👨‍👩‍👧 AF principal * (obligatoire)</div>
+        {afSelectionne ? (
+          <div style={{ display:'flex', alignItems:'center', gap:6, background:'#f0fdf4', border:'1px solid #16a34a', borderRadius:6, padding:'4px 8px' }}>
+            <span style={{ fontSize:11, flex:1, color:'#15803d', fontWeight:600 }}>✅ {afSelectionne.prenom} {afSelectionne.nom}</span>
+            <button style={{ fontSize:10, border:'none', background:'none', color:'#888', cursor:'pointer' }}
+              onClick={() => setAfSelectionne(null)}>✕</button>
+          </div>
+        ) : afModeCreation ? (
+          <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
+            <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }}
+              placeholder="Prénom *" value={afNewPrenom} onChange={e => setAfNewPrenom(e.target.value)} />
+            <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:100 }}
+              placeholder="NOM *" value={afNewNom} onChange={e => setAfNewNom(e.target.value.toUpperCase())} />
+            <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }}
+              placeholder="Ville" value={afNewVille} onChange={e => setAfNewVille(e.target.value)} />
+            <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
+              onClick={creerAfTemporaire}>✅ Créer</button>
+            <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
+              onClick={() => setAfModeCreation(false)}>✕</button>
+          </div>
+        ) : (
+          <div>
+            <div style={{ display:'flex', gap:4, alignItems:'center' }}>
+              <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:130 }}
+                placeholder="Rechercher un AF…" value={afQuery} onChange={e => rechercherAf(e.target.value)} />
+              <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
+                onClick={() => setAfModeCreation(true)}>⏳ Nouveau</button>
+            </div>
+            {afResultats.length > 0 && (
+              <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:6, marginTop:4, maxHeight:100, overflowY:'auto' }}>
+                {afResultats.map(af => (
+                  <div key={af.id} style={{ padding:'4px 8px', fontSize:11, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}
+                    onClick={() => { setAfSelectionne(af); setAfResultats([]); setAfQuery('') }}>
+                    {af.prenom} {af.nom}{af.ville ? ` — ${af.ville}` : ''}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
+        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background: afSelectionne ? '#f0fdf4' : '#f1f1f1', color: afSelectionne ? '#15803d' : '#aaa', cursor: afSelectionne ? 'pointer' : 'not-allowed', fontWeight:700 }}
+          onClick={creerTemporaire} disabled={saving || !afSelectionne}>
+          {saving ? '⏳' : '✅ Créer l\'enfant'}
         </button>
         <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
           onClick={() => setModeCreation(false)}>
-          ✕
+          ✕ Annuler
         </button>
-      </div>
-      <div style={{ fontSize:10, color:'#b45309', marginTop:6, fontStyle:'italic' }}>
-        ℹ️ Pensez à renseigner l'AF principal dans la fiche de l'enfant après création
       </div>
     </div>
   )
@@ -150,71 +232,59 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
 }
 
 // Composant recherche + création AF temporaire inline
-function RechercheAfImport({ value, nomDetecte, afTousListe, onSelect }) {
-  const [query, setQuery] = React.useState('')
-  const [resultats, setResultats] = React.useState([])
-  const [selectedLabel, setSelectedLabel] = React.useState('')
+function RechercheAfImport({ nomDetecte, afTousListe, onSelect }) {
+  const [modeCreation, setModeCreation] = React.useState(false)
+  const [newPrenom, setNewPrenom] = React.useState('')
+  const [newNom, setNewNom] = React.useState(nomDetecte || '')
+  const [newVille, setNewVille] = React.useState('')
+  const [saving, setSaving] = React.useState(false)
 
-  React.useEffect(() => {
-    if (value) {
-      const af = afTousListe.find(a => a.id === value)
-      if (af) setSelectedLabel(`${af.prenom} ${af.nom}`)
-    } else {
-      setSelectedLabel('')
-    }
-  }, [value, afTousListe])
-
-  const rechercher = async (q) => {
-    setQuery(q)
-    if (q.trim().length < 2) { setResultats([]); return }
-    const { data } = await supabase.from('profiles')
-      .select('id, nom, prenom, ville')
-      .eq('role', 'af')
-      .or(`nom.ilike.%${q.trim()}%,prenom.ilike.%${q.trim()}%`)
-      .limit(8)
-    setResultats(data || [])
+  const creerTemporaire = async () => {
+    if (!newPrenom.trim() || !newNom.trim()) return
+    setSaving(true)
+    const { data, error } = await supabase.from('profiles').insert({
+      id: crypto.randomUUID(),
+      prenom: newPrenom.trim(),
+      nom: newNom.trim().toUpperCase(),
+      ville: newVille.trim() || null,
+      role: 'af',
+      statut_profil: 'temporaire',
+      email: `temp.${Date.now()}@passerelle.local`
+    }).select().single()
+    setSaving(false)
+    if (error) { alert('Erreur : ' + error.message); return }
+    onSelect(data)
+    setModeCreation(false)
   }
 
-  if (value && selectedLabel) return (
-    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-      <div style={{ fontSize:11, border:'1px solid #0891b2', borderRadius:6, padding:'3px 8px', background:'#fff' }}>
-        {selectedLabel}
+  if (modeCreation) return (
+    <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'8px 10px', marginTop:4 }}>
+      <div style={{ fontSize:10, fontWeight:700, color:'#b45309', marginBottom:6 }}>⏳ Nouvel AF temporaire</div>
+      <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
+        <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }}
+          placeholder="Prénom *" value={newPrenom} onChange={e => setNewPrenom(e.target.value)} autoFocus />
+        <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:100 }}
+          placeholder="NOM *" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())} />
+        <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }}
+          placeholder="Ville" value={newVille} onChange={e => setNewVille(e.target.value)} />
+        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
+          onClick={creerTemporaire} disabled={saving}>
+          {saving ? '⏳' : '✅ Créer'}
+        </button>
+        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
+          onClick={() => setModeCreation(false)}>
+          ✕
+        </button>
       </div>
-      <button style={{ fontSize:10, padding:'3px 6px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
-        onClick={() => onSelect(null)}>✕</button>
     </div>
   )
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-      <div style={{ display:'flex', gap:4, alignItems:'center', flexWrap:'wrap' }}>
-        <input
-          style={{ fontSize:11, border:'1px solid #0891b2', borderRadius:6, padding:'3px 8px', width:140 }}
-          placeholder="🔍 Rechercher un AF…"
-          value={query}
-          onChange={e => rechercher(e.target.value)}
-        />
-        {nomDetecte && (
-          <span style={{ fontSize:10, color:'#d97706', fontStyle:'italic' }}>(détecté : {nomDetecte})</span>
-        )}
-      </div>
-      {resultats.length > 0 && (
-        <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:6, maxHeight:120, overflowY:'auto' }}>
-          {resultats.map(af => (
-            <div key={af.id}
-              style={{ padding:'4px 8px', fontSize:11, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}
-              onClick={() => { onSelect(af); setQuery(''); setResultats([]) }}>
-              {af.prenom} {af.nom}{af.ville ? ` — ${af.ville}` : ''}
-            </div>
-          ))}
-        </div>
-      )}
-      {resultats.length === 0 && query.length > 1 && (
-        <span style={{ fontSize:10, color:'#888', fontStyle:'italic' }}>
-          ℹ️ AF introuvable — créez-le depuis la fiche de l'enfant (onglet Placement)
-        </span>
-      )}
-    </div>
+    <button
+      style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
+      onClick={() => { setModeCreation(true); setNewNom(nomDetecte || '') }}>
+      ⏳ AF temporaire
+    </button>
   )
 }
 
@@ -434,6 +504,7 @@ export default function Agenda({ profile }) {
       .from('profiles')
       .select('id, nom, prenom, territoire, adresse, code_postal, ville')
       .eq('role', 'af')
+      .neq('statut_profil', 'temporaire')
       .order('nom', { ascending: true })
     if (data) setAfTousListe(data)
   }, [])
@@ -2800,31 +2871,55 @@ export default function Agenda({ profile }) {
                               )}
                             </div>
 
-                            {/* RECHERCHE AF RELAIS (seulement pour les relais) */}
+                            {/* SELECT AF RELAIS (seulement pour les relais) */}
                             {evt.categorie === 'relais' && (
-                              <div style={{ display:'flex', alignItems:'flex-start', gap:6, flexWrap:'wrap' }}>
-                                <span style={{ fontSize:10, color:'#0891b2', fontWeight:600, minWidth:50, marginTop:4 }}>🔄 Relais :</span>
-                                <RechercheAfImport
-                                  value={evt.participants_ids?.[0] || null}
-                                  nomDetecte={evt._relaisNomBrut || ''}
-                                  afTousListe={afTousListe}
-                                  onSelect={(af) => {
-                                    if (af) setAfTousListe(prev => prev.find(a => a.id === af.id) ? prev : [...prev, af])
+                              <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                                <span style={{ fontSize:10, color:'#0891b2', fontWeight:600, minWidth:50 }}>🔄 Relais :</span>
+                                <select
+                                  style={{ fontSize:11, border:`1px solid ${evt.participants_ids?.[0] ? '#0891b2' : '#f59e0b'}`, borderRadius:6, padding:'3px 8px', background: evt.participants_ids?.[0] ? '#fff' : '#fffbeb', maxWidth:200 }}
+                                  value={evt.participants_ids?.[0] || ''}
+                                  onChange={e => {
+                                    const af = afTousListe.find(a => a.id === e.target.value)
                                     const nomBrut = evt._relaisNomBrut
+                                    // Synchroniser tous les événements avec le même nom de relais détecté
                                     setEvtsImportes(prev => prev.map((ev,j) => {
                                       if (j === i || (nomBrut && ev._relaisNomBrut === nomBrut)) {
                                         return {
                                           ...ev,
-                                          participants_ids: af ? [af.id] : [],
+                                          participants_ids: e.target.value ? [e.target.value] : [],
                                           _relaisLabel: af ? `${af.prenom} ${af.nom}` : ''
                                         }
                                       }
                                       return ev
                                     }))
-                                  }}
-                                />
+                                  }}>
+                                  <option value=''>— Choisir l'AF relais —</option>
+                                  {afTousListe.map(af => (
+                                    <option key={af.id} value={af.id}>{af.prenom} {af.nom}</option>
+                                  ))}
+                                </select>
+                                {!evt.participants_ids?.[0] && evt._relaisNomBrut && (
+                                  <span style={{ fontSize:10, color:'#d97706', fontStyle:'italic' }}>
+                                    (détecté : {evt._relaisNomBrut})
+                                  </span>
+                                )}
+                                {!evt.participants_ids?.[0] && (
+                                  <RechercheAfImport
+                                    nomDetecte={evt._relaisNomBrut || ''}
+                                    afTousListe={afTousListe}
+                                    onSelect={(af) => {
+                                      setAfTousListe(prev => prev.find(a => a.id === af.id) ? prev : [...prev, af])
+                                      const nomBrut = evt._relaisNomBrut
+                                      setEvtsImportes(prev => prev.map((ev,j) => {
+                                        if (j === i || (nomBrut && ev._relaisNomBrut === nomBrut)) {
+                                          return { ...ev, participants_ids: [af.id], _relaisLabel: `${af.prenom} ${af.nom}` }
+                                        }
+                                        return ev
+                                      }))
+                                    }}
+                                  />
+                                )}
                               </div>
-
                             )}
 
                           </div>
