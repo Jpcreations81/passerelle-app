@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-06-20a — détection doublon enfant à la création + majuscule forcée nom
+// ListeEnfants.js — v2026-06-21a — recherche doublons par similarité pg_trgm (tolérance fautes de frappe)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -198,10 +198,12 @@ export default function ListeEnfants({ profile }) {
   async function verifierDoublonsEtCreer() {
     if (!newEnfant.prenom || !newEnfant.nom) { showToast('⚠️ Prénom et nom requis'); return }
     setVerifEnCours(true)
-    const { data: existants } = await supabase.from('enfants')
-      .select('id, prenom, nom, af_principal:af_principal_id(id, nom, prenom)')
-      .ilike('nom', newEnfant.nom.trim())
-      .ilike('prenom', newEnfant.prenom.trim())
+    // Recherche par similarité (pg_trgm) pour détecter les fautes de frappe
+    const { data: existants } = await supabase.rpc('rechercher_enfants_similaires', {
+      p_nom: newEnfant.nom.trim().toUpperCase(),
+      p_prenom: newEnfant.prenom.trim(),
+      p_seuil: 0.4
+    })
     setVerifEnCours(false)
     if (existants && existants.length > 0) {
       setDoublonsDetectes(existants)
@@ -584,8 +586,8 @@ export default function ListeEnfants({ profile }) {
                     {doublonsDetectes.map(d => (
                       <div key={d.id} style={{ background:'#fff', borderRadius:8, padding:10, marginBottom:8, fontSize:13 }}>
                         <div style={{ marginBottom:8 }}>
-                          {d.af_principal
-                            ? <>{d.prenom} {d.nom} existe déjà dans la base — son AF principal est {d.af_principal.prenom} {d.af_principal.nom}. Est-ce bien cet enfant ?</>
+                          {d.af_principal_nom
+                            ? <>{d.prenom} {d.nom} existe déjà dans la base — son AF principal est {d.af_principal_prenom} {d.af_principal_nom}. Est-ce bien cet enfant ?</>
                             : <>{d.prenom} {d.nom} existe déjà dans la base, sans AF principal renseigné. Est-ce bien cet enfant ?</>
                           }
                         </div>
