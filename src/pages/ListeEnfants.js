@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-06-21a — recherche doublons par similarité pg_trgm (tolérance fautes de frappe)
+// ListeEnfants.js — v2026-06-21b — fix rattachement enfant + similarité pg_trgm
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -593,7 +593,21 @@ export default function ListeEnfants({ profile }) {
                         </div>
                         <div style={{ display:'flex', gap:8 }}>
                           <button className="btn btn-primary" style={{ fontSize:12 }}
-                            onClick={() => { navigate(`/enfants/${d.id}`) }}>
+                            onClick={async () => {
+                              const updatePayload = { af_principal_id: profile.id }
+                              const { data: afConnecte } = await supabase.from('profiles')
+                                .select('statut_profil').eq('id', profile.id).single()
+                              if (afConnecte?.statut_profil !== 'temporaire') {
+                                updatePayload.statut_profil = null
+                              }
+                              const { data: updated, error: updErr } = await supabase.from('enfants')
+                                .update(updatePayload).eq('id', d.id).select().single()
+                              if (updErr || !updated || updated.af_principal_id !== profile.id) {
+                                showToast("❌ Désolé, vous ne pouvez pas vous rattacher cet enfant. Contactez l'AF principal pour un transfert.")
+                                return
+                              }
+                              navigate(`/enfants/${d.id}`)
+                            }}>
                             ✅ Oui, c'est elle/lui
                           </button>
                           <button className="btn btn-secondary" style={{ fontSize:12 }}
