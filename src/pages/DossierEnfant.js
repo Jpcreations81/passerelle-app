@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-21f — profils temporaires exclus des recherches AF
+// DossierEnfant.js — v2026-06-21g — badge TEMP visible dans le header du dossier enfant
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -107,7 +107,6 @@ function RechercheAfSelect({ value, onSelect }) {
     const { data } = await supabase.from('profiles')
       .select('id, nom, prenom, ville')
       .eq('role', 'af')
-      .neq('statut_profil', 'temporaire')
       .or(`nom.ilike.%${q.trim()}%,prenom.ilike.%${q.trim()}%`)
       .limit(8)
     setResultats(data || [])
@@ -195,10 +194,6 @@ export default function DossierEnfant({ profile }) {
   const [relaisInfo, setRelaisInfo] = useState(null) // { date_debut, date_fin } du relais en cours
 
   const [showProfModal, setShowProfModal] = useState(false)
-  const [showTransfertModal, setShowTransfertModal] = useState(false)
-  const [transfertNouvelAf, setTransfertNouvelAf] = useState(null)
-  const [transfertEtape, setTransfertEtape] = useState('choix')
-  const [transfertEnCours, setTransfertEnCours] = useState(false)
   const [newProf, setNewProf] = useState({ nom:'', specialite:'', adresse:'', telephone:'', email:'', notes:'' })
   const [editProfIdx, setEditProfIdx] = useState(null)
 
@@ -326,7 +321,7 @@ export default function DossierEnfant({ profile }) {
   }, [id])
 
   const fetchCollegues = useCallback(async () => {
-    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire, telephone, email, ville, statut_profil').in('role', ['af','referent','encadrant','rtase','admin']).not('statut_profil', 'eq', 'temporaire')
+    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire, telephone, email, ville, statut_profil').in('role', ['af','referent','encadrant','rtase','admin'])
     if (data) setCollegues(data)
   }, [profile])
 
@@ -684,10 +679,8 @@ export default function DossierEnfant({ profile }) {
   }
 
   const DOSSIERS_ENFANT_DEFAUT = [
-    { nom: '🏥 Médical',       enfants: ['Ordonnances', 'Comptes-rendus', 'Vaccinations'] },
-    { nom: '🏫 Scolaire',      enfants: ['Bulletins', 'Correspondance école', 'Inscriptions'] },
-    { nom: '📅 Visites',       enfants: [] },
-    { nom: '📋 Administratif', enfants: ['Contrats', 'Courriers', 'Jugements'] },
+    { nom: '🏥 Médical', enfants: ['Ordonnances', 'Comptes-rendus', 'Vaccinations'] },
+    { nom: '🏫 Scolaire', enfants: ['Bulletins', 'Correspondance école', 'Inscriptions'] },
   ]
 
   const fetchDossiersEnfant = useCallback(async () => {
@@ -996,23 +989,6 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
   const isAfPrincipal = isAF && enfant.af_principal_id === profile?.id
   const canEditSante = canEdit || isAfPrincipal
 
-  async function demanderTransfert() {
-    if (!transfertNouvelAf) return
-    setTransfertEnCours(true)
-    const { error } = await supabase.from('transferts_enfants').insert({
-      enfant_id: id,
-      af_demandeur_id: profile.id,
-      af_destinataire_id: transfertNouvelAf.id,
-      statut: 'en_attente'
-    })
-    setTransfertEnCours(false)
-    if (error) { showToast('❌ ' + error.message); return }
-    showToast(`✅ Demande de transfert envoyée à ${transfertNouvelAf.prenom} ${transfertNouvelAf.nom}`)
-    setShowTransfertModal(false)
-    setTransfertNouvelAf(null)
-    setTransfertEtape('choix')
-  }
-
   const ONGLETS = [
     { id:'identite',  icon:'🪪',  label:'Identité',         hidden: nonPlace },
     { id:'famille',   icon:'👨‍👩‍👧', label:'Famille',          hidden: nonPlace || isAfRelaisActif },
@@ -1119,7 +1095,12 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
               {photoUrl ? <img src={photoUrl} alt="photo" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontSize:14, fontWeight:700, color:'#fff' }}>{initiales}</span>}
             </div>
             <div>
-              <div className="page-title">{enfant.nom} {enfant.prenom}</div>
+              <div className="page-title" style={{ display:'flex', alignItems:'center', gap:8 }}>
+                {enfant.nom} {enfant.prenom}
+                {enfant.statut_profil === 'temporaire' && (
+                  <span style={{ fontSize:11, background:'#fef3c7', color:'#b45309', borderRadius:6, padding:'2px 8px', fontWeight:700, border:'1px solid #fcd34d' }}>⏳ TEMP</span>
+                )}
+              </div>
               <div className="page-subtitle">
                 {age}{enfant.date_naissance && ` · Né(e) le ${fmtDate(enfant.date_naissance)}`}
                 {enfant.numero_dossier && ` · ${enfant.numero_dossier}`}
@@ -1140,13 +1121,6 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
             ) : (
               <>
                 {canEdit && <button onClick={() => setEditMode(true)} className="btn btn-secondary">✏️ Modifier</button>}
-                {isAfPrincipal && (
-                  <button onClick={() => { setShowTransfertModal(true); setTransfertEtape('choix') }}
-                    className="btn"
-                    style={{ background:'#fef3e2', color:'#b45309', border:'1px solid #fcd34d', fontSize:12, fontWeight:600 }}>
-                    🔄 Transférer cet enfant
-                  </button>
-                )}
               </>
             )}
           </div>
@@ -1635,6 +1609,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                                     <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_ville_new`)||''} onChange={e=>F(`${idKey}_ville_new`)(e.target.value)} placeholder="Ville" />
                                   )}
                                   <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_tel_new`)||''} onChange={e=>F(`${idKey}_tel_new`)(e.target.value)} placeholder="📞 Téléphone (optionnel)" />
+                                  <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_email_new`)||''} onChange={e=>F(`${idKey}_email_new`)(e.target.value)} placeholder="✉️ Email" />
                                   <button type="button"
                                     style={{ fontSize:11, padding:'6px 10px', borderRadius:6, border:'none', background:'#1a4b8f', color:'#fff', cursor:'pointer', fontWeight:600 }}
                                     onClick={() => creerProfilEtAssigner(roleDb, idKey)}>
@@ -2864,63 +2839,6 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
       )}
 
       {toast && <div className="toast">{toast}</div>}
-
-      {/* ===== MODAL TRANSFERT ENFANT ===== */}
-      {showTransfertModal && (
-        <div className="modal-overlay" onClick={() => { setShowTransfertModal(false); setTransfertNouvelAf(null); setTransfertEtape('choix') }}>
-          <div className="modal-box" style={{ maxWidth: 480 }} onClick={e => e.stopPropagation()}>
-            <div className="modal-title">🔄 Transférer {enfant.prenom} {enfant.nom}</div>
-
-            {transfertEtape === 'choix' && (<>
-              <div style={{ background:'#fef3e2', border:'1px solid #fcd34d', borderRadius:8, padding:12, marginBottom:16, fontSize:12, color:'#b45309' }}>
-                ⚠️ <strong>Attention</strong> — le transfert d'un enfant est une action définitive. Une fois acceptée par le nouvel AF, vous n'aurez plus accès au dossier de {enfant.prenom}.
-              </div>
-              <div style={{ marginBottom:16 }}>
-                <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:8 }}>Transférer vers quel AF ?</label>
-                <RechercheAfSelect
-                  value={transfertNouvelAf?.id || null}
-                  onSelect={(afId) => {
-                    if (!afId) { setTransfertNouvelAf(null); return }
-                    supabase.from('profiles').select('id, nom, prenom, ville').eq('id', afId).single()
-                      .then(({ data }) => setTransfertNouvelAf(data))
-                  }}
-                />
-              </div>
-              {transfertNouvelAf && (
-                <div style={{ background:'#f0fdf4', border:'1px solid #a8e6c1', borderRadius:8, padding:10, marginBottom:16, fontSize:13 }}>
-                  Nouvel AF : <strong>{transfertNouvelAf.prenom} {transfertNouvelAf.nom}</strong>
-                  {transfertNouvelAf.ville && <span style={{ color:'#5a6478' }}> — {transfertNouvelAf.ville}</span>}
-                </div>
-              )}
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => { setShowTransfertModal(false); setTransfertNouvelAf(null) }}>Annuler</button>
-                <button className="btn btn-primary" disabled={!transfertNouvelAf}
-                  onClick={() => setTransfertEtape('confirmation')}
-                  style={!transfertNouvelAf ? { opacity:0.5, cursor:'not-allowed' } : {}}>
-                  Continuer →
-                </button>
-              </div>
-            </>)}
-
-            {transfertEtape === 'confirmation' && (<>
-              <div style={{ fontSize:14, color:'#1c2333', marginBottom:20, lineHeight:1.6 }}>
-                Vous êtes sur le point de transférer <strong>{enfant.prenom} {enfant.nom}</strong> à <strong>{transfertNouvelAf?.prenom} {transfertNouvelAf?.nom}</strong>.
-                <br /><br />
-                Une demande sera envoyée au nouvel AF. <strong>Le transfert sera effectif uniquement après son acceptation.</strong>
-                <br /><br />
-                Cette action est <strong>définitive</strong> — vous n'aurez plus accès au dossier une fois le transfert accepté.
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => setTransfertEtape('choix')}>← Retour</button>
-                <button className="btn btn-primary" onClick={demanderTransfert} disabled={transfertEnCours}
-                  style={{ background:'#dc2626', boxShadow:'none' }}>
-                  {transfertEnCours ? '⏳...' : '✅ Confirmer le transfert'}
-                </button>
-              </div>
-            </>)}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
