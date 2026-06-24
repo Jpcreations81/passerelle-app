@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-21g — badge TEMP visible dans le header du dossier enfant
+// DossierEnfant.js — v2026-06-21h — tags fixes journal : 6 catégories boutons + bloc inspiration
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2307,11 +2307,56 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                 style={{ resize:'vertical' }} />
             </div>
 
+            {/* Bloc d'inspiration des catégories */}
+            <div style={{ background:'#f8f9fb', border:'1px solid #e8edf5', borderRadius:8, padding:'10px 14px', marginBottom:12, fontSize:12, color:'#5a6478', lineHeight:1.8 }}>
+              {[
+                { label:'Comportement', icon:'😊', ex:'Positif, Difficile, Incident, Sommeil, Crise, Agitation' },
+                { label:'Scolarité',    icon:'🏫', ex:'École, Devoirs, Absence, Bulletin, RDV prof' },
+                { label:'Santé',        icon:'🏥', ex:'Médecin, Médicament, Maladie, Accident, Urgence' },
+                { label:'Famille',      icon:'👨‍👩‍👧', ex:'Visite parents, Appel, Conflit, Nouvelle' },
+                { label:'Activités',    icon:'⚽', ex:'Sport, Loisirs, Sortie, Fête, Vacances' },
+                { label:'Admin',        icon:'📋', ex:'RDV ASE, Document, Jugement, Rendez-vous' },
+              ].map(c => (
+                <div key={c.label}>
+                  <strong>{c.icon} {c.label} :</strong> <span style={{ color:'#9aa3b8', fontStyle:'italic' }}>{c.ex}</span>
+                </div>
+              ))}
+            </div>
+
             <div className="form-group" style={{ marginBottom:12 }}>
-              <label className="form-label">Tags <span style={{ fontSize:10, color:'#9aa3b8', fontWeight:400 }}>(séparés par des virgules)</span></label>
+              <label className="form-label">Tags</label>
+              {/* Boutons catégories cliquables */}
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
+                {[
+                  { label:'Comportement', icon:'😊' },
+                  { label:'Scolarité',    icon:'🏫' },
+                  { label:'Santé',        icon:'🏥' },
+                  { label:'Famille',      icon:'👨‍👩‍👧' },
+                  { label:'Activités',    icon:'⚽' },
+                  { label:'Admin',        icon:'📋' },
+                ].map(c => {
+                  const tagsActuels = newNote.tags ? newNote.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+                  const actif = tagsActuels.includes(c.label)
+                  return (
+                    <button key={c.label} type="button"
+                      onClick={() => {
+                        const tags = newNote.tags ? newNote.tags.split(',').map(t => t.trim()).filter(Boolean) : []
+                        const nouveau = actif ? tags.filter(t => t !== c.label) : [...tags, c.label]
+                        setNewNote(n => ({...n, tags: nouveau.join(', ')}))
+                      }}
+                      style={{ padding:'5px 12px', borderRadius:20, fontSize:12, fontWeight:600, cursor:'pointer',
+                        border:`1.5px solid ${actif ? '#1a4b8f' : '#dde3f0'}`,
+                        background: actif ? '#1a4b8f' : '#f4f6fb',
+                        color: actif ? '#fff' : '#5a6478' }}>
+                      {c.icon} {c.label}
+                    </button>
+                  )
+                })}
+              </div>
+              {/* Champ libre pour tags additionnels */}
               <input className="form-control" value={newNote.tags}
                 onChange={e => setNewNote(n => ({...n, tags: e.target.value}))}
-                placeholder="École, Comportement, Sommeil, Post-visite..." />
+                placeholder="Ou saisissez librement : École, Comportement, Sommeil..." />
             </div>
 
             <div className="modal-footer">
