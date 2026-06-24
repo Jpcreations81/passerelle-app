@@ -1,4 +1,4 @@
-// Login.js — v2026-06-20d — infos stockées en métadonnées Auth, profil créé au premier login
+// Login.js — v2026-06-21a — icône œil mot de passe + fix Safari backdropFilter
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -12,6 +12,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showPasswordInscription, setShowPasswordInscription] = useState(false)
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -104,7 +106,7 @@ export default function Login() {
           background: 'rgba(255,255,255,0.95)', borderRadius: 20, padding: 28,
           boxShadow: '0 8px 40px rgba(0,0,0,0.2)',
           border: '1px solid rgba(255,255,255,0.3)',
-          backdropFilter: 'blur(10px)'
+          WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)'
         }}>
           <div style={{ display: 'flex', gap: 6, marginBottom: 20, background: '#f4f6fb', borderRadius: 10, padding: 4 }}>
             <button
@@ -151,8 +153,14 @@ export default function Login() {
               </div>
               <div style={{ marginBottom: 20 }}>
                 <label style={{ fontSize: 10, fontWeight: 600, color: '#5a6478', textTransform: 'uppercase', letterSpacing: '.4px', display: 'block', marginBottom: 5 }}>Mot de passe</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required
-                  style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #dde3f0', borderRadius: 8, fontFamily: 'Sora, sans-serif', fontSize: 13, background: '#f4f6fb', outline: 'none' }} />
+                <div style={{ position: 'relative' }}>
+                  <input type={showPassword ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required
+                    style={{ width: '100%', padding: '10px 40px 10px 12px', border: '1.5px solid #dde3f0', borderRadius: 8, fontFamily: 'Sora, sans-serif', fontSize: 13, background: '#f4f6fb', outline: 'none', boxSizing: 'border-box' }} />
+                  <button type="button" onClick={() => setShowPassword(p => !p)}
+                    style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#9aa3b8', padding: 0 }}>
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
+                </div>
               </div>
               <button type="submit" disabled={loading}
                 style={{ width: '100%', padding: '13px', background: loading ? '#9aa3b8' : 'linear-gradient(135deg, #1a4b8f 0%, #2d7a1f 100%)', color: '#fff', border: 'none', borderRadius: 10, fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', transition: 'all .15s', boxShadow: loading ? 'none' : '0 4px 12px rgba(26,75,143,0.3)' }}>
@@ -185,8 +193,14 @@ export default function Login() {
               </div>
               <div style={{ marginBottom: 20 }}>
                 <label style={{ fontSize: 10, fontWeight: 600, color: '#5a6478', textTransform: 'uppercase', letterSpacing: '.4px', display: 'block', marginBottom: 5 }}>Mot de passe</label>
-                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="6 caractères minimum" required
-                  style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #dde3f0', borderRadius: 8, fontFamily: 'Sora, sans-serif', fontSize: 13, background: '#f4f6fb', outline: 'none' }} />
+                <div style={{ position: 'relative' }}>
+                  <input type={showPasswordInscription ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="6 caractères minimum" required
+                    style={{ width: '100%', padding: '10px 40px 10px 12px', border: '1.5px solid #dde3f0', borderRadius: 8, fontFamily: 'Sora, sans-serif', fontSize: 13, background: '#f4f6fb', outline: 'none', boxSizing: 'border-box' }} />
+                  <button type="button" onClick={() => setShowPasswordInscription(p => !p)}
+                    style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: '#9aa3b8', padding: 0 }}>
+                    {showPasswordInscription ? '🙈' : '👁️'}
+                  </button>
+                </div>
               </div>
               <button type="submit" disabled={loading}
                 style={{ width: '100%', padding: '13px', background: loading ? '#9aa3b8' : 'linear-gradient(135deg, #1a4b8f 0%, #2d7a1f 100%)', color: '#fff', border: 'none', borderRadius: 10, fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', transition: 'all .15s', boxShadow: loading ? 'none' : '0 4px 12px rgba(26,75,143,0.3)' }}>
