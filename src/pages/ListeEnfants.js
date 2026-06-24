@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-06-21b — fix rattachement enfant + similarité pg_trgm
+// ListeEnfants.js — v2026-06-21c — fermeture modal après clic Oui (succès ou échec)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -604,8 +604,11 @@ export default function ListeEnfants({ profile }) {
                                 .update(updatePayload).eq('id', d.id).select().single()
                               if (updErr || !updated || updated.af_principal_id !== profile.id) {
                                 showToast("❌ Désolé, vous ne pouvez pas vous rattacher cet enfant. Contactez l'AF principal pour un transfert.")
+                                setDoublonsDetectes([])
+                                setShowModal(false)
                                 return
                               }
+                              setDoublonsDetectes([])
                               navigate(`/enfants/${d.id}`)
                             }}>
                             ✅ Oui, c'est elle/lui
