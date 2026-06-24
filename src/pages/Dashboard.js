@@ -1,4 +1,4 @@
-// Dashboard.js — v2026-05-12b — fix alertes relais manquant : cherche enfants via af_principal_id (pas enfant_ids congé)
+// Dashboard.js — v2026-06-21a — alertes transferts enfants en attente (accepter/refuser)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -14,6 +14,7 @@ export default function Dashboard({ profile, session }) {
   const [relaisInconnus, setRelaisInconnus] = useState([])    // événements relais avec famille inconnue
   const [alertesAgrement, setAlertesAgrement] = useState([])  // AF avec agrément expiré ou expirant
   const [alertesRelaisManquant, setAlertesRelaisManquant] = useState([]) // congés sans relais
+  const [transfertsEnAttente, setTransfertsEnAttente] = useState([]) // transferts d'enfants à accepter/refuser
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -25,7 +26,31 @@ export default function Dashboard({ profile, session }) {
     fetchRelaisInconnus()
     fetchAlertesAgrement()
     fetchAlertesRelaisManquant()
+    fetchTransfertsEnAttente()
   }, [profile])
+
+  async function fetchTransfertsEnAttente() {
+    if (profile?.role !== 'af') return
+    const { data } = await supabase.from('transferts_enfants')
+      .select('id, statut, created_at, enfant:enfant_id(id, prenom, nom), af_demandeur:af_demandeur_id(id, prenom, nom)')
+      .eq('af_destinataire_id', profile.id)
+      .eq('statut', 'en_attente')
+    if (data) setTransfertsEnAttente(data)
+  }
+
+  async function repondreTransfert(transfertId, decision) {
+    if (decision === 'accepte') {
+      // Récupérer l'enfant_id pour mettre à jour af_principal_id
+      const { data: transfert } = await supabase.from('transferts_enfants')
+        .select('enfant_id').eq('id', transfertId).single()
+      if (transfert) {
+        await supabase.from('enfants').update({ af_principal_id: profile.id, statut_profil: null })
+          .eq('id', transfert.enfant_id)
+      }
+    }
+    await supabase.from('transferts_enfants').update({ statut: decision }).eq('id', transfertId)
+    setTransfertsEnAttente(prev => prev.filter(t => t.id !== transfertId))
+  }
 
   async function fetchAlertesAgrement() {
     if (!profile || profile.role === 'af') return
@@ -257,6 +282,29 @@ export default function Dashboard({ profile, session }) {
           <div className="card">
             <div className="card-header" style={{ cursor:'default' }}><h3>⚠️ Alertes du jour</h3></div>
             <div className="card-body">
+
+              {/* ── Alerte : transferts d'enfants en attente d'acceptation ── */}
+              {transfertsEnAttente.map(t => (
+                <div key={t.id} style={{ background:'#fff8f0', border:'1px solid #fcd34d', borderRadius:10, padding:14, marginBottom:10 }}>
+                  <div style={{ fontSize:13, fontWeight:700, color:'#b45309', marginBottom:6 }}>
+                    🔄 Demande de transfert d'enfant
+                  </div>
+                  <div style={{ fontSize:12, color:'#5a6478', marginBottom:10 }}>
+                    <strong>{t.af_demandeur?.prenom} {t.af_demandeur?.nom}</strong> vous propose de prendre en charge <strong>{t.enfant?.prenom} {t.enfant?.nom}</strong>.
+                    <br />Ce transfert est définitif et vous en deviendrez l'AF principal.
+                  </div>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <button className="btn btn-primary" style={{ fontSize:12 }}
+                      onClick={() => repondreTransfert(t.id, 'accepte')}>
+                      ✅ Accepter
+                    </button>
+                    <button className="btn btn-secondary" style={{ fontSize:12 }}
+                      onClick={() => repondreTransfert(t.id, 'refuse')}>
+                      ✕ Refuser
+                    </button>
+                  </div>
+                </div>
+              ))}
 
               {/* ── Alerte : relais avec famille inconnue ── */}
               {relaisInconnus.length > 0 && (
