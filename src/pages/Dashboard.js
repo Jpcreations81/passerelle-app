@@ -1,4 +1,4 @@
-// Dashboard.js — v2026-06-21a — alertes transferts enfants en attente (accepter/refuser)
+// Dashboard.js — v2026-06-21b — debug logs repondreTransfert
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -40,15 +40,19 @@ export default function Dashboard({ profile, session }) {
 
   async function repondreTransfert(transfertId, decision) {
     if (decision === 'accepte') {
-      // Récupérer l'enfant_id pour mettre à jour af_principal_id
-      const { data: transfert } = await supabase.from('transferts_enfants')
+      const { data: transfert, error: errFetch } = await supabase.from('transferts_enfants')
         .select('enfant_id').eq('id', transfertId).single()
+      console.log('transfert fetched:', transfert, 'error:', errFetch)
       if (transfert) {
-        await supabase.from('enfants').update({ af_principal_id: profile.id, statut_profil: null })
+        const { data: updated, error: errUpdate } = await supabase.from('enfants')
+          .update({ af_principal_id: profile.id, statut_profil: null })
           .eq('id', transfert.enfant_id)
+          .select()
+        console.log('enfant updated:', updated, 'error:', errUpdate)
       }
     }
-    await supabase.from('transferts_enfants').update({ statut: decision }).eq('id', transfertId)
+    const { error: errStatut } = await supabase.from('transferts_enfants').update({ statut: decision }).eq('id', transfertId)
+    console.log('statut update error:', errStatut)
     setTransfertsEnAttente(prev => prev.filter(t => t.id !== transfertId))
   }
 
