@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-21e — retrait email du formulaire création profil temporaire (évite conflit inscription)
+// DossierEnfant.js — v2026-06-21f — profils temporaires exclus des recherches AF
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -107,6 +107,7 @@ function RechercheAfSelect({ value, onSelect }) {
     const { data } = await supabase.from('profiles')
       .select('id, nom, prenom, ville')
       .eq('role', 'af')
+      .neq('statut_profil', 'temporaire')
       .or(`nom.ilike.%${q.trim()}%,prenom.ilike.%${q.trim()}%`)
       .limit(8)
     setResultats(data || [])
@@ -325,7 +326,7 @@ export default function DossierEnfant({ profile }) {
   }, [id])
 
   const fetchCollegues = useCallback(async () => {
-    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire, telephone, email, ville, statut_profil').in('role', ['af','referent','encadrant','rtase','admin'])
+    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire, telephone, email, ville, statut_profil').in('role', ['af','referent','encadrant','rtase','admin']).not('statut_profil', 'eq', 'temporaire')
     if (data) setCollegues(data)
   }, [profile])
 
