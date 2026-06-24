@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-21c — 4 dossiers défaut (Médical, Scolaire, Visites, Administratif) + AF autorisé à créer
+// DossierEnfant.js — v2026-06-21d — fix React error #310 : useState transfert déplacés au début du composant
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -194,6 +194,10 @@ export default function DossierEnfant({ profile }) {
   const [relaisInfo, setRelaisInfo] = useState(null) // { date_debut, date_fin } du relais en cours
 
   const [showProfModal, setShowProfModal] = useState(false)
+  const [showTransfertModal, setShowTransfertModal] = useState(false)
+  const [transfertNouvelAf, setTransfertNouvelAf] = useState(null)
+  const [transfertEtape, setTransfertEtape] = useState('choix')
+  const [transfertEnCours, setTransfertEnCours] = useState(false)
   const [newProf, setNewProf] = useState({ nom:'', specialite:'', adresse:'', telephone:'', email:'', notes:'' })
   const [editProfIdx, setEditProfIdx] = useState(null)
 
@@ -990,12 +994,6 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
   const age = calcAge(enfant.date_naissance)
   const isAfPrincipal = isAF && enfant.af_principal_id === profile?.id
   const canEditSante = canEdit || isAfPrincipal
-
-  // ── États pour le transfert d'enfant ──────────────────────────────────────
-  const [showTransfertModal, setShowTransfertModal] = useState(false)
-  const [transfertNouvelAf, setTransfertNouvelAf] = useState(null)
-  const [transfertEtape, setTransfertEtape] = useState('choix') // 'choix' | 'confirmation'
-  const [transfertEnCours, setTransfertEnCours] = useState(false)
 
   async function demanderTransfert() {
     if (!transfertNouvelAf) return
@@ -2926,4 +2924,3 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
     </div>
   )
 }
-              
