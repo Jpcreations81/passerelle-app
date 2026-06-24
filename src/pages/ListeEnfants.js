@@ -1,9 +1,58 @@
-// ListeEnfants.js — v2026-06-21c — fermeture modal après clic Oui (succès ou échec)
+// ListeEnfants.js — v2026-06-21d — moteur de recherche AF dans modal création enfant
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
+
+function RechercheAfSelectLocal({ value, onSelect }) {
+  const [query, setQuery] = React.useState('')
+  const [resultats, setResultats] = React.useState([])
+  const [selectedLabel, setSelectedLabel] = React.useState('')
+
+  React.useEffect(() => {
+    if (value) {
+      supabase.from('profiles').select('id, nom, prenom, ville').eq('id', value).single()
+        .then(({ data }) => { if (data) setSelectedLabel(`${data.prenom} ${data.nom}`) })
+    } else setSelectedLabel('')
+  }, [value])
+
+  async function rechercher(q) {
+    setQuery(q)
+    if (q.trim().length < 2) { setResultats([]); return }
+    const { data } = await supabase.from('profiles')
+      .select('id, nom, prenom, ville')
+      .eq('role', 'af')
+      .or(`nom.ilike.%${q.trim()}%,prenom.ilike.%${q.trim()}%`)
+      .limit(8)
+    setResultats(data || [])
+  }
+
+  if (value && selectedLabel && !query) return (
+    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+      <div className="form-control" style={{ fontSize:13, flex:1 }}>{selectedLabel}</div>
+      <button type="button" style={{ fontSize:11, padding:'4px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f4f6fb', cursor:'pointer' }}
+        onClick={() => { setSelectedLabel(''); onSelect(null) }}>✕</button>
+    </div>
+  )
+
+  return (
+    <div>
+      <input className="form-control" placeholder="🔍 Rechercher un AF..." value={query}
+        onChange={e => rechercher(e.target.value)} style={{ fontSize:13 }} />
+      {resultats.length > 0 && (
+        <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:6, marginTop:4, maxHeight:150, overflowY:'auto' }}>
+          {resultats.map(af => (
+            <div key={af.id} style={{ padding:'6px 10px', fontSize:13, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}
+              onClick={() => { onSelect(af.id); setSelectedLabel(`${af.prenom} ${af.nom}`); setQuery(''); setResultats([]) }}>
+              {af.prenom} {af.nom}{af.ville ? ` — ${af.ville}` : ''}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function ListeEnfants({ profile }) {
   const navigate = useNavigate()
@@ -198,12 +247,10 @@ export default function ListeEnfants({ profile }) {
   async function verifierDoublonsEtCreer() {
     if (!newEnfant.prenom || !newEnfant.nom) { showToast('⚠️ Prénom et nom requis'); return }
     setVerifEnCours(true)
-    // Recherche par similarité (pg_trgm) pour détecter les fautes de frappe
-    const { data: existants } = await supabase.rpc('rechercher_enfants_similaires', {
-      p_nom: newEnfant.nom.trim().toUpperCase(),
-      p_prenom: newEnfant.prenom.trim(),
-      p_seuil: 0.4
-    })
+    const { data: existants } = await supabase.from('enfants')
+      .select('id, prenom, nom, af_principal:af_principal_id(id, nom, prenom)')
+      .ilike('nom', newEnfant.nom.trim())
+      .ilike('prenom', newEnfant.prenom.trim())
     setVerifEnCours(false)
     if (existants && existants.length > 0) {
       setDoublonsDetectes(existants)
@@ -428,13 +475,10 @@ export default function ListeEnfants({ profile }) {
                   {afChoix === 'existant' && (
                     <div className="form-group" style={{ marginBottom:16 }}>
                       <label className="form-label">Sélectionner l'AF principal</label>
-                      <select className="form-control" value={newEnfant.af_principal_id}
-                        onChange={e => setNewEnfant(n => ({...n, af_principal_id: e.target.value}))}>
-                        <option value=''>— Choisir un AF —</option>
-                        {afListe.map(af => (
-                          <option key={af.id} value={af.id}>{af.nom} {af.prenom}{af.ville ? ` — ${af.ville}` : ''}</option>
-                        ))}
-                      </select>
+                      <RechercheAfSelectLocal
+                        value={newEnfant.af_principal_id || null}
+                        onSelect={(id) => setNewEnfant(n => ({...n, af_principal_id: id || ''}))}
+                      />
                     </div>
                   )}
 
@@ -540,23 +584,10 @@ export default function ListeEnfants({ profile }) {
               {newEnfant.lieu_accueil === 'af_principal' && (
                 <div className="form-group" style={{ marginBottom:16 }}>
                   <label className="form-label">AF Principal</label>
-                  <select className="form-control" value={newEnfant.af_principal_id || ''} onChange={e => setNewEnfant(n => ({...n, af_principal_id: e.target.value}))}>
-                    <option value="">— Sélectionner un AF —</option>
-                    {collegues.filter(c => c.role === 'af').map(c => (
-                      <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
-                    ))}
-                  </select>
-                  {newEnfant.af_principal_id && (() => {
-                    const af = collegues.find(c => c.id === newEnfant.af_principal_id)
-                    return af ? (
-                      <div style={{marginTop:8,padding:'10px 14px',background:'#e6f5eb',borderRadius:8,border:'1px solid #c4e8cc',fontSize:12}}>
-                        <div style={{fontWeight:700,marginBottom:4}}>👨‍👩‍👧 {af.nom} {af.prenom}</div>
-                        {af.telephone&&<div>📞 {af.telephone}</div>}
-                        {af.email&&<div>✉️ {af.email}</div>}
-                        {af.ville&&<div>📍 {af.ville}</div>}
-                      </div>
-                    ) : null
-                  })()}
+                  <RechercheAfSelectLocal
+                    value={newEnfant.af_principal_id || null}
+                    onSelect={(id) => setNewEnfant(n => ({...n, af_principal_id: id || ''}))}
+                  />
                 </div>
               )}
               <div className="form-group" style={{ marginBottom:16 }}>
@@ -586,31 +617,14 @@ export default function ListeEnfants({ profile }) {
                     {doublonsDetectes.map(d => (
                       <div key={d.id} style={{ background:'#fff', borderRadius:8, padding:10, marginBottom:8, fontSize:13 }}>
                         <div style={{ marginBottom:8 }}>
-                          {d.af_principal_nom
-                            ? <>{d.prenom} {d.nom} existe déjà dans la base — son AF principal est {d.af_principal_prenom} {d.af_principal_nom}. Est-ce bien cet enfant ?</>
+                          {d.af_principal
+                            ? <>{d.prenom} {d.nom} existe déjà dans la base — son AF principal est {d.af_principal.prenom} {d.af_principal.nom}. Est-ce bien cet enfant ?</>
                             : <>{d.prenom} {d.nom} existe déjà dans la base, sans AF principal renseigné. Est-ce bien cet enfant ?</>
                           }
                         </div>
                         <div style={{ display:'flex', gap:8 }}>
                           <button className="btn btn-primary" style={{ fontSize:12 }}
-                            onClick={async () => {
-                              const updatePayload = { af_principal_id: profile.id }
-                              const { data: afConnecte } = await supabase.from('profiles')
-                                .select('statut_profil').eq('id', profile.id).single()
-                              if (afConnecte?.statut_profil !== 'temporaire') {
-                                updatePayload.statut_profil = null
-                              }
-                              const { data: updated, error: updErr } = await supabase.from('enfants')
-                                .update(updatePayload).eq('id', d.id).select().single()
-                              if (updErr || !updated || updated.af_principal_id !== profile.id) {
-                                showToast("❌ Désolé, vous ne pouvez pas vous rattacher cet enfant. Contactez l'AF principal pour un transfert.")
-                                setDoublonsDetectes([])
-                                setShowModal(false)
-                                return
-                              }
-                              setDoublonsDetectes([])
-                              navigate(`/enfants/${d.id}`)
-                            }}>
+                            onClick={() => { navigate(`/enfants/${d.id}`) }}>
                             ✅ Oui, c'est elle/lui
                           </button>
                           <button className="btn btn-secondary" style={{ fontSize:12 }}
