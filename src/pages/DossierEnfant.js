@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-25a — AF principal voit toutes les notes journal (y compris anciens AF relais)
+// DossierEnfant.js — v2026-06-25b — fix canSee journal : AF voit toutes les notes relais de ses enfants
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2164,13 +2164,13 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                 ) : journalNotes.map(note => {
                   const isRelais = note.type_note === 'relais'
                   const isOwner = profile?.id === note.auteur_id
-                  // AF principal : voit TOUTES les notes (y compris celles des anciens AF / relais)
+                  // AF principal : voit TOUTES les notes sans exception
                   // AF relais actif : voit uniquement les notes relais
                   // Référent : voit tout
                   const canSee = isReferent
                     || isAfPrincipal
-                    || (isAfRelaisActif && isRelais)
-                    || (!isAfRelaisActif && !isAfPrincipal && (isRelais || isOwner))
+                    || (isAF && isRelais)
+                    || (!isAF && (isRelais || isOwner))
                   // Modification : uniquement ses propres notes
                   const canEditNote = isReferent || isOwner
                   if (!canSee) return null
