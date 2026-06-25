@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-21a — profils temporaires exclus des recherches AF
+// Agenda.js — v2026-06-25a — AF principal voit tous les événements de ses enfants (même créés par un autre AF)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -790,6 +790,16 @@ export default function Agenda({ profile }) {
     let base = evenements
     // Encadrant : uniquement congés et relais des AF de son périmètre
     if (isEncadrant) base = evenements.filter(e => ['relais', 'conge', 'formation'].includes(e.categorie))
+    // AF : voir ses propres événements + événements liés à ses enfants (même créés par un autre AF)
+    if (profile?.role === 'af') {
+      const mesEnfantsIds = enfants.map(e => e.id)
+      base = base.filter(e => {
+        if (e.af_id === profile.id || e.cree_par === profile.id) return true
+        if (e.participants_ids?.includes(profile.id)) return true
+        if (e.enfant_ids?.some(eid => mesEnfantsIds.includes(eid))) return true
+        return false
+      })
+    }
     if (filtres.includes('tous')) return base
     return base.filter(e => filtres.includes(e.categorie))
   }
