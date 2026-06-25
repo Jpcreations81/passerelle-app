@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-25b — fix closure enfants dans buildEvtsDuJour
+// Agenda.js — v2026-06-25c — fix enf undefined dans fetchEvenements
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -395,8 +395,10 @@ export default function Agenda({ profile }) {
 
     const allEnfantIds = []
     data.forEach(e => { if (e.enfant_ids) e.enfant_ids.forEach(id => { if (!allEnfantIds.includes(id)) allEnfantIds.push(id) }) })
+    let enf = null
     if (allEnfantIds.length > 0) {
-      const { data: enf } = await supabase.from('enfants').select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)').in('id', allEnfantIds)
+      const { data: enfData } = await supabase.from('enfants').select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)').in('id', allEnfantIds)
+      enf = enfData
       if (enf) {
         setEnfants(prev => {
           const merged = [...prev]
