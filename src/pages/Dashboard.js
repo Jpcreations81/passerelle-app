@@ -1,4 +1,4 @@
-// Dashboard.js — v2026-06-21c — transfert enfant opérationnel (logs debug retirés)
+// Dashboard.js — v2026-06-25d — alerte fiche présence dynamique (mois en cours)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -376,7 +376,14 @@ export default function Dashboard({ profile, session }) {
                 <AlertItem
                   icon="📋"
                   title="Fiche de présence à envoyer"
-                  sub={'Avril 2026 · ' + enfants.map(e => e.prenom).join(' & ') + ' · Échéance 30 avril'}
+                  sub={(() => {
+                    const now = new Date()
+                    const moisNom = now.toLocaleDateString('fr-FR', { month:'long', year:'numeric' })
+                    const moisCourt = now.toLocaleDateString('fr-FR', { month:'long' })
+                    const dernierJour = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+                    const prenoms = enfants.filter(e => e.type_placement !== 'non_place').map(e => e.prenom).join(' & ')
+                    return `${moisNom.charAt(0).toUpperCase()+moisNom.slice(1)} · ${prenoms} · Échéance ${dernierJour} ${moisCourt}`
+                  })()}
                   type="warn"
                   onClick={() => navigate('/fiche-presence')}
                 />
