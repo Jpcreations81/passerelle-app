@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-25b — fix canSee journal : AF voit toutes les notes relais de ses enfants
+// DossierEnfant.js — v2026-06-25c — debug isAfPrincipal
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -987,6 +987,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
   const initiales = `${enfant.prenom?.[0] || ''}${enfant.nom?.[0] || ''}`
   const age = calcAge(enfant.date_naissance)
   const isAfPrincipal = isAF && enfant.af_principal_id === profile?.id
+  console.log('DEBUG isAfPrincipal:', isAfPrincipal, 'enfant.af_principal_id:', enfant.af_principal_id, 'profile.id:', profile?.id)
   const canEditSante = canEdit || isAfPrincipal
 
   const ONGLETS = [
