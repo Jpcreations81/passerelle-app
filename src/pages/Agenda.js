@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-25a — AF principal voit tous les événements de ses enfants (même créés par un autre AF)
+// Agenda.js — v2026-06-25b — fix closure enfants dans buildEvtsDuJour
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -812,8 +812,22 @@ export default function Agenda({ profile }) {
   }, [relaisStructures])
 
   const buildEvtsDuJour = useMemo(() => {
+    // Calculer les événements filtrés ici pour capturer correctement enfants dans la closure
+    const mesEnfantsIds = enfants.map(e => e.id)
+    let baseEvts = evenements
+    if (isEncadrant) baseEvts = evenements.filter(e => ['relais', 'conge', 'formation'].includes(e.categorie))
+    if (profile?.role === 'af') {
+      baseEvts = baseEvts.filter(e => {
+        if (e.af_id === profile.id || e.cree_par === profile.id) return true
+        if (e.participants_ids?.includes(profile.id)) return true
+        if (e.enfant_ids?.some(eid => mesEnfantsIds.includes(eid))) return true
+        return false
+      })
+    }
+    const evtsBase = filtres.includes('tous') ? baseEvts : baseEvts.filter(e => filtres.includes(e.categorie))
+
     return (date) => {
-      const filtered = evtsFiltres().filter(e => {
+      const filtered = evtsBase.filter(e => {
         const d = new Date(e.date_debut), f = e.date_fin ? new Date(e.date_fin) : d
         const dDate = new Date(date); dDate.setHours(0,0,0,0)
         const fDate = new Date(f); fDate.setHours(23,59,59,999)
