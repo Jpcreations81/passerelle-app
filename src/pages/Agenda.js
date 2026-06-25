@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-21a — profils temporaires exclus des recherches AF
+// Agenda.js — v2026-06-25e — message rappel AF principal après création enfant temporaire
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -109,16 +109,17 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
 
   const creerTemporaire = async () => {
     if (!newPrenom.trim() || !newNom.trim()) return
-    if (!afSelectionne) { alert("L'AF principal est obligatoire avant de créer l'enfant."); return }
     setSaving(true)
     const { data, error } = await supabase.from('enfants').insert({
       prenom: newPrenom.trim(),
       nom: newNom.trim().toUpperCase(),
       statut_profil: 'temporaire',
-      af_principal_id: afSelectionne.id
+      type_placement: 'judiciaire',
+      ...(afSelectionne ? { af_principal_id: afSelectionne.id } : {})
     }).select().single()
     setSaving(false)
     if (error) { alert('Erreur : ' + error.message); return }
+    if (!afSelectionne) { alert("⚠️ Enfant créé ! Pensez à renseigner l'AF principal dans la fiche de l'enfant.") }
     onSelect(data)
     setModeCreation(false)
   }
@@ -178,8 +179,8 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
       </div>
 
       <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
-        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background: afSelectionne ? '#f0fdf4' : '#f1f1f1', color: afSelectionne ? '#15803d' : '#aaa', cursor: afSelectionne ? 'pointer' : 'not-allowed', fontWeight:700 }}
-          onClick={creerTemporaire} disabled={saving || !afSelectionne}>
+        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
+          onClick={creerTemporaire} disabled={saving}>
           {saving ? '⏳' : '✅ Créer l\'enfant'}
         </button>
         <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
@@ -253,6 +254,7 @@ function RechercheAfImport({ nomDetecte, afTousListe, onSelect }) {
     }).select().single()
     setSaving(false)
     if (error) { alert('Erreur : ' + error.message); return }
+    if (!afSelectionne) { alert("⚠️ Enfant créé ! Pensez à renseigner l'AF principal dans la fiche de l'enfant.") }
     onSelect(data)
     setModeCreation(false)
   }
