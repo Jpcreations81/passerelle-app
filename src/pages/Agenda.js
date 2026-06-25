@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-25c — fix enf undefined dans fetchEvenements
+// Agenda.js — v2026-06-21a — profils temporaires exclus des recherches AF
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -395,10 +395,8 @@ export default function Agenda({ profile }) {
 
     const allEnfantIds = []
     data.forEach(e => { if (e.enfant_ids) e.enfant_ids.forEach(id => { if (!allEnfantIds.includes(id)) allEnfantIds.push(id) }) })
-    let enf = null
     if (allEnfantIds.length > 0) {
-      const { data: enfData } = await supabase.from('enfants').select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)').in('id', allEnfantIds)
-      enf = enfData
+      const { data: enf } = await supabase.from('enfants').select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)').in('id', allEnfantIds)
       if (enf) {
         setEnfants(prev => {
           const merged = [...prev]
@@ -792,16 +790,6 @@ export default function Agenda({ profile }) {
     let base = evenements
     // Encadrant : uniquement congés et relais des AF de son périmètre
     if (isEncadrant) base = evenements.filter(e => ['relais', 'conge', 'formation'].includes(e.categorie))
-    // AF : voir ses propres événements + événements liés à ses enfants (même créés par un autre AF)
-    if (profile?.role === 'af') {
-      const mesEnfantsIds = enfants.map(e => e.id)
-      base = base.filter(e => {
-        if (e.af_id === profile.id || e.cree_par === profile.id) return true
-        if (e.participants_ids?.includes(profile.id)) return true
-        if (e.enfant_ids?.some(eid => mesEnfantsIds.includes(eid))) return true
-        return false
-      })
-    }
     if (filtres.includes('tous')) return base
     return base.filter(e => filtres.includes(e.categorie))
   }
@@ -814,22 +802,8 @@ export default function Agenda({ profile }) {
   }, [relaisStructures])
 
   const buildEvtsDuJour = useMemo(() => {
-    // Calculer les événements filtrés ici pour capturer correctement enfants dans la closure
-    const mesEnfantsIds = enfants.map(e => e.id)
-    let baseEvts = evenements
-    if (isEncadrant) baseEvts = evenements.filter(e => ['relais', 'conge', 'formation'].includes(e.categorie))
-    if (profile?.role === 'af') {
-      baseEvts = baseEvts.filter(e => {
-        if (e.af_id === profile.id || e.cree_par === profile.id) return true
-        if (e.participants_ids?.includes(profile.id)) return true
-        if (e.enfant_ids?.some(eid => mesEnfantsIds.includes(eid))) return true
-        return false
-      })
-    }
-    const evtsBase = filtres.includes('tous') ? baseEvts : baseEvts.filter(e => filtres.includes(e.categorie))
-
     return (date) => {
-      const filtered = evtsBase.filter(e => {
+      const filtered = evtsFiltres().filter(e => {
         const d = new Date(e.date_debut), f = e.date_fin ? new Date(e.date_fin) : d
         const dDate = new Date(date); dDate.setHours(0,0,0,0)
         const fDate = new Date(f); fDate.setHours(23,59,59,999)
