@@ -1643,7 +1643,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                             <div>
                               <div style={{ fontSize:13, fontWeight:600 }}>{profil.nom} {profil.prenom}</div>
                               {profil.telephone && !(profil.role === 'af' && profil.statut_profil === 'temporaire') && <div style={{ fontSize:11, color:'#5a6478', marginTop:3 }}>📞 <a href={`tel:${profil.telephone}`} style={{ color:'#1a4b8f' }}>{profil.telephone}</a></div>}
-                              {profil.email && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
+                             {profil.email && !(profil.role === 'af' && profil.statut_profil === 'temporaire') && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
                             </div>
                           ) : (
                             <div style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Non renseigné</div>
