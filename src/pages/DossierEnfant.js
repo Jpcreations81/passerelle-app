@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-21h — tags fixes  journal : 6 catégories boutons + bloc inspiration
+//DossierEnfant.js — v2026-06-25g — création AF temporaire sans email + message inscription
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
