@@ -1,4 +1,4 @@
-// Login.js — v2026-06-25a — détection profil temporaire AF à l'inscription
+// Login.js — v2026-06-25b — détection profil temporaire insensible aux accents
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -44,18 +44,23 @@ export default function Login() {
       return
     }
 
-    // Chercher un profil temporaire avec le même nom + prénom
+    // Chercher un profil temporaire avec le même nom + prénom (insensible à la casse et aux accents)
     const { data: tempProfils } = await supabase
       .from('profiles')
       .select('id, nom, prenom, ville')
       .eq('role', 'af')
       .eq('statut_profil', 'temporaire')
-      .ilike('nom', nom.trim())
-      .ilike('prenom', prenom.trim())
+      .ilike('nom', nom.trim().toUpperCase())
 
-    if (tempProfils && tempProfils.length > 0) {
+    // Filtrer côté client sur le prénom (insensible accents)
+    const normalise = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+    const profilsFiltrés = (tempProfils || []).filter(p =>
+      normalise(p.prenom) === normalise(prenom.trim())
+    )
+
+    if (profilsFiltrés.length > 0) {
       // Profil temporaire trouvé — demander confirmation
-      setProfilTemp(tempProfils[0])
+      setProfilTemp(profilsFiltrés[0])
       setShowConfirmTemp(true)
       setLoading(false)
       return
