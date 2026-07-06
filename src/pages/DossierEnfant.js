@@ -1610,6 +1610,12 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                                   )}
                                   <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_tel_new`)||''} onChange={e=>F(`${idKey}_tel_new`)(e.target.value)} placeholder="📞 Téléphone (optionnel)" />
                                   <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_email_new`)||''} onChange={e=>F(`${idKey}_email_new`)(e.target.value)} placeholder="✉️ Email" />
+                                    )}
+                                  {role === 'af' && (
+                                    <div style={{ fontSize:11, color:'#b45309', background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:6, padding:'6px 10px' }}>
+                                      ⏳ Profil temporaire — Lorsque cet(te) AF s'inscrira, il/elle retrouvera automatiquement cet enfant.
+                                    </div>
+                                  )}
                                   <button type="button"
                                     style={{ fontSize:11, padding:'6px 10px', borderRadius:6, border:'none', background:'#1a4b8f', color:'#fff', cursor:'pointer', fontWeight:600 }}
                                     onClick={() => creerProfilEtAssigner(roleDb, idKey)}>
