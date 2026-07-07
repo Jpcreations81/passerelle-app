@@ -1,4 +1,4 @@
-// Login.js — v2026-06-25g — fix transfert enfants à l'inscription (profilTemp.id → true)
+// Login.js — v2026-06-25h — retire statut_profil temporaire de l'enfant lors du transfert AF
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -92,7 +92,7 @@ export default function Login() {
       if (profilTempId) {
         // profilTempId contient ici le nom+prénom de l'AF
         await supabase.from('enfants')
-          .update({ af_principal_id: data.user.id, af_principal_nom: null, af_principal_prenom: null })
+          .update({ af_principal_id: data.user.id, af_principal_nom: null, af_principal_prenom: null, af_principal_ville: null, statut_profil: null })
           .eq('af_principal_nom', nom.trim().toUpperCase())
       }
 
