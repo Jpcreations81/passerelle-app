@@ -1,4 +1,4 @@
-// Login.js — v2026-06-25d — recherche AF temporaire via pg_trgm (tolérance accents/fautes)
+// Login.js — v2026-06-25e — debug log recherche AF similaires
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -45,11 +45,12 @@ export default function Login() {
     }
 
     // Chercher un profil temporaire via pg_trgm (tolérance fautes/accents)
-    const { data: tempProfils } = await supabase.rpc('rechercher_af_similaires', {
+    const { data: tempProfils, error: rpcError } = await supabase.rpc('rechercher_af_similaires', {
       p_nom: nom.trim().toUpperCase(),
       p_prenom: prenom.trim(),
       p_seuil: 0.4
     })
+    console.log('Recherche AF similaires:', nom.trim().toUpperCase(), prenom.trim(), tempProfils, rpcError)
 
     if (tempProfils && tempProfils.length > 0) {
       // Profil temporaire trouvé — demander confirmation
