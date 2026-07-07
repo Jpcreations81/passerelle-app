@@ -1,4 +1,4 @@
-// Login.js — v2026-06-25f — recherche AF par nom/prénom dans enfants (sans profil temporaire)
+// Login.js — v2026-06-25g — fix transfert enfants à l'inscription (profilTemp.id → true)
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -158,7 +158,7 @@ export default function Login() {
               <EnfantsLies profilId={profilTemp.id} />
               <div style={{ display:'flex', gap:10, marginTop:16 }}>
                 <button
-                  onClick={() => creerCompte(profilTemp.id)}
+                  onClick={() => creerCompte(true)}
                   disabled={loading}
                   style={{ flex:1, padding:'11px', background:'linear-gradient(135deg,#1a4b8f,#2d7a1f)', color:'#fff', border:'none', borderRadius:10, fontFamily:'Sora,sans-serif', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                   ✅ Oui, c'est moi !
