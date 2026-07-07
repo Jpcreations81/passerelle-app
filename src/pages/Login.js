@@ -1,4 +1,4 @@
-// Login.js — v2026-06-25b — détection profil temporaire insensible aux accents
+// Login.js — v2026-06-25c — fusion profil temporaire → nouveau profil Auth
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -95,14 +95,16 @@ export default function Login() {
     }
 
     if (data?.user) {
-      // Si profil temporaire confirmé → mettre à jour le profil existant
+      // Si profil temporaire confirmé → transférer les enfants vers le nouveau profil
       if (profilTempId) {
-        await supabase.from('profiles').update({
-          email: email.trim(),
-          ville: ville.trim() || null,
-          statut_profil: null,
-          id: data.user.id
-        }).eq('id', profilTempId)
+        // Mettre à jour les enfants qui référencent le profil temporaire
+        await supabase.from('enfants')
+          .update({ af_principal_id: data.user.id })
+          .eq('af_principal_id', profilTempId)
+        // Supprimer le profil temporaire (le trigger a créé le vrai profil)
+        await supabase.from('profiles')
+          .delete()
+          .eq('id', profilTempId)
       }
 
       setSuccess('✅ Compte créé ! Vérifiez votre email pour confirmer votre inscription, puis connectez-vous.')
