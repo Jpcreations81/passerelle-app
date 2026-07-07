@@ -1,4 +1,4 @@
-// Login.js — v2026-06-25e — debug log recherche AF similaires
+// Login.js — v2026-06-25f — recherche AF par nom/prénom dans enfants (sans profil temporaire)
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -44,17 +44,16 @@ export default function Login() {
       return
     }
 
-    // Chercher un profil temporaire via pg_trgm (tolérance fautes/accents)
-    const { data: tempProfils, error: rpcError } = await supabase.rpc('rechercher_af_similaires', {
+    // Chercher un enfant dont af_principal_nom/prenom correspond (via pg_trgm)
+    const { data: enfantsTrouves } = await supabase.rpc('rechercher_enfants_par_af', {
       p_nom: nom.trim().toUpperCase(),
       p_prenom: prenom.trim(),
       p_seuil: 0.4
     })
-    console.log('Recherche AF similaires:', nom.trim().toUpperCase(), prenom.trim(), tempProfils, rpcError)
 
-    if (tempProfils && tempProfils.length > 0) {
-      // Profil temporaire trouvé — demander confirmation
-      setProfilTemp(tempProfils[0])
+    if (enfantsTrouves && enfantsTrouves.length > 0) {
+      // Enfant(s) trouvé(s) avec cet AF — demander confirmation
+      setProfilTemp({ nom: nom.trim().toUpperCase(), prenom: prenom.trim(), enfants: enfantsTrouves })
       setShowConfirmTemp(true)
       setLoading(false)
       return
@@ -89,16 +88,12 @@ export default function Login() {
     }
 
     if (data?.user) {
-      // Si profil temporaire confirmé → transférer les enfants vers le nouveau profil
+      // Si AF connu → lier les enfants qui ont af_principal_nom/prenom correspondant
       if (profilTempId) {
-        // Mettre à jour les enfants qui référencent le profil temporaire
+        // profilTempId contient ici le nom+prénom de l'AF
         await supabase.from('enfants')
-          .update({ af_principal_id: data.user.id })
-          .eq('af_principal_id', profilTempId)
-        // Supprimer le profil temporaire (le trigger a créé le vrai profil)
-        await supabase.from('profiles')
-          .delete()
-          .eq('id', profilTempId)
+          .update({ af_principal_id: data.user.id, af_principal_nom: null, af_principal_prenom: null })
+          .eq('af_principal_nom', nom.trim().toUpperCase())
       }
 
       setSuccess('✅ Compte créé ! Vérifiez votre email pour confirmer votre inscription, puis connectez-vous.')
@@ -278,10 +273,10 @@ export default function Login() {
 function EnfantsLies({ profilId }) {
   const [enfants, setEnfants] = React.useState([])
   React.useEffect(() => {
-    supabase.from('enfants')
-      .select('id, prenom, nom')
-      .eq('af_principal_id', profilId)
-      .then(({ data }) => { if (data) setEnfants(data) })
+    // profilId contient { nom, prenom, enfants } depuis la nouvelle logique
+    if (profilId?.enfants) {
+      setEnfants(profilId.enfants)
+    }
   }, [profilId])
   if (enfants.length === 0) return null
   return (
