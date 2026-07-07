@@ -1,4 +1,4 @@
-//DossierEnfant.js — v2026-06-25g — création AF temporaire sans email + message inscription
+// DossierEnfant.js — v2026-06-25j — AF principal : stockage nom/prénom/ville pour calcul frais
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -244,21 +244,42 @@ export default function DossierEnfant({ profile }) {
   // Créer un nouveau profil (référent ou AF) en base et l'assigner immédiatement.
   // Le profil créé devient automatiquement disponible pour les futures recherches/listes.
   async function creerProfilEtAssigner(roleDb, idKey) {
-    const nom = v(`${idKey}_nom_new`)?.trim()
-    const prenom = v(`${idKey}_prenom_new`)?.trim()
+    const nomSaisi = v(`${idKey}_nom_new`)?.trim()
+    const prenomSaisi = v(`${idKey}_prenom_new`)?.trim()
     const ville = v(`${idKey}_ville_new`)?.trim()
     const tel = v(`${idKey}_tel_new`)?.trim()
     const emailSaisi = v(`${idKey}_email_new`)?.trim()
-    if (!nom || !prenom) { showToast('⚠️ Nom et prénom requis'); return }
+    if (!nomSaisi || !prenomSaisi) { showToast('⚠️ Nom et prénom requis'); return }
+
+    if (roleDb === 'af') {
+      // Pour un AF : stocker nom+prénom directement sur l'enfant (pas de profil temporaire)
+      // L'AF retrouvera l'enfant à son inscription via la fonction rechercher_af_similaires
+      const { error } = await supabase.from('enfants').update({
+        af_principal_nom: nomSaisi.toUpperCase(),
+        af_principal_prenom: prenomSaisi,
+        af_principal_ville: ville || null,
+        af_principal_id: null
+      }).eq('id', id)
+      if (error) { showToast('❌ ' + error.message); return }
+      setForm(f => ({ ...f, af_principal_nom: nomSaisi.toUpperCase(), af_principal_prenom: prenomSaisi, af_principal_ville: ville || null, af_principal_id: null }))
+      setEnfant(prev => ({ ...prev, af_principal_nom: nomSaisi.toUpperCase(), af_principal_prenom: prenomSaisi, af_principal_ville: ville || null, af_principal_id: null }))
+      F(`_${idKey}Manuel`)(false)
+      F(`${idKey}_nom_new`)('')
+      F(`${idKey}_prenom_new`)('')
+      F(`${idKey}_ville_new`)('')
+      showToast(`✅ ${prenomSaisi} ${nomSaisi} enregistré(e) — sera lié(e) à l'inscription`)
+      return
+    }
+
+    // Pour les autres rôles : créer un profil
     const payload = {
       id: crypto.randomUUID(),
-      nom: nom.toUpperCase(),
-      prenom,
+      nom: nomSaisi.toUpperCase(),
+      prenom: prenomSaisi,
       role: roleDb,
       statut_profil: 'temporaire',
       email: emailSaisi || `temp.${Date.now()}@passerelle.local`,
-      ...(tel ? { telephone: tel } : {}),
-      ...(roleDb === 'af' ? { ville: ville || null } : {})
+      ...(tel ? { telephone: tel } : {})
     }
     const { data, error } = await supabase.from('profiles').insert(payload).select().single()
     if (error) { showToast('❌ ' + error.message); return }
@@ -270,7 +291,7 @@ export default function DossierEnfant({ profile }) {
     F(`${idKey}_tel_new`)('')
     F(`${idKey}_email_new`)('')
     F(`${idKey}_ville_new`)('')
-    showToast(`✅ ${prenom} ${nom} créé(e) et assigné(e)`)
+    showToast(`✅ ${prenomSaisi} ${nomSaisi} créé(e) et assigné(e)`)
   }
 
   // ── Chargement ──────────────────────────────────────────────────────────────
@@ -1095,12 +1116,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
               {photoUrl ? <img src={photoUrl} alt="photo" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontSize:14, fontWeight:700, color:'#fff' }}>{initiales}</span>}
             </div>
             <div>
-              <div className="page-title" style={{ display:'flex', alignItems:'center', gap:8 }}>
-                {enfant.nom} {enfant.prenom}
-                {enfant.statut_profil === 'temporaire' && (
-                  <span style={{ fontSize:11, background:'#fef3c7', color:'#b45309', borderRadius:6, padding:'2px 8px', fontWeight:700, border:'1px solid #fcd34d' }}>⏳ TEMP</span>
-                )}
-              </div>
+              <div className="page-title">{enfant.nom} {enfant.prenom}</div>
               <div className="page-subtitle">
                 {age}{enfant.date_naissance && ` · Né(e) le ${fmtDate(enfant.date_naissance)}`}
                 {enfant.numero_dossier && ` · ${enfant.numero_dossier}`}
@@ -1608,17 +1624,8 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                                   {role === 'af' && (
                                     <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_ville_new`)||''} onChange={e=>F(`${idKey}_ville_new`)(e.target.value)} placeholder="Ville" />
                                   )}
-                                  {role !== 'af' && (
-                                    <>
-                                      <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_tel_new`)||''} onChange={e=>F(`${idKey}_tel_new`)(e.target.value)} placeholder="📞 Téléphone (optionnel)" />
-                                      <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_email_new`)||''} onChange={e=>F(`${idKey}_email_new`)(e.target.value)} placeholder="✉️ Email" />
-                                    </>
-                                  )}
-                                  {role === 'af' && (
-                                    <div style={{ fontSize:11, color:'#b45309', background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:6, padding:'6px 10px' }}>
-                                      ⏳ Profil temporaire — Lorsque cet(te) AF s'inscrira, il/elle retrouvera automatiquement cet enfant.
-                                    </div>
-                                  )}
+                                  <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_tel_new`)||''} onChange={e=>F(`${idKey}_tel_new`)(e.target.value)} placeholder="📞 Téléphone (optionnel)" />
+                                  <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_email_new`)||''} onChange={e=>F(`${idKey}_email_new`)(e.target.value)} placeholder="✉️ Email" />
                                   <button type="button"
                                     style={{ fontSize:11, padding:'6px 10px', borderRadius:6, border:'none', background:'#1a4b8f', color:'#fff', cursor:'pointer', fontWeight:600 }}
                                     onClick={() => creerProfilEtAssigner(roleDb, idKey)}>
@@ -1643,7 +1650,15 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                             <div>
                               <div style={{ fontSize:13, fontWeight:600 }}>{profil.nom} {profil.prenom}</div>
                               {profil.telephone && !(profil.role === 'af' && profil.statut_profil === 'temporaire') && <div style={{ fontSize:11, color:'#5a6478', marginTop:3 }}>📞 <a href={`tel:${profil.telephone}`} style={{ color:'#1a4b8f' }}>{profil.telephone}</a></div>}
-                             {profil.email && !(profil.role === 'af' && profil.statut_profil === 'temporaire') && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
+                              {profil.email && !(profil.role === 'af' && profil.statut_profil === 'temporaire') && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
+                            </div>
+                          ) : idKey === 'af_principal_id' && (v('af_principal_nom') || v('af_principal_prenom')) ? (
+                            <div>
+                              <div style={{ fontSize:13, fontWeight:600 }}>{v('af_principal_nom')} {v('af_principal_prenom')}</div>
+                              {v('af_principal_ville') && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>📍 {v('af_principal_ville')}</div>}
+                              <div style={{ fontSize:11, color:'#b45309', background:'#fffbeb', borderRadius:6, padding:'3px 8px', marginTop:4, display:'inline-block', border:'1px solid #fcd34d' }}>
+                                ⏳ En attente d'inscription
+                              </div>
                             </div>
                           ) : (
                             <div style={{ fontSize:12, color:'#9aa3b8', fontStyle:'italic' }}>Non renseigné</div>
@@ -2316,56 +2331,11 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                 style={{ resize:'vertical' }} />
             </div>
 
-            {/* Bloc d'inspiration des catégories */}
-            <div style={{ background:'#f8f9fb', border:'1px solid #e8edf5', borderRadius:8, padding:'10px 14px', marginBottom:12, fontSize:12, color:'#5a6478', lineHeight:1.8 }}>
-              {[
-                { label:'Comportement', icon:'😊', ex:'Positif, Difficile, Incident, Sommeil, Crise, Agitation' },
-                { label:'Scolarité',    icon:'🏫', ex:'École, Devoirs, Absence, Bulletin, RDV prof' },
-                { label:'Santé',        icon:'🏥', ex:'Médecin, Médicament, Maladie, Accident, Urgence' },
-                { label:'Famille',      icon:'👨‍👩‍👧', ex:'Visite parents, Appel, Conflit, Nouvelle' },
-                { label:'Activités',    icon:'⚽', ex:'Sport, Loisirs, Sortie, Fête, Vacances' },
-                { label:'Admin',        icon:'📋', ex:'RDV ASE, Document, Jugement, Rendez-vous' },
-              ].map(c => (
-                <div key={c.label}>
-                  <strong>{c.icon} {c.label} :</strong> <span style={{ color:'#9aa3b8', fontStyle:'italic' }}>{c.ex}</span>
-                </div>
-              ))}
-            </div>
-
             <div className="form-group" style={{ marginBottom:12 }}>
-              <label className="form-label">Tags</label>
-              {/* Boutons catégories cliquables */}
-              <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
-                {[
-                  { label:'Comportement', icon:'😊' },
-                  { label:'Scolarité',    icon:'🏫' },
-                  { label:'Santé',        icon:'🏥' },
-                  { label:'Famille',      icon:'👨‍👩‍👧' },
-                  { label:'Activités',    icon:'⚽' },
-                  { label:'Admin',        icon:'📋' },
-                ].map(c => {
-                  const tagsActuels = newNote.tags ? newNote.tags.split(',').map(t => t.trim()).filter(Boolean) : []
-                  const actif = tagsActuels.includes(c.label)
-                  return (
-                    <button key={c.label} type="button"
-                      onClick={() => {
-                        const tags = newNote.tags ? newNote.tags.split(',').map(t => t.trim()).filter(Boolean) : []
-                        const nouveau = actif ? tags.filter(t => t !== c.label) : [...tags, c.label]
-                        setNewNote(n => ({...n, tags: nouveau.join(', ')}))
-                      }}
-                      style={{ padding:'5px 12px', borderRadius:20, fontSize:12, fontWeight:600, cursor:'pointer',
-                        border:`1.5px solid ${actif ? '#1a4b8f' : '#dde3f0'}`,
-                        background: actif ? '#1a4b8f' : '#f4f6fb',
-                        color: actif ? '#fff' : '#5a6478' }}>
-                      {c.icon} {c.label}
-                    </button>
-                  )
-                })}
-              </div>
-              {/* Champ libre pour tags additionnels */}
+              <label className="form-label">Tags <span style={{ fontSize:10, color:'#9aa3b8', fontWeight:400 }}>(séparés par des virgules)</span></label>
               <input className="form-control" value={newNote.tags}
                 onChange={e => setNewNote(n => ({...n, tags: e.target.value}))}
-                placeholder="Ou saisissez librement : École, Comportement, Sommeil..." />
+                placeholder="École, Comportement, Sommeil, Post-visite..." />
             </div>
 
             <div className="modal-footer">
