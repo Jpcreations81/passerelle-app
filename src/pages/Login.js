@@ -1,4 +1,4 @@
-// Login.js — v2026-06-25h — retire statut_profil temporaire de l'enfant lors du transfert AF
+// Login.js — v2026-06-25i — message confirmation avec prénom + initiale nom enfant
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -152,6 +152,9 @@ export default function Login() {
               <div style={{ fontSize:13, color:'#5a6478', marginBottom:16, lineHeight:1.7 }}>
                 Un profil a été créé pour <strong>{profilTemp.prenom} {profilTemp.nom}</strong>
                 {profilTemp.ville && ` (${profilTemp.ville})`}.
+                {profilTemp.enfants && profilTemp.enfants.length > 0 && (
+                  <> Vous avez en accueil <strong>{profilTemp.enfants.map(e => `${e.prenom} ${e.nom.charAt(0)}.`).join(', ')}</strong>.</>
+                )}
                 <br />Est-ce bien vous ?
               </div>
               {/* Enfants liés */}
