@@ -1,4 +1,4 @@
-// Login.js — v2026-06-25c — fusion profil temporaire → nouveau profil Auth
+// Login.js — v2026-06-25d — recherche AF temporaire via pg_trgm (tolérance accents/fautes)
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -44,23 +44,16 @@ export default function Login() {
       return
     }
 
-    // Chercher un profil temporaire avec le même nom + prénom (insensible à la casse et aux accents)
-    const { data: tempProfils } = await supabase
-      .from('profiles')
-      .select('id, nom, prenom, ville')
-      .eq('role', 'af')
-      .eq('statut_profil', 'temporaire')
-      .ilike('nom', nom.trim().toUpperCase())
+    // Chercher un profil temporaire via pg_trgm (tolérance fautes/accents)
+    const { data: tempProfils } = await supabase.rpc('rechercher_af_similaires', {
+      p_nom: nom.trim().toUpperCase(),
+      p_prenom: prenom.trim(),
+      p_seuil: 0.4
+    })
 
-    // Filtrer côté client sur le prénom (insensible accents)
-    const normalise = str => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
-    const profilsFiltrés = (tempProfils || []).filter(p =>
-      normalise(p.prenom) === normalise(prenom.trim())
-    )
-
-    if (profilsFiltrés.length > 0) {
+    if (tempProfils && tempProfils.length > 0) {
       // Profil temporaire trouvé — demander confirmation
-      setProfilTemp(profilsFiltrés[0])
+      setProfilTemp(tempProfils[0])
       setShowConfirmTemp(true)
       setLoading(false)
       return
