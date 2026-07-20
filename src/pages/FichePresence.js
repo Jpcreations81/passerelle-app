@@ -1,4 +1,4 @@
-// FichePresence.js — v2026-07-21a — AF principal chargé depuis enfant.af_principal_id
+// FichePresence.js — v2026-07-21b — champs identité différenciés permanent/intermittent
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
