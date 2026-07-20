@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-06-17a — signature AF + date du jour + cadre DECISION décalé
+// FicheConges.js — v2026-07-21a — signature AF + date du jour + cadre DECISION décalé
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -197,7 +197,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     dt('NOM - PRENOM :', M+3, yNA-12, 8.5, fontB)
     dt(`${profile?.nom||''} ${profile?.prenom||''}`, M+78, yNA-12, 9, font)
     dt('ADRESSE :', M+TW/2+4, yNA-12, 8.5, fontB)
-    dt(`${profile?.adresse||''}`.trim(), M+TW/2+55, yNA-12, 9, font)
+    dt(`${profile?.adresse||''} ${profile?.code_postal||''} ${profile?.ville||''}`.trim(), M+TW/2+55, yNA-12, 9, font)
 
     // ── TABLEAU ENFANTS ───────────────────────────────────────────
     const cW = [TW*0.25, TW*0.17, TW*0.21, TW*0.37]
