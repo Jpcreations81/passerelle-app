@@ -1,4 +1,4 @@
-// FichePresence.js — v2026-05-21a — fiche intermittente pour AF relais + fiche permanente AF principal
+// FichePresence.js — v2026-06-25b — AF principal chargé depuis enfant.af_principal_id
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -127,7 +127,7 @@ export default function FichePresence({ profile }) {
         const evt = relais[0]
         setRelaisEnCours(evt)
         // Charger l'AF principal
-        const { data: afP } = await supabase.from('profiles').select('id, nom, prenom').eq('id', evt.af_id).single()
+        const { data: afP } = await supabase.from('profiles').select('id, nom, prenom').eq('id', selectedEnfant.af_principal_id).single()
         setAfPrincipal(afP)
 
         const premierJour = fmtDate(evt.date_debut)
