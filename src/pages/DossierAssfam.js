@@ -325,6 +325,7 @@ export default function DossierAssfam({ profile }) {
     {id:'conges',icon:'🏖️',label:'Congés'},
     {id:'formations',icon:'🎓',label:'Formations'},
     {id:'safa',icon:'🏛️',label:'SAFA & Contrat'},
+    {id:'documents',icon:'📄',label:'Demande de document'},
   ]
 
   if (loading) return (
