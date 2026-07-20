@@ -1,4 +1,4 @@
-// AllocationRentreeScolaire.js — v2026-07-21a — formulaire allocation rentrée scolaire 2026/2027
+// AllocationRentreeScolaire.js — v2026-07-21d — secteur au lieu de territoire
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -49,14 +49,14 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
       const fontB = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
-      const page = pdfDoc.addPage([595, 842]) // A4
-      const { width, height } = page.getSize()
+      const page = pdfDoc.addPage([842, 595]) // A4 paysage
+      const { width, height } = page.getSize() // width=842, height=595
       const M = 50 // marge
 
       // Titre principal
       page.drawText('SCOLARITE 2026/2027 DES ENFANTS CONFIES', {
-        x: M, y: height - 60,
-        size: 16, font: fontB,
+        x: M, y: height - 50,
+        size: 18, font: fontB,
         color: rgb(0, 0, 0)
       })
 
@@ -87,7 +87,7 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
         x: M, y: height - 120,
         size: 10, font: fontB, color: rgb(0, 0, 0)
       })
-      page.drawText(profile.territoire || '', {
+      page.drawText(profile.secteur || profile.territoire || '', {
         x: M + 130, y: height - 120,
         size: 10, font, color: rgb(0, 0, 0)
       })
@@ -99,9 +99,9 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
 
       // Tableau
       const tableTop = height - 155
-      const colWidths = [175, 80, 220]
-      const colX = [M, M + 175, M + 175 + 80]
-      const rowH = 24
+      const colWidths = [220, 100, 380]
+      const colX = [M, M + 220, M + 220 + 100]
+      const rowH = 28
       const headers = ["NOM - PRENOM DE L'ENFANT", 'CLASSE', 'NOM ETABLISSEMENT SCOLAIRE - LIEU']
 
       // En-tête tableau
@@ -183,15 +183,17 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
         }
       }
 
-      // Bordure extérieure tableau
+      // Bordure extérieure tableau (juste les lignes, pas de fond)
       const tableH = rowH + nbLignes * rowH
-      page.drawRectangle({
-        x: M, y: tableTop - tableH,
-        width: colWidths[0] + colWidths[1] + colWidths[2],
-        height: tableH,
-        borderColor: rgb(0, 0, 0), borderWidth: 1,
-        color: rgb(1, 1, 1, 0) // transparent
-      })
+      const totalWidth = colWidths[0] + colWidths[1] + colWidths[2]
+      // Bord gauche
+      page.drawLine({ start:{x:M, y:tableTop}, end:{x:M, y:tableTop-tableH}, thickness:1, color:rgb(0,0,0) })
+      // Bord droit
+      page.drawLine({ start:{x:M+totalWidth, y:tableTop}, end:{x:M+totalWidth, y:tableTop-tableH}, thickness:1, color:rgb(0,0,0) })
+      // Bord haut
+      page.drawLine({ start:{x:M, y:tableTop}, end:{x:M+totalWidth, y:tableTop}, thickness:1, color:rgb(0,0,0) })
+      // Bord bas
+      page.drawLine({ start:{x:M, y:tableTop-tableH}, end:{x:M+totalWidth, y:tableTop-tableH}, thickness:1, color:rgb(0,0,0) })
 
       // Date et signature
       const sigY = tableTop - tableH - 40
@@ -242,7 +244,7 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
         {/* En-tête AF */}
         <div style={{ background:'#f8faff', border:'1px solid #dde3f0', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:12 }}>
           <div><strong>Nom de l'Assistant(e) Familial(e) :</strong> {profile.nom} {profile.prenom}</div>
-          <div style={{ marginTop:4 }}><strong>Territoire Concerné :</strong> {profile.territoire || '—'}</div>
+          <div style={{ marginTop:4 }}><strong>Territoire Concerné :</strong> {profile.secteur || profile.territoire || '—'}</div>
         </div>
 
         {/* Tableau enfants */}
