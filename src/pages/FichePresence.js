@@ -1,4 +1,4 @@
-// FichePresence.js — v2026-07-21b — champs identité différenciés permanent/intermittent
+// FichePresence.js — v2026-07-21c — debug af_principal_id
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -127,7 +127,9 @@ export default function FichePresence({ profile }) {
         const evt = relais[0]
         setRelaisEnCours(evt)
         // Charger l'AF principal
+        console.log('selectedEnfant.af_principal_id:', selectedEnfant.af_principal_id)
         const { data: afP } = await supabase.from('profiles').select('id, nom, prenom').eq('id', selectedEnfant.af_principal_id).single()
+        console.log('afPrincipal chargé:', afP)
         setAfPrincipal(afP)
 
         const premierJour = fmtDate(evt.date_debut)
