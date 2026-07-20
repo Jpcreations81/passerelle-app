@@ -1,4 +1,4 @@
-// AllocationRentreeScolaire.js — v2026-07-21f — signature via useSignature
+// AllocationRentreeScolaire.js — v2026-07-21g — fix doublon totalWidth + 1 PDF par enfant
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -188,8 +188,13 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
 
       // Bordure extérieure tableau (juste les lignes, pas de fond)
       const tableH = rowH + nbLignes * rowH
-      const totalWidth = colWidths[0] + colWidths[1] + colWidths[2]
       // Bord gauche
+      page.drawLine({ start:{x:M, y:tableTop}, end:{x:M, y:tableTop-tableH}, thickness:1, color:rgb(0,0,0) })
+      // Bord droit
+      page.drawLine({ start:{x:M+totalWidth, y:tableTop}, end:{x:M+totalWidth, y:tableTop-tableH}, thickness:1, color:rgb(0,0,0) })
+      // Bord haut déjà dessiné dans l'en-tête
+      // Bord bas
+      page.drawLine({ start:{x:M, y:tableTop-tableH}, end:{x:M+totalWidth, y:tableTop-tableH}, thickness:1, color:rgb(0,0,0) })
       page.drawLine({ start:{x:M, y:tableTop}, end:{x:M, y:tableTop-tableH}, thickness:1, color:rgb(0,0,0) })
       // Bord droit
       page.drawLine({ start:{x:M+totalWidth, y:tableTop}, end:{x:M+totalWidth, y:tableTop-tableH}, thickness:1, color:rgb(0,0,0) })
