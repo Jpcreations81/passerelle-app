@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-06-09a — modifier formation (statut + infos)
+// DossierAssfam.js — v2026-07-21a — ajout onglet demande de document
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -915,6 +915,17 @@ export default function DossierAssfam({ profile }) {
               </SectionCard>
             </>
           )}
+
+          {onglet==='documents'&&(
+            <>
+              <SectionCard icon="📄" title="Demande de document">
+                <div style={{textAlign:'center', padding:40, color:'#9aa3b8'}}>
+                  <div style={{fontSize:36, marginBottom:12}}>📄</div>
+                  <div style={{fontSize:14}}>Fonctionnalité en cours de développement</div>
+                </div>
+              </SectionCard>
+            </>
+          )}
         </div>
       </div>
 
@@ -961,3 +972,4 @@ export default function DossierAssfam({ profile }) {
     </div>
   )
 }
+    
