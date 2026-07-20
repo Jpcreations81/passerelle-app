@@ -1,5 +1,6 @@
 // DossierAssfam.js — v2026-07-21a — ajout onglet demande de document
 import React, { useState, useEffect, useCallback } from 'react'
+import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
@@ -17,6 +18,13 @@ function SectionCard({ icon, title, children }) {
       </div>
       {open && <div style={{ padding:20 }}>{children}</div>}
     </div>
+
+      {showAllocationRS && (
+        <AllocationRentreeScolaire
+          profile={af}
+          onClose={() => setShowAllocationRS(false)}
+        />
+      )}
   )
 }
 
@@ -41,6 +49,13 @@ function Field({ label, value, onChange, type = 'text', options, readOnly, span 
         <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} style={{ padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontFamily:'Sora,sans-serif', fontSize:13, background:'#f4f6fb', color:'#1c2333', outline:'none' }} />
       )}
     </div>
+
+      {showAllocationRS && (
+        <AllocationRentreeScolaire
+          profile={af}
+          onClose={() => setShowAllocationRS(false)}
+        />
+      )}
   )
 }
 
@@ -76,6 +91,7 @@ export default function DossierAssfam({ profile }) {
   const [form, setForm] = useState({})
   const [onglet, setOnglet] = useState('identite')
   const [toast, setToast] = useState('')
+  const [showAllocationRS, setShowAllocationRS] = useState(false)
   const [enfantsAccueillis, setEnfantsAccueillis] = useState([])
   const [historique, setHistorique] = useState([])
   const [conges, setConges] = useState([])
@@ -325,7 +341,6 @@ export default function DossierAssfam({ profile }) {
     {id:'conges',icon:'🏖️',label:'Congés'},
     {id:'formations',icon:'🎓',label:'Formations'},
     {id:'safa',icon:'🏛️',label:'SAFA & Contrat'},
-    {id:'documents',icon:'📄',label:'Demande de document'},
   ]
 
   if (loading) return (
@@ -919,10 +934,24 @@ export default function DossierAssfam({ profile }) {
 
           {onglet==='documents'&&(
             <>
-              <SectionCard icon="📄" title="Demande de document">
-                <div style={{textAlign:'center', padding:40, color:'#9aa3b8'}}>
-                  <div style={{fontSize:36, marginBottom:12}}>📄</div>
-                  <div style={{fontSize:14}}>Fonctionnalité en cours de développement</div>
+              <SectionCard icon="📄" title="Demandes de document">
+                <div style={{display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12}}>
+                  {[
+                    {icon:'📏', label:'Dérogation kilométrique', desc:'Trajets école hors ville ou déplacements exceptionnels', onClick:()=>showToast('⏳ Bientôt disponible'), disabled:true},
+                    {icon:'🗺️', label:'Sortie de département', desc:'Autorisation de partir en vacances hors du Tarn', onClick:()=>showToast('⏳ Bientôt disponible'), disabled:true},
+                    {icon:'🎒', label:'Allocation rentrée scolaire', desc:'Demande annuelle pour les enfants scolarisés', onClick:()=>setShowAllocationRS(true), disabled:false},
+                    {icon:'💰', label:'État des sommes dues', desc:'Récapitulatif mensuel des frais engagés', onClick:()=>showToast('⏳ Bientôt disponible'), disabled:true},
+                  ].map((d,i) => (
+                    <div key={i} onClick={d.disabled ? undefined : d.onClick}
+                      style={{background:d.disabled?'#f8f9fb':'#fff', border:`1px solid ${d.disabled?'#eef1f8':'#dde3f0'}`, borderRadius:10, padding:16, cursor:d.disabled?'not-allowed':'pointer', opacity:d.disabled?0.6:1, transition:'all .15s'}}
+                      onMouseOver={e => !d.disabled && (e.currentTarget.style.boxShadow='0 4px 12px rgba(26,75,143,.1)')}
+                      onMouseOut={e => !d.disabled && (e.currentTarget.style.boxShadow='none')}>
+                      <div style={{fontSize:28, marginBottom:8}}>{d.icon}</div>
+                      <div style={{fontSize:13, fontWeight:700, color:'#1c2333', marginBottom:4}}>{d.label}</div>
+                      <div style={{fontSize:11, color:'#9aa3b8'}}>{d.desc}</div>
+                      {d.disabled && <div style={{fontSize:10, color:'#d97706', marginTop:6, fontWeight:600}}>⏳ Bientôt disponible</div>}
+                    </div>
+                  ))}
                 </div>
               </SectionCard>
             </>
@@ -971,6 +1000,12 @@ export default function DossierAssfam({ profile }) {
         />
       )}
     </div>
+
+      {showAllocationRS && (
+        <AllocationRentreeScolaire
+          profile={af}
+          onClose={() => setShowAllocationRS(false)}
+        />
+      )}
   )
 }
-    
