@@ -18,6 +18,8 @@ function SectionCard({ icon, title, children }) {
       </div>
       {open && <div style={{ padding:20 }}>{children}</div>}
     </div>
+  )
+}
 
       {showAllocationRS && (
         <AllocationRentreeScolaire
@@ -25,8 +27,7 @@ function SectionCard({ icon, title, children }) {
           onClose={() => setShowAllocationRS(false)}
         />
       )}
-  )
-}
+
 
 function Field({ label, value, onChange, type = 'text', options, readOnly, span }) {
   const style = span ? { gridColumn: `span ${span}` } : {}
@@ -49,13 +50,6 @@ function Field({ label, value, onChange, type = 'text', options, readOnly, span 
         <input type={type} value={value || ''} onChange={e => onChange(e.target.value)} style={{ padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontFamily:'Sora,sans-serif', fontSize:13, background:'#f4f6fb', color:'#1c2333', outline:'none' }} />
       )}
     </div>
-
-      {showAllocationRS && (
-        <AllocationRentreeScolaire
-          profile={af}
-          onClose={() => setShowAllocationRS(false)}
-        />
-      )}
   )
 }
 
@@ -341,6 +335,7 @@ export default function DossierAssfam({ profile }) {
     {id:'conges',icon:'🏖️',label:'Congés'},
     {id:'formations',icon:'🎓',label:'Formations'},
     {id:'safa',icon:'🏛️',label:'SAFA & Contrat'},
+    {id:'documents',icon:'📄',label:'Demande de document'},
   ]
 
   if (loading) return (
@@ -930,7 +925,7 @@ export default function DossierAssfam({ profile }) {
                 </div>
               </SectionCard>
             </>
-          )}
+          )
 
           {onglet==='documents'&&(
             <>
@@ -955,7 +950,7 @@ export default function DossierAssfam({ profile }) {
                 </div>
               </SectionCard>
             </>
-          )}
+          )}}
         </div>
       </div>
 
@@ -1000,12 +995,5 @@ export default function DossierAssfam({ profile }) {
         />
       )}
     </div>
-
-      {showAllocationRS && (
-        <AllocationRentreeScolaire
-          profile={af}
-          onClose={() => setShowAllocationRS(false)}
-        />
-      )}
   )
 }
