@@ -21,13 +21,6 @@ function SectionCard({ icon, title, children }) {
   )
 }
 
-      {showAllocationRS && (
-        <AllocationRentreeScolaire
-          profile={af}
-          onClose={() => setShowAllocationRS(false)}
-        />
-      )}
-
 
 function Field({ label, value, onChange, type = 'text', options, readOnly, span }) {
   const style = span ? { gridColumn: `span ${span}` } : {}
@@ -925,7 +918,7 @@ export default function DossierAssfam({ profile }) {
                 </div>
               </SectionCard>
             </>
-          )
+          )}
 
           {onglet==='documents'&&(
             <>
@@ -987,6 +980,13 @@ export default function DossierAssfam({ profile }) {
       )}
 
       {toast&&<div className="toast">{toast}</div>}
+
+      {showAllocationRS && (
+        <AllocationRentreeScolaire
+          profile={af}
+          onClose={() => setShowAllocationRS(false)}
+        />
+      )}
 
       {showFicheConges && (
         <FicheConges
