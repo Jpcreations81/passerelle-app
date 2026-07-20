@@ -1,4 +1,4 @@
-// AllocationRentreeScolaire.js — v2026-07-21h — 1 PDF par enfant + bouton email Bluemind
+// AllocationRentreeScolaire.js — v2026-07-21i — affichage adresses email + copie pour Bluemind
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -16,6 +16,7 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
   const [generating, setGenerating] = useState(false)
   const [toast, setToast] = useState('')
   const { getSignatureBytes, SignatureModal } = useSignature(profile)
+  const [infoEnvoi, setInfoEnvoi] = useState(null)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -52,9 +53,8 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
 
   function envoyerEmail(enf) {
     const emails = getEmailsPourEnfant(enf)
-    const sujet = `Allocation rentrée scolaire 2026/2027 - ${enf.nom} ${enf.prenom}`
-    const corps = `Madame, Monsieur,%0D%0A%0D%0AVeuillez trouver ci-joint le formulaire de scolarité 2026/2027 pour ${enf.prenom} ${enf.nom}.%0D%0A%0D%0ACordialement,%0D%0A${profile.prenom} ${profile.nom}`
-    window.open(`mailto:${emails.join(',')}?subject=${sujet}&body=${corps}`)
+    const sujet = `Scolarité 2026/2027 - ${enf.nom} ${enf.prenom} - ${profile.nom} ${profile.prenom}`
+    setInfoEnvoi({ enf, emails, sujet })
   }
 
   async function generatePDFPourEnfant(enf) {
@@ -376,6 +376,48 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
 
         {toast && <div className="toast">{toast}</div>}
       </div>
+      {infoEnvoi && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+          <div style={{ background:'#fff', borderRadius:16, padding:24, maxWidth:500, width:'100%', fontFamily:'Sora,sans-serif' }}>
+            <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', marginBottom:16 }}>✉️ Envoi — {infoEnvoi.enf.prenom} {infoEnvoi.enf.nom}</div>
+            <div style={{ marginBottom:12 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Destinataires</div>
+              {infoEnvoi.emails.map((email, i) => (
+                <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8, marginBottom:6 }}>
+                  <span style={{ fontSize:12, flex:1 }}>{email}</span>
+                  <button onClick={() => { navigator.clipboard.writeText(email); showToast('📋 Copié !') }}
+                    style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+                </div>
+              ))}
+              <button onClick={() => { navigator.clipboard.writeText(infoEnvoi.emails.join('; ')); showToast('📋 Les 2 adresses copiées !') }}
+                style={{ width:'100%', padding:'8px', borderRadius:8, border:'1px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontWeight:600, marginTop:4 }}>
+                📋 Copier les 2 adresses
+              </button>
+            </div>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Objet suggéré</div>
+              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+                <span style={{ fontSize:12, flex:1 }}>{infoEnvoi.sujet}</span>
+                <button onClick={() => { navigator.clipboard.writeText(infoEnvoi.sujet); showToast('📋 Objet copié !') }}
+                  style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+              </div>
+            </div>
+            <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic', marginBottom:16 }}>
+              💡 Collez les adresses et l'objet dans Bluemind, puis joignez le PDF téléchargé.
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={() => setInfoEnvoi(null)}
+                style={{ flex:1, padding:'10px', borderRadius:8, border:'1px solid #dde3f0', background:'#f4f6fb', color:'#5a6478', fontSize:12, cursor:'pointer', fontWeight:600 }}>
+                Fermer
+              </button>
+              <button onClick={() => { generatePDFPourEnfant(infoEnvoi.enf); setInfoEnvoi(null) }}
+                style={{ flex:2, padding:'10px', borderRadius:8, border:'none', background:'#1a4b8f', color:'#fff', fontSize:12, cursor:'pointer', fontWeight:700 }}>
+                📄 Générer le PDF aussi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {SignatureModal}
     </div>
   )
