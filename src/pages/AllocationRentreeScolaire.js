@@ -1,13 +1,15 @@
-// AllocationRentreeScolaire.js — v2026-07-21d — secteur au lieu de territoire
+// AllocationRentreeScolaire.js — v2026-07-21f — signature via useSignature
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
+import { useSignature } from './useSignature'
 
 export default function AllocationRentreeScolaire({ profile, onClose }) {
   const [enfants, setEnfants] = useState([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [toast, setToast] = useState('')
+  const { getSignatureBytes, SignatureModal } = useSignature(profile)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -37,6 +39,7 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
   }
 
   async function generatePDF() {
+    const sigBytes = await getSignatureBytes()
     const enfantsInclus = enfants.filter(e => e.inclus)
     if (enfantsInclus.length === 0) {
       showToast('⚠️ Aucun enfant sélectionné')
@@ -54,8 +57,10 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       const M = 50 // marge
 
       // Titre principal
-      page.drawText('SCOLARITE 2026/2027 DES ENFANTS CONFIES', {
-        x: M, y: height - 50,
+      const titre = 'SCOLARITE 2026/2027 DES ENFANTS CONFIES'
+      const titreWidth = fontB.widthOfTextAtSize(titre, 18)
+      page.drawText(titre, {
+        x: (width - titreWidth) / 2, y: height - 50,
         size: 18, font: fontB,
         color: rgb(0, 0, 0)
       })
@@ -105,37 +110,35 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       const headers = ["NOM - PRENOM DE L'ENFANT", 'CLASSE', 'NOM ETABLISSEMENT SCOLAIRE - LIEU']
 
       // En-tête tableau
-      let bgGray = rgb(0.85, 0.85, 0.85)
+      const bgGray = rgb(0.85, 0.85, 0.85)
+      const totalWidth = colWidths[0] + colWidths[1] + colWidths[2]
+      
+      // 1. Fond gris
       page.drawRectangle({
         x: M, y: tableTop - rowH,
-        width: colWidths[0] + colWidths[1] + colWidths[2],
-        height: rowH,
+        width: totalWidth, height: rowH,
         color: bgGray
       })
-
+      // 2. Bordure en-tête
+      page.drawRectangle({
+        x: M, y: tableTop - rowH,
+        width: totalWidth, height: rowH,
+        borderColor: rgb(0, 0, 0), borderWidth: 1
+      })
+      // 3. Textes APRES le rectangle (pas écrasés)
       headers.forEach((h, i) => {
         page.drawText(h, {
-          x: colX[i] + 4, y: tableTop - rowH + 8,
+          x: colX[i] + 4, y: tableTop - rowH + (rowH/2) - 4,
           size: 8, font: fontB, color: rgb(0, 0, 0),
           maxWidth: colWidths[i] - 8
         })
-        // Bordure verticale
         if (i > 0) {
           page.drawLine({
             start: { x: colX[i], y: tableTop },
             end: { x: colX[i], y: tableTop - rowH },
-            thickness: 0.5, color: rgb(0, 0, 0)
+            thickness: 0.8, color: rgb(0, 0, 0)
           })
         }
-      })
-
-      // Bordure en-tête
-      page.drawRectangle({
-        x: M, y: tableTop - rowH,
-        width: colWidths[0] + colWidths[1] + colWidths[2],
-        height: rowH,
-        borderColor: rgb(0, 0, 0), borderWidth: 1,
-        color: bgGray
       })
 
       // Lignes enfants (8 lignes minimum)
@@ -196,15 +199,33 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       page.drawLine({ start:{x:M, y:tableTop-tableH}, end:{x:M+totalWidth, y:tableTop-tableH}, thickness:1, color:rgb(0,0,0) })
 
       // Date et signature
-      const sigY = tableTop - tableH - 40
+      const sigY = tableTop - tableH - 30
       page.drawText(`Fait le : ${new Date().toLocaleDateString('fr-FR')}`, {
         x: M, y: sigY,
         size: 10, font, color: rgb(0, 0, 0)
       })
-      page.drawText('Signature :', {
-        x: width - M - 150, y: sigY,
+      page.drawText('Signature de l\'Assistant(e) familial(e) :', {
+        x: width - M - 220, y: sigY,
         size: 10, font, color: rgb(0, 0, 0)
       })
+      // Cadre signature
+      page.drawRectangle({
+        x: width - M - 220, y: sigY - 55,
+        width: 210, height: 50,
+        borderColor: rgb(0.3, 0.3, 0.3), borderWidth: 0.5
+      })
+      // Image signature si disponible
+      if (sigBytes) {
+        try {
+          const sigImg = await pdfDoc.embedPng(sigBytes)
+          const sigDims = sigImg.scale(0.3)
+          page.drawImage(sigImg, {
+            x: width - M - 215, y: sigY - 52,
+            width: Math.min(sigDims.width, 200),
+            height: Math.min(sigDims.height, 45)
+          })
+        } catch(e) { console.log('Signature non intégrée:', e.message) }
+      }
 
       const pdfBytes = await pdfDoc.save()
       const blob = new Blob([pdfBytes], { type: 'application/pdf' })
@@ -308,6 +329,7 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
 
         {toast && <div className="toast">{toast}</div>}
       </div>
+      {SignatureModal}
     </div>
   )
 }
