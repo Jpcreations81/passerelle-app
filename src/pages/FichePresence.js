@@ -391,14 +391,25 @@ export default function FichePresence({ profile }) {
                 </div>
               </div>
 
-              {/* CHAMPS IDENTITÉ */}
+            {/* CHAMPS IDENTITÉ */}
               <div style={{ padding:'10px 18px', borderBottom:'1px solid #dde3f0', background:'#f8faff' }}>
                 <div style={{ fontSize:12, marginBottom:6 }}>
                   Nom et prénom de l'enfant (obligatoire) : <strong style={{ borderBottom:'1px solid #333', paddingBottom:1 }}>{selectedEnfant.prenom} {selectedEnfant.nom}</strong>
                 </div>
-                <div style={{ fontSize:12, marginBottom:6 }}>
-                  Nom et Prénom de l'Assistant(e) familial(e) : <strong style={{ borderBottom:'1px solid #333', paddingBottom:1 }}>{profile.prenom} {profile.nom}</strong>
-                </div>
+                {typeFiche === 'intermittent' ? (
+                  <>
+                    <div style={{ fontSize:12, marginBottom:6 }}>
+                      Nom et Prénom de l'Assistant(e) familial(e) qui fait le Relais : <strong style={{ borderBottom:'1px solid #333', paddingBottom:1 }}>{profile.prenom} {profile.nom}</strong>
+                    </div>
+                    <div style={{ fontSize:12, marginBottom:6 }}>
+                      Nom et Prénom de l'Assistant(e) familial(e) Principal(e) : <strong style={{ borderBottom:'1px solid #333', paddingBottom:1 }}>{afPrincipal ? `${afPrincipal.prenom} ${afPrincipal.nom}` : '—'}</strong>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize:12, marginBottom:6 }}>
+                    Nom et Prénom de l'Assistant(e) familial(e) : <strong style={{ borderBottom:'1px solid #333', paddingBottom:1 }}>{profile.prenom} {profile.nom}</strong>
+                  </div>
+                )}
                 <div style={{ fontSize:12 }}>
                   Territoire : <strong>MD Gaillac – Graulhet</strong>
                 </div>
