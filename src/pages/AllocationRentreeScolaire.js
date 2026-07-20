@@ -1,8 +1,14 @@
-// AllocationRentreeScolaire.js — v2026-07-21g — fix doublon totalWidth + 1 PDF par enfant
+// AllocationRentreeScolaire.js — v2026-07-21h — 1 PDF par enfant + bouton email Bluemind
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { useSignature } from './useSignature'
+
+const EMAILS_TERRITOIRE = {
+  'Nord': ['ase.albiportal1-cantepau@tarn.fr', 'ase.carmaux-albiportal3@tarn.fr'],
+  'Ouest': ['ase.gaillac-graulhet@tarn.fr', 'ase.lavaur-puylaurens@tarn.fr'],
+  'Sud': ['ase.castresmalroux-mazamet@tarn.fr', 'ase.castres1mai-brassac@tarn.fr'],
+}
 
 export default function AllocationRentreeScolaire({ profile, onClose }) {
   const [enfants, setEnfants] = useState([])
@@ -38,6 +44,27 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
     setEnfants(prev => prev.map(e => e.id === id ? { ...e, [field]: val } : e))
   }
 
+  function getEmailsPourEnfant(enf) {
+    const territoire = enf.territoire || profile.secteur || 'Ouest'
+    const secteur = territoire.includes('Nord') ? 'Nord' : territoire.includes('Sud') ? 'Sud' : 'Ouest'
+    return EMAILS_TERRITOIRE[secteur] || EMAILS_TERRITOIRE['Ouest']
+  }
+
+  function envoyerEmail(enf) {
+    const emails = getEmailsPourEnfant(enf)
+    const sujet = `Allocation rentrée scolaire 2026/2027 - ${enf.nom} ${enf.prenom}`
+    const corps = `Madame, Monsieur,%0D%0A%0D%0AVeuillez trouver ci-joint le formulaire de scolarité 2026/2027 pour ${enf.prenom} ${enf.nom}.%0D%0A%0D%0ACordialement,%0D%0A${profile.prenom} ${profile.nom}`
+    window.open(`mailto:${emails.join(',')}?subject=${sujet}&body=${corps}`)
+  }
+
+  async function generatePDFPourEnfant(enf) {
+    const sigBytes = await getSignatureBytes()
+    if (!sigBytes && profile?.signature_mode !== 'chaque_fois') {
+      // signature optionnelle
+    }
+    await genererUnPDF(enf, sigBytes)
+  }
+
   async function generatePDF() {
     const sigBytes = await getSignatureBytes()
     const enfantsInclus = enfants.filter(e => e.inclus)
@@ -45,6 +72,12 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       showToast('⚠️ Aucun enfant sélectionné')
       return
     }
+    for (const enf of enfantsInclus) {
+      await genererUnPDF(enf, sigBytes)
+    }
+  }
+
+  async function genererUnPDF(enf, sigBytes) {
 
     setGenerating(true)
     try {
@@ -142,10 +175,10 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       })
 
       // Lignes enfants (8 lignes minimum)
-      const nbLignes = Math.max(enfantsInclus.length, 8)
+      const nbLignes = 8 // 1 ligne par enfant mais on garde 8 lignes vides
       for (let i = 0; i < nbLignes; i++) {
         const y = tableTop - rowH - (i + 1) * rowH
-        const enf = enfantsInclus[i]
+        const enfCurrent = i === 0 ? enf : null
 
         // Fond blanc
         page.drawRectangle({
@@ -169,16 +202,16 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
           thickness: 0.5, color: rgb(0.5, 0.5, 0.5)
         })
 
-        if (enf) {
-          page.drawText(`${enf.nom} ${enf.prenom}`, {
+        if (enfCurrent) {
+          page.drawText(`${enfCurrent.nom} ${enfCurrent.prenom}`, {
             x: colX[0] + 4, y: y + 8,
             size: 9, font, color: rgb(0, 0, 0)
           })
-          page.drawText(enf.classe || '', {
+          page.drawText(enfCurrent.classe || '', {
             x: colX[1] + 4, y: y + 8,
             size: 9, font, color: rgb(0, 0, 0)
           })
-          page.drawText(`${enf.ecole || ''}${enf.lieu ? ' - ' + enf.lieu : ''}`, {
+          page.drawText(`${enfCurrent.ecole || ''}${enfCurrent.lieu ? ' - ' + enfCurrent.lieu : ''}`, {
             x: colX[2] + 4, y: y + 8,
             size: 9, font, color: rgb(0, 0, 0),
             maxWidth: colWidths[2] - 8
@@ -237,12 +270,12 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `Allocation_rentree_scolaire_2026_2027_${profile.nom}.pdf`
+      a.download = `Allocation_rentree_scolaire_2026_2027_${enf.nom}_${enf.prenom}.pdf`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
-      showToast('✅ PDF généré !')
+      showToast(`✅ PDF généré pour ${enf.prenom} ${enf.nom} !`)
     } catch(e) {
       showToast('❌ Erreur : ' + e.message)
     }
@@ -288,6 +321,7 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
                 <th style={{ padding:'8px 10px', textAlign:'left', borderBottom:'2px solid #1a4b8f' }}>Nom – Prénom</th>
                 <th style={{ padding:'8px 10px', textAlign:'left', borderBottom:'2px solid #1a4b8f', width:100 }}>Classe</th>
                 <th style={{ padding:'8px 10px', textAlign:'left', borderBottom:'2px solid #1a4b8f' }}>Établissement – Lieu</th>
+                <th style={{ padding:'8px 10px', textAlign:'center', borderBottom:'2px solid #1a4b8f', width:120 }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -311,6 +345,14 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
                       value={enf.ecole + (enf.lieu ? ' - ' + enf.lieu : '')}
                       onChange={e => updateEnfant(enf.id, 'ecole', e.target.value)}
                       placeholder="École Jules Ferry - Graulhet" />
+                  </td>
+                  <td style={{ padding:'6px 10px', textAlign:'center' }}>
+                    <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
+                      <button style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:10, cursor:'pointer', fontWeight:600 }}
+                        onClick={() => generatePDFPourEnfant(enf)}>📄 PDF</button>
+                      <button style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #2e8b4a', background:'#e6f5eb', color:'#2e8b4a', fontSize:10, cursor:'pointer', fontWeight:600 }}
+                        onClick={() => envoyerEmail(enf)}>✉️</button>
+                    </div>
                   </td>
                 </tr>
               ))}
