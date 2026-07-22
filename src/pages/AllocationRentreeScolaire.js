@@ -1,4 +1,4 @@
-// AllocationRentreeScolaire.js — v2026-07-21j — bouton PDF séparé + bouton Envoyer
+// AllocationRentreeScolaire.js — v2026-07-21k — suppression bouton email dans tableau
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -350,8 +350,7 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
                     <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
                       <button style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:10, cursor:'pointer', fontWeight:600 }}
                         onClick={() => generatePDFPourEnfant(enf)}>📄 PDF</button>
-                      <button style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #2e8b4a', background:'#e6f5eb', color:'#2e8b4a', fontSize:10, cursor:'pointer', fontWeight:600 }}
-                        onClick={() => envoyerEmail(enf)}>✉️</button>
+
                     </div>
                   </td>
                 </tr>
