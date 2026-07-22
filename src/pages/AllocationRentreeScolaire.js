@@ -1,4 +1,4 @@
-// AllocationRentreeScolaire.js — v2026-07-21q — emails depuis Supabase maisons_departementales
+// AllocationRentreeScolaire.js - v2026-07-21r - fix territoire manquant dans select enfants
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -28,7 +28,7 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
   async function fetchEnfants() {
     const { data } = await supabase
       .from('enfants')
-      .select('id, prenom, nom, ecole_nom, ecole_classe, ecole_adresse, type_placement')
+      .select('id, prenom, nom, ecole_nom, ecole_classe, ecole_adresse, type_placement, territoire')
       .eq('af_principal_id', profile.id)
       .not('type_placement', 'eq', 'non_place')
     if (data) {
