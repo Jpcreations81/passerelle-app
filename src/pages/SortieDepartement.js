@@ -1,9 +1,8 @@
-// SortieDepartement.js - v2026-07-22b - mise en page officielle avec logo Tarn
+// SortieDepartement.js - v2026-07-22c - fix doublon import LOGO_TARN_B64
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { useSignature } from './useSignature'
-import { LOGO_TARN_B64 } from './logoTarn'
 import { LOGO_TARN_B64 } from './logoTarn'
 
 function b64ToBytes(b64) {
