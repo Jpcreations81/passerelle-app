@@ -1,4 +1,4 @@
-// AllocationRentreeScolaire.js — v2026-07-21k — suppression bouton email dans tableau
+// AllocationRentreeScolaire.js — v2026-07-21o — mapping exact 12 MD officielles
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -46,9 +46,13 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
   }
 
   function getEmailsPourEnfant(enf) {
-    const territoire = enf.territoire || profile.secteur || 'Ouest'
-    const secteur = territoire.includes('Nord') ? 'Nord' : territoire.includes('Sud') ? 'Sud' : 'Ouest'
-    return EMAILS_TERRITOIRE[secteur] || EMAILS_TERRITOIRE['Ouest']
+    const MAPPING = {
+      'Albi Cantepau': 'Nord', 'Albi Ch. Portal 1': 'Nord', 'Albi Ch. Portal 3': 'Nord', 'Carmaux': 'Nord',
+      'Brassac': 'Sud', 'Castres 1er Mai': 'Sud', 'Castres Malroux': 'Sud', 'Mazamet': 'Sud',
+      'Gaillac': 'Ouest', 'Graulhet': 'Ouest', 'Lavaur': 'Ouest', 'Puylaurens': 'Ouest',
+    }
+    const secteur = MAPPING[enf.territoire] || 'Ouest'
+    return EMAILS_TERRITOIRE[secteur]
   }
 
   function envoyerEmail(enf) {
