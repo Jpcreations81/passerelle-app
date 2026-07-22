@@ -1,8 +1,24 @@
-// SortieDepartement.js - v2026-07-22a - formulaire sortie de departement avec PDF par gestionnaire
+// SortieDepartement.js - v2026-07-22b - mise en page officielle avec logo Tarn
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { useSignature } from './useSignature'
+import { LOGO_TARN_B64 } from './logoTarn'
+import { LOGO_TARN_B64 } from './logoTarn'
+
+function b64ToBytes(b64) {
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return bytes
+}
+
+function b64ToBytes(b64) {
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return bytes
+}
 
 export default function SortieDepartement({ profile, onClose }) {
   const [enfants, setEnfants] = useState([])
@@ -27,7 +43,7 @@ export default function SortieDepartement({ profile, onClose }) {
   async function fetchEnfants() {
     const { data } = await supabase
       .from('enfants')
-      .select('id, prenom, nom, territoire')
+      .select('id, prenom, nom, territoire, rt_ase:rt_ase_id(nom, prenom)')
       .eq('af_principal_id', profile.id)
       .not('type_placement', 'eq', 'non_place')
     if (data) {
@@ -52,11 +68,17 @@ export default function SortieDepartement({ profile, onClose }) {
 
   function getInfosTerritoire(territoire) {
     const md = maisons.find(m => m.nom === territoire)
-    if (!md) return { tel: '', email: '', nomTerritoire: territoire || '' }
-    // Trouver toutes les MD du même gestionnaire pour infos contact
+    if (!md) return { email: '', nomTerritoire: territoire || '', tel: '' }
+    // Infos téléphone selon territoire
+    const tels = {
+      'Nord': '05 63 49 10 10',
+      'Ouest': '05 63 34 01 10',
+      'Sud': '05 63 71 02 21'
+    }
     return {
       email: md.email_gestionnaire,
       nomTerritoire: md.territoire,
+      tel: tels[md.territoire] || '',
     }
   }
 
@@ -98,145 +120,101 @@ export default function SortieDepartement({ profile, onClose }) {
       const pdfDoc = await PDFDocument.create()
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
       const fontB = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
-      const page = pdfDoc.addPage([595, 842]) // A4 portrait
+      const page = pdfDoc.addPage([595, 842])
       const { width, height } = page.getSize()
       const M = 50
 
-      // Territoire de référence (premier enfant du groupe)
       const premierEnfant = enfantsGroupe[0]
       const infos = getInfosTerritoire(premierEnfant.territoire)
 
-      // Date en haut à gauche
-      const dateAujourdhui = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-      page.drawText(`Graulhet, le ${dateAujourdhui}`, {
-        x: M, y: height - 50, size: 10, font, color: rgb(0, 0, 0)
-      })
+      // Logo Tarn
+      try {
+        const logoBytes = b64ToBytes(LOGO_TARN_B64)
+        const logoImg = await pdfDoc.embedJpg(logoBytes)
+        page.drawImage(logoImg, { x: M, y: height - 100, width: 70, height: 70 })
+      } catch(e) { console.log('Logo error:', e.message) }
 
-      // En-tête droite
-      const enteteDroite = [
-        'Direction Generale Adjointe de la Solidarite',
-        'Direction Enfance et Famille',
-        `Territoire ${infos.nomTerritoire}`,
-        gestionnaire,
+      // En-tete
+      const entete = [
+        { text: 'Direction Generale Adjointe de la Solidarite', bold: true },
+        { text: 'Direction Enfance Famille', bold: true },
+        { text: "Service Aide Sociale a l'Enfance", bold: true },
+        { text: 'Territoire ' + infos.nomTerritoire, bold: true },
+        { text: 'Telephone : ' + infos.tel, bold: false },
+        { text: gestionnaire, bold: false },
       ]
-      enteteDroite.forEach((ligne, i) => {
-        const isBold = i < 2
-        page.drawText(ligne, {
-          x: width - M - 220, y: height - 50 - (i * 16),
-          size: 9, font: isBold ? fontB : font, color: rgb(0, 0, 0)
-        })
-      })
-
-      // Ligne séparatrice
-      page.drawLine({
-        start: { x: M, y: height - 130 },
-        end: { x: width - M, y: height - 130 },
-        thickness: 1, color: rgb(0, 0, 0)
+      entete.forEach((l, i) => {
+        page.drawText(l.text, { x: M, y: height - 115 - (i * 13), size: 9, font: l.bold ? fontB : font, color: rgb(0, 0, 0) })
       })
 
       // Titre
-      const titre1 = 'AUTORISATION'
-      const titre2 = 'DE SORTIE DU DEPARTEMENT'
-      const t1w = fontB.widthOfTextAtSize(titre1, 16)
-      const t2w = fontB.widthOfTextAtSize(titre2, 16)
-      page.drawText(titre1, { x: (width - t1w) / 2, y: height - 170, size: 16, font: fontB, color: rgb(0, 0, 0) })
-      page.drawText(titre2, { x: (width - t2w) / 2, y: height - 192, size: 16, font: fontB, color: rgb(0, 0, 0) })
+      const titre = 'AUTORISATION SORTIE DU DEPARTEMENT'
+      const titreW = fontB.widthOfTextAtSize(titre, 14)
+      page.drawText(titre, { x: (width - titreW) / 2, y: height - 225, size: 14, font: fontB, color: rgb(0, 0, 0) })
 
-      // Etoile décorative
-      page.drawText('*', { x: width / 2 - 3, y: height - 215, size: 14, font: fontB, color: rgb(0, 0, 0) })
-
-      // Corps du formulaire
-      let y = height - 260
-
-      // Nom AF
-      page.drawText(`${profile.prenom} ${profile.nom}, assistant(e) familial(e),`, {
-        x: M, y, size: 11, font: fontB, color: rgb(0, 0, 0)
-      })
-      y -= 24
-
-      page.drawText('est autorise(e) a se rendre a :', { x: M, y, size: 11, font, color: rgb(0, 0, 0) })
-      y -= 20
-      page.drawText(destination, { x: M, y, size: 11, font: fontB, color: rgb(0, 0, 0) })
-      y -= 30
+      // Corps
+      let y = height - 290
+      page.drawText('Madame, Monsieur :', { x: M, y, size: 11, font, color: rgb(0, 0, 0) })
+      y -= 22
+      page.drawText(profile.prenom + ' ' + profile.nom, { x: M, y, size: 11, font: fontB, color: rgb(0, 0, 0) })
+      const nomW = fontB.widthOfTextAtSize(profile.prenom + ' ' + profile.nom, 11)
+      page.drawText(", assistant(e) familial(e), est autorise(e) a se rendre a :", { x: M + nomW + 3, y, size: 11, font, color: rgb(0, 0, 0) })
+      y -= 22
+      page.drawText(destination, { x: M + 10, y, size: 11, font, color: rgb(0, 0, 0) })
+      y -= 35
 
       // Période
-      const dDebut = new Date(dateDebut).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-      const dFin = new Date(dateFin).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-      page.drawText(`Pour la periode du ${dDebut} au ${dFin}`, {
-        x: M, y, size: 11, font: fontB, color: rgb(0, 0, 0)
-      })
-      y -= 30
+      const dDebut = new Date(dateDebut + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+      const dFin = new Date(dateFin + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+      page.drawText('Pour la periode du :', { x: M, y, size: 11, font, color: rgb(0, 0, 0) })
+      y -= 22
+      page.drawText(dDebut + ' au ' + dFin, { x: M + 10, y, size: 11, font: fontB, color: rgb(0, 0, 0) })
+      y -= 35
 
       // Enfants
-      const labelEnfants = enfantsGroupe.length > 1 ? 'avec les enfants :' : 'avec l\'enfant :'
-      page.drawText(labelEnfants, { x: M, y, size: 11, font, color: rgb(0, 0, 0) })
-      y -= 20
+      page.drawText(enfantsGroupe.length > 1 ? 'Avec les enfants :' : "Avec l'enfant :", { x: M, y, size: 11, font, color: rgb(0, 0, 0) })
+      y -= 22
       enfantsGroupe.forEach(enf => {
-        page.drawText(`- ${enf.prenom} ${enf.nom}`, { x: M + 10, y, size: 11, font: fontB, color: rgb(0, 0, 0) })
-        y -= 20
+        page.drawText(enf.prenom + ' ' + enf.nom, { x: M + 10, y, size: 11, font: fontB, color: rgb(0, 0, 0) })
+        y -= 18
       })
-
-      // Nuitées facturées
-      if (nuiteesFacturees) {
-        y -= 10
-        page.drawText('Nuitees facturees : OUI', { x: M, y, size: 10, font, color: rgb(0.5, 0, 0) })
-        y -= 10
-      }
+      y -= 40
 
       // Signatures
-      y -= 40
       const colLeft = M
-      const colRight = width / 2 + 20
-
+      const colRight = width / 2 + 30
       page.drawText('Accord obligatoire du', { x: colLeft, y, size: 10, font: fontB, color: rgb(0, 0, 0) })
-      page.drawText('Signature de', { x: colRight, y, size: 10, font: fontB, color: rgb(0, 0, 0) })
-      y -= 16
-      page.drawText('Responsable Territorial ASE', { x: colLeft, y, size: 10, font: fontB, color: rgb(0, 0, 0) })
-      page.drawText("l'assistant(e) familial(e)", { x: colRight, y, size: 10, font: fontB, color: rgb(0, 0, 0) })
-
-      // Cadre signature AF
-      y -= 10
-      page.drawRectangle({
-        x: colRight, y: y - 55,
-        width: 180, height: 50,
-        borderColor: rgb(0.3, 0.3, 0.3), borderWidth: 0.5
-      })
+      page.drawText("Signature de l'assistant(e) familial(e)", { x: colRight, y, size: 10, font: fontB, color: rgb(0, 0, 0) })
+      y -= 14
+      page.drawText('Responsable Territorial', { x: colLeft, y, size: 10, font: fontB, color: rgb(0, 0, 0) })
+      y -= 14
+      page.drawText("a l'Aide Sociale a l'Enfance", { x: colLeft, y, size: 10, font: fontB, color: rgb(0, 0, 0) })
+      y -= 20
+      page.drawRectangle({ x: colLeft, y: y - 60, width: 180, height: 55, borderColor: rgb(0.5, 0.5, 0.5), borderWidth: 0.5 })
+      page.drawRectangle({ x: colRight, y: y - 60, width: 200, height: 55, borderColor: rgb(0.5, 0.5, 0.5), borderWidth: 0.5 })
       if (sigBytes) {
         try {
           const sigImg = await pdfDoc.embedPng(sigBytes)
-          page.drawImage(sigImg, { x: colRight + 5, y: y - 50, width: 170, height: 40 })
+          page.drawImage(sigImg, { x: colRight + 5, y: y - 55, width: 190, height: 45 })
         } catch(e) {}
       }
 
-      // Cadre signature ASE
-      page.drawRectangle({
-        x: colLeft, y: y - 55,
-        width: 180, height: 50,
-        borderColor: rgb(0.3, 0.3, 0.3), borderWidth: 0.5
-      })
-
       // Pied de page
-      page.drawLine({
-        start: { x: M, y: 60 },
-        end: { x: width - M, y: 60 },
-        thickness: 0.5, color: rgb(0, 0, 0)
-      })
-      const pdp = 'HOTEL DU DEPARTEMENT - 81013 ALBI CEDEX 09 - TEL : 05.67.89.62.57'
+      page.drawLine({ start: { x: M, y: 55 }, end: { x: width - M, y: 55 }, thickness: 0.5, color: rgb(0.5, 0.5, 0.5) })
+      const ww = fontB.widthOfTextAtSize('WWW.TARN.FR', 8)
+      page.drawText('WWW.TARN.FR', { x: (width - ww) / 2, y: 44, size: 8, font: fontB, color: rgb(0.3, 0.3, 0.3) })
+      const pdp = 'DEPARTEMENT DU TARN - 81013 ALBI CEDEX 9 - Tel : 05.63.45.64.64 - Mail : president@tarn.fr'
       const pdp2 = 'Tout courrier doit etre adresse de facon impersonnelle a Monsieur le President du Departement'
-      const pdpw = font.widthOfTextAtSize(pdp, 7)
-      const pdp2w = font.widthOfTextAtSize(pdp2, 7)
-      page.drawText(pdp, { x: (width - pdpw) / 2, y: 48, size: 7, font, color: rgb(0.3, 0.3, 0.3) })
-      page.drawText(pdp2, { x: (width - pdp2w) / 2, y: 38, size: 7, font, color: rgb(0.3, 0.3, 0.3) })
+      page.drawText(pdp, { x: (width - font.widthOfTextAtSize(pdp, 7)) / 2, y: 32, size: 7, font, color: rgb(0.3, 0.3, 0.3) })
+      page.drawText(pdp2, { x: (width - font.widthOfTextAtSize(pdp2, 7)) / 2, y: 22, size: 7, font, color: rgb(0.3, 0.3, 0.3) })
 
       const pdfBytes = await pdfDoc.save()
       const blob = new Blob([pdfBytes], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `Sortie_departement_${infos.nomTerritoire}_${dateDebut}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
+      a.download = 'Autorisation_sortie_' + infos.nomTerritoire + '_' + dateDebut + '.pdf'
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch(e) {
       showToast('Erreur PDF : ' + e.message)
