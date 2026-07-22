@@ -1,14 +1,8 @@
-// AllocationRentreeScolaire.js — v2026-07-21k — suppression bouton email dans tableau
+// AllocationRentreeScolaire.js - v2026-07-21r - fix territoire manquant dans select enfants
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { useSignature } from './useSignature'
-
-const EMAILS_TERRITOIRE = {
-  'Nord': ['ase.albiportal1-cantepau@tarn.fr', 'ase.carmaux-albiportal3@tarn.fr'],
-  'Ouest': ['ase.gaillac-graulhet@tarn.fr', 'ase.lavaur-puylaurens@tarn.fr'],
-  'Sud': ['ase.castresmalroux-mazamet@tarn.fr', 'ase.castres1mai-brassac@tarn.fr'],
-}
 
 export default function AllocationRentreeScolaire({ profile, onClose }) {
   const [enfants, setEnfants] = useState([])
@@ -17,15 +11,24 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
   const [toast, setToast] = useState('')
   const { getSignatureBytes, SignatureModal } = useSignature(profile)
   const [infoEnvoi, setInfoEnvoi] = useState(null)
+  const [maisonsDepart, setMaisonsDepart] = useState([])
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
-  useEffect(() => { fetchEnfants() }, [])
+  useEffect(() => { 
+    fetchEnfants()
+    fetchMaisons()
+  }, [])
+
+  async function fetchMaisons() {
+    const { data } = await supabase.from('maisons_departementales').select('nom, territoire, email_gestionnaire')
+    if (data) setMaisonsDepart(data)
+  }
 
   async function fetchEnfants() {
     const { data } = await supabase
       .from('enfants')
-      .select('id, prenom, nom, ecole_nom, ecole_classe, ecole_adresse, type_placement')
+      .select('id, prenom, nom, ecole_nom, ecole_classe, ecole_adresse, type_placement, territoire')
       .eq('af_principal_id', profile.id)
       .not('type_placement', 'eq', 'non_place')
     if (data) {
@@ -46,9 +49,17 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
   }
 
   function getEmailsPourEnfant(enf) {
-    const territoire = enf.territoire || profile.secteur || 'Ouest'
-    const secteur = territoire.includes('Nord') ? 'Nord' : territoire.includes('Sud') ? 'Sud' : 'Ouest'
-    return EMAILS_TERRITOIRE[secteur] || EMAILS_TERRITOIRE['Ouest']
+    // Trouver le territoire de l'enfant dans les MD
+    const md = maisonsDepart.find(m => m.nom === enf.territoire)
+    const territoire = md ? md.territoire : 'Ouest'
+    // Récupérer toutes les adresses distinctes du territoire
+    const emails = [...new Set(
+      maisonsDepart
+        .filter(m => m.territoire === territoire)
+        .map(m => m.email_gestionnaire)
+    )]
+    console.log('territoire:', enf.territoire, '→', territoire, '→ emails:', emails)
+    return emails
   }
 
   function envoyerEmail(enf) {
