@@ -1,6 +1,7 @@
 // DossierAssfam.js — v2026-07-21a — ajout onglet demande de document
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
+import SortieDepartement from './SortieDepartement'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
@@ -79,6 +80,7 @@ export default function DossierAssfam({ profile }) {
   const [onglet, setOnglet] = useState('identite')
   const [toast, setToast] = useState('')
   const [showAllocationRS, setShowAllocationRS] = useState(false)
+  const [showSortieDept, setShowSortieDept] = useState(false)
   const [enfantsAccueillis, setEnfantsAccueillis] = useState([])
   const [historique, setHistorique] = useState([])
   const [conges, setConges] = useState([])
@@ -926,7 +928,7 @@ export default function DossierAssfam({ profile }) {
                 <div style={{display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12}}>
                   {[
                     {icon:'📏', label:'Dérogation kilométrique', desc:'Trajets école hors ville ou déplacements exceptionnels', onClick:()=>showToast('⏳ Bientôt disponible'), disabled:true},
-                    {icon:'🗺️', label:'Sortie de département', desc:'Autorisation de partir en vacances hors du Tarn', onClick:()=>showToast('⏳ Bientôt disponible'), disabled:true},
+                    {icon:'🗺️', label:'Sortie de département', desc:'Autorisation de partir en vacances hors du Tarn', onClick:()=>setShowSortieDept(true), disabled:false},
                     {icon:'🎒', label:'Allocation rentrée scolaire', desc:'Demande annuelle pour les enfants scolarisés', onClick:()=>setShowAllocationRS(true), disabled:false},
                     {icon:'💰', label:'État des sommes dues', desc:'Récapitulatif mensuel des frais engagés', onClick:()=>showToast('⏳ Bientôt disponible'), disabled:true},
                   ].map((d,i) => (
@@ -980,6 +982,13 @@ export default function DossierAssfam({ profile }) {
       )}
 
       {toast&&<div className="toast">{toast}</div>}
+
+      {showSortieDept && (
+        <SortieDepartement
+          profile={af}
+          onClose={() => setShowSortieDept(false)}
+        />
+      )}
 
       {showAllocationRS && (
         <AllocationRentreeScolaire
