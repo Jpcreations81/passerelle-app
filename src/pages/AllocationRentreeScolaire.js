@@ -1,4 +1,4 @@
-// AllocationRentreeScolaire.js — v2026-07-21i — affichage adresses email + copie pour Bluemind
+// AllocationRentreeScolaire.js — v2026-07-21j — bouton PDF séparé + bouton Envoyer
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -369,8 +369,13 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
 
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Annuler</button>
-          <button className="btn btn-primary" onClick={generatePDF} disabled={generating || enfants.filter(e => e.inclus).length === 0}>
-            {generating ? '⏳ Génération...' : '📄 Générer le PDF'}
+          <button className="btn btn-primary" onClick={() => {
+              const enfantsInclus = enfants.filter(e => e.inclus)
+              if (enfantsInclus.length === 0) { showToast('⚠️ Aucun enfant sélectionné'); return }
+              // Ouvrir le modal d'envoi pour le premier enfant sélectionné
+              enfantsInclus.forEach(enf => envoyerEmail(enf))
+            }} disabled={generating || enfants.filter(e => e.inclus).length === 0}>
+            📤 Envoyer
           </button>
         </div>
 
