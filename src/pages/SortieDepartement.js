@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-07-22f - civilite genre + nom AF signature + RTASE
+// SortieDepartement.js - v2026-07-22g - nom enfant dans titre PDF
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -217,7 +217,8 @@ export default function SortieDepartement({ profile, onClose }) {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = 'Autorisation_sortie_' + infos.nomTerritoire + '_' + dateDebut + '.pdf'
+      const enfantsNoms = enfantsGroupe.map(e => e.prenom + '_' + e.nom).join('_')
+      a.download = enfantsNoms + '_Autorisation_sortie_' + dateDebut + '.pdf'
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch(e) {
