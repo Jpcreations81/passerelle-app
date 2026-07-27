@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-07-22g - nom enfant dans titre PDF
+// SortieDepartement.js - v2026-07-22h - sauvegarde PDF docs + evenement vacances agenda
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -101,8 +101,11 @@ export default function SortieDepartement({ profile, onClose }) {
       await genererUnPDF(gestionnaire, enfantsGroupe, sigBytes)
     }
 
-    // Créer événement agenda si demandé
-    // TODO: créer événement "Vacances" dans l'agenda
+    // Créer événements agenda pour chaque enfant sélectionné
+    const enfantsInclus = enfants.filter(e => enfantsSelectionnes[e.id])
+    for (const enf of enfantsInclus) {
+      await creerEvenementAgenda(enf)
+    }
 
     setGenerating(false)
     showToast(`✅ ${Object.keys(groupes).length} PDF(s) générés !`)
@@ -218,12 +221,48 @@ export default function SortieDepartement({ profile, onClose }) {
       const a = document.createElement('a')
       a.href = url
       const enfantsNoms = enfantsGroupe.map(e => e.prenom + '_' + e.nom).join('_')
-      a.download = enfantsNoms + '_Autorisation_sortie_' + dateDebut + '.pdf'
+      const nomFichier = enfantsNoms + '_Autorisation_sortie_' + dateDebut + '.pdf'
+      a.download = nomFichier
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
+
+      // Sauvegarder dans documents_enfant pour chaque enfant du groupe
+      for (const enf of enfantsGroupe) {
+        try {
+          const storagePath = `${enf.id}/sortie_departement_${Date.now()}.pdf`
+          const { error: storageErr } = await supabase.storage
+            .from('documents-enfants')
+            .upload(storagePath, blob, { contentType: 'application/pdf' })
+          if (!storageErr) {
+            await supabase.from('documents_enfant').insert({
+              enfant_id: enf.id,
+              type_doc: 'sortie_departement',
+              nom: nomFichier,
+              storage_path: storagePath,
+              taille: pdfBytes.length,
+              mime_type: 'application/pdf',
+              uploaded_by: profile.id,
+            })
+          }
+        } catch(e) { console.log('Erreur sauvegarde doc:', e.message) }
+      }
     } catch(e) {
       showToast('Erreur PDF : ' + e.message)
     }
+  }
+
+  async function creerEvenementAgenda(enfant) {
+    const { error } = await supabase.from('evenements').insert({
+      titre: 'Vacances — ' + destination,
+      categorie: 'vacances',
+      date_debut: dateDebut + 'T00:00:00',
+      date_fin: dateFin + 'T23:59:00',
+      af_id: profile.id,
+      enfant_ids: [enfant.id],
+      participants_ids: [profile.id],
+      lieu: destination,
+    })
+    if (error) console.log('Erreur événement:', error.message)
   }
 
   if (loading) return (
