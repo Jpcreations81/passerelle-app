@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-07-22a — profil intervenant sans statut_profil temporaire
+// DossierEnfant.js — v2026-07-22d — ajout gestionnaire dans filtre collegues et requête
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -277,11 +277,14 @@ export default function DossierEnfant({ profile }) {
       nom: nomSaisi.toUpperCase(),
       prenom: prenomSaisi,
       role: roleDb,
-      email: emailSaisi || `temp.${Date.now()}@passerelle.local`,
+      email: emailSaisi || `temp.${crypto.randomUUID()}@passerelle.local`,
       ...(tel ? { telephone: tel } : {})
     }
     const { data, error } = await supabase.from('profiles').insert(payload).select().single()
     if (error) { showToast('❌ ' + error.message); return }
+    // Sauvegarder immédiatement dans la fiche enfant
+    const { error: errUpdate } = await supabase.from('enfants').update({ [idKey]: data.id }).eq('id', id)
+    if (errUpdate) { showToast('❌ Assignation échouée : ' + errUpdate.message); return }
     setCollegues(prev => [...prev, data])
     F(idKey)(data.id)
     F(`_${idKey}Manuel`)(false)
@@ -341,7 +344,7 @@ export default function DossierEnfant({ profile }) {
   }, [id])
 
   const fetchCollegues = useCallback(async () => {
-    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire, telephone, email, ville, statut_profil').in('role', ['af','referent','encadrant','rtase','admin'])
+    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire, telephone, email, ville, statut_profil').in('role', ['af','referent','encadrant','rtase','admin','gestionnaire'])
     if (data) setCollegues(data)
   }, [profile])
 
@@ -1648,7 +1651,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                               ) : (
                                 <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
                                   <option value="">— Sélectionner —</option>
-                                  {collegues.filter(c => ['referent','encadrant','rtase','admin'].includes(c.role)).map(c => (
+                                  {collegues.filter(c => ['referent','encadrant','rtase','admin','gestionnaire'].includes(c.role)).map(c => (
                                     <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
                                   ))}
                                 </select>
