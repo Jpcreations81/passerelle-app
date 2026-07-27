@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-07-22d - fix doublon b64ToBytes
+// SortieDepartement.js - v2026-07-22f - civilite genre + nom AF signature + RTASE
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -54,12 +54,13 @@ export default function SortieDepartement({ profile, onClose }) {
   }
 
   function getGestionnaire(territoire) {
-    const md = maisons.find(m => m.nom === territoire)
+    // Chercher d'abord par nom exact, sinon par territoire
+    const md = maisons.find(m => m.nom === territoire) || maisons.find(m => m.territoire === territoire)
     return md ? md.email_gestionnaire : null
   }
 
   function getInfosTerritoire(territoire) {
-    const md = maisons.find(m => m.nom === territoire)
+    const md = maisons.find(m => m.nom === territoire) || maisons.find(m => m.territoire === territoire)
     if (!md) return { email: '', nomTerritoire: territoire || '', tel: '' }
     // Infos téléphone selon territoire
     const tels = {
@@ -146,11 +147,13 @@ export default function SortieDepartement({ profile, onClose }) {
 
       // Corps
       let y = height - 290
-      page.drawText('Madame, Monsieur :', { x: M, y, size: 11, font, color: rgb(0, 0, 0) })
+      const civilite = profile.genre === 'F' ? 'Madame' : profile.genre === 'M' ? 'Monsieur' : 'Madame, Monsieur'
+      const assistantLabel = profile.genre === 'F' ? 'assistante familiale, est autorisee a se rendre a :' : profile.genre === 'M' ? 'assistant familial, est autorise a se rendre a :' : 'assistant(e) familial(e), est autorise(e) a se rendre a :'
+      page.drawText(civilite + ' :', { x: M, y, size: 11, font, color: rgb(0, 0, 0) })
       y -= 22
       page.drawText(profile.prenom + ' ' + profile.nom, { x: M, y, size: 11, font: fontB, color: rgb(0, 0, 0) })
       const nomW = fontB.widthOfTextAtSize(profile.prenom + ' ' + profile.nom, 11)
-      page.drawText(", assistant(e) familial(e), est autorise(e) a se rendre a :", { x: M + nomW + 3, y, size: 11, font, color: rgb(0, 0, 0) })
+      page.drawText(', ' + assistantLabel, { x: M + nomW + 3, y, size: 11, font, color: rgb(0, 0, 0) })
       y -= 22
       page.drawText(destination, { x: M + 10, y, size: 11, font, color: rgb(0, 0, 0) })
       y -= 35
@@ -189,6 +192,15 @@ export default function SortieDepartement({ profile, onClose }) {
           const sigImg = await pdfDoc.embedPng(sigBytes)
           page.drawImage(sigImg, { x: colRight + 5, y: y - 55, width: 190, height: 45 })
         } catch(e) {}
+      }
+      // Nom AF sous cadre signature
+      page.drawText(profile.prenom + ' ' + profile.nom, { x: colRight, y: y - 70, size: 9, font: fontB, color: rgb(0, 0, 0) })
+      // RTASE si renseigné
+      const rtase = enfantsGroupe[0]?.rt_ase?.prenom && enfantsGroupe[0]?.rt_ase?.nom
+        ? enfantsGroupe[0].rt_ase.prenom + ' ' + enfantsGroupe[0].rt_ase.nom
+        : ''
+      if (rtase) {
+        page.drawText(rtase, { x: colLeft, y: y - 70, size: 9, font: fontB, color: rgb(0, 0, 0) })
       }
 
       // Pied de page
