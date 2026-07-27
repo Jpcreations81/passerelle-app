@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-06-25k — fix tel/email cachés pour AF dans formulaire manuel
+// DossierEnfant.js — v2026-07-22a — profil intervenant sans statut_profil temporaire
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -277,7 +277,6 @@ export default function DossierEnfant({ profile }) {
       nom: nomSaisi.toUpperCase(),
       prenom: prenomSaisi,
       role: roleDb,
-      statut_profil: 'temporaire',
       email: emailSaisi || `temp.${Date.now()}@passerelle.local`,
       ...(tel ? { telephone: tel } : {})
     }
