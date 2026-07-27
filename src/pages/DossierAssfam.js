@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-07-21a — ajout onglet demande de document
+// DossierAssfam.js — v2026-07-22b — ajout champ civilite genre dans onglet identite
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import SortieDepartement from './SortieDepartement'
@@ -414,6 +414,18 @@ export default function DossierAssfam({ profile }) {
                     </label>
                   </div>
                   <FG cols={3}>
+                    <div>
+                      <div style={{fontSize:10,fontWeight:600,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.4px',marginBottom:6}}>Civilité</div>
+                      <div style={{display:'flex',gap:8}}>
+                        {[{val:'F',label:'Madame'},{val:'M',label:'Monsieur'}].map(opt => (
+                          <button key={opt.val} type="button"
+                            onClick={() => editMode && F('genre')(opt.val)}
+                            style={{padding:'6px 14px',borderRadius:8,border:`1.5px solid ${v('genre')===opt.val?'#1a4b8f':'#dde3f0'}`,background:v('genre')===opt.val?'#e8eef8':'#f4f6fb',color:v('genre')===opt.val?'#1a4b8f':'#9aa3b8',fontSize:12,fontWeight:600,cursor:editMode?'pointer':'default'}}>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <Field label="Nom" value={v('nom')} onChange={F('nom')} readOnly={!editMode} />
                     <Field label="Prénom" value={v('prenom')} onChange={F('prenom')} readOnly={!editMode} />
                     <Field label="Date de naissance" type="date" value={v('date_naissance')} onChange={F('date_naissance')} readOnly={!editMode} />
