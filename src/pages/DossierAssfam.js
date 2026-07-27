@@ -1,6 +1,7 @@
-// DossierAssfam.js — v2026-07-21a — ajout onglet demande de document
+// DossierAssfam.js — v2026-07-22c — genre sauvegardé dans cols
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
+import SortieDepartement from './SortieDepartement'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
@@ -79,6 +80,7 @@ export default function DossierAssfam({ profile }) {
   const [onglet, setOnglet] = useState('identite')
   const [toast, setToast] = useState('')
   const [showAllocationRS, setShowAllocationRS] = useState(false)
+  const [showSortieDept, setShowSortieDept] = useState(false)
   const [enfantsAccueillis, setEnfantsAccueillis] = useState([])
   const [historique, setHistorique] = useState([])
   const [conges, setConges] = useState([])
@@ -187,6 +189,7 @@ export default function DossierAssfam({ profile }) {
       'cap_fratrie','cap_urgence','cap_bas_age','cap_relais',
       'date_debut_contrat','secteur','ville_rattachement',
       'gestionnaire_paie_nom','gestionnaire_paie_tel','gestionnaire_paie_email',
+      'genre',
     ]
     const fd = Object.fromEntries(cols.filter(k=>form[k]!==undefined).map(k=>[k,form[k]]))
     const { error } = await supabase.from('profiles').update(fd).eq('id', id)
@@ -412,6 +415,18 @@ export default function DossierAssfam({ profile }) {
                     </label>
                   </div>
                   <FG cols={3}>
+                    <div>
+                      <div style={{fontSize:10,fontWeight:600,color:'#5a6478',textTransform:'uppercase',letterSpacing:'.4px',marginBottom:6}}>Civilité</div>
+                      <div style={{display:'flex',gap:8}}>
+                        {[{val:'F',label:'Madame'},{val:'M',label:'Monsieur'}].map(opt => (
+                          <button key={opt.val} type="button"
+                            onClick={() => editMode && F('genre')(opt.val)}
+                            style={{padding:'6px 14px',borderRadius:8,border:`1.5px solid ${v('genre')===opt.val?'#1a4b8f':'#dde3f0'}`,background:v('genre')===opt.val?'#e8eef8':'#f4f6fb',color:v('genre')===opt.val?'#1a4b8f':'#9aa3b8',fontSize:12,fontWeight:600,cursor:editMode?'pointer':'default'}}>
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <Field label="Nom" value={v('nom')} onChange={F('nom')} readOnly={!editMode} />
                     <Field label="Prénom" value={v('prenom')} onChange={F('prenom')} readOnly={!editMode} />
                     <Field label="Date de naissance" type="date" value={v('date_naissance')} onChange={F('date_naissance')} readOnly={!editMode} />
@@ -926,7 +941,7 @@ export default function DossierAssfam({ profile }) {
                 <div style={{display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12}}>
                   {[
                     {icon:'📏', label:'Dérogation kilométrique', desc:'Trajets école hors ville ou déplacements exceptionnels', onClick:()=>showToast('⏳ Bientôt disponible'), disabled:true},
-                    {icon:'🗺️', label:'Sortie de département', desc:'Autorisation de partir en vacances hors du Tarn', onClick:()=>showToast('⏳ Bientôt disponible'), disabled:true},
+                    {icon:'🗺️', label:'Sortie de département', desc:'Autorisation de partir en vacances hors du Tarn', onClick:()=>setShowSortieDept(true), disabled:false},
                     {icon:'🎒', label:'Allocation rentrée scolaire', desc:'Demande annuelle pour les enfants scolarisés', onClick:()=>setShowAllocationRS(true), disabled:false},
                     {icon:'💰', label:'État des sommes dues', desc:'Récapitulatif mensuel des frais engagés', onClick:()=>showToast('⏳ Bientôt disponible'), disabled:true},
                   ].map((d,i) => (
@@ -980,6 +995,13 @@ export default function DossierAssfam({ profile }) {
       )}
 
       {toast&&<div className="toast">{toast}</div>}
+
+      {showSortieDept && (
+        <SortieDepartement
+          profile={af}
+          onClose={() => setShowSortieDept(false)}
+        />
+      )}
 
       {showAllocationRS && (
         <AllocationRentreeScolaire
