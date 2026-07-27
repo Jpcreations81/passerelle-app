@@ -1,16 +1,9 @@
-// SortieDepartement.js - v2026-07-22c - fix doublon import LOGO_TARN_B64
+// SortieDepartement.js - v2026-07-22d - fix doublon b64ToBytes
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { useSignature } from './useSignature'
 import { LOGO_TARN_B64 } from './logoTarn'
-
-function b64ToBytes(b64) {
-  const bin = atob(b64)
-  const bytes = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
-  return bytes
-}
 
 function b64ToBytes(b64) {
   const bin = atob(b64)
