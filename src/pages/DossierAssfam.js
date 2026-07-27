@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-07-22b — ajout champ civilite genre dans onglet identite
+// DossierAssfam.js — v2026-07-22c — genre sauvegardé dans cols
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import SortieDepartement from './SortieDepartement'
@@ -189,6 +189,7 @@ export default function DossierAssfam({ profile }) {
       'cap_fratrie','cap_urgence','cap_bas_age','cap_relais',
       'date_debut_contrat','secteur','ville_rattachement',
       'gestionnaire_paie_nom','gestionnaire_paie_tel','gestionnaire_paie_email',
+      'genre',
     ]
     const fd = Object.fromEntries(cols.filter(k=>form[k]!==undefined).map(k=>[k,form[k]]))
     const { error } = await supabase.from('profiles').update(fd).eq('id', id)
