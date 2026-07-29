@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-07-22h - sauvegarde PDF docs + evenement vacances agenda
+// SortieDepartement.js - v2026-07-22i - sauvegarde dans documents_generaux dossier Administratif
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -226,23 +226,35 @@ export default function SortieDepartement({ profile, onClose }) {
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
-      // Sauvegarder dans documents_enfant pour chaque enfant du groupe
+      // Sauvegarder dans le dossier Administratif de chaque enfant
       for (const enf of enfantsGroupe) {
         try {
-          const storagePath = `${enf.id}/sortie_departement_${Date.now()}.pdf`
-          const { error: storageErr } = await supabase.storage
-            .from('documents-enfants')
-            .upload(storagePath, blob, { contentType: 'application/pdf' })
-          if (!storageErr) {
-            await supabase.from('documents_enfant').insert({
-              enfant_id: enf.id,
-              type_doc: 'sortie_departement',
-              nom: nomFichier,
-              storage_path: storagePath,
-              taille: pdfBytes.length,
-              mime_type: 'application/pdf',
-              uploaded_by: profile.id,
-            })
+          // Trouver ou créer le dossier Administratif
+          let { data: dossier } = await supabase.from('documents_dossiers')
+            .select('id').eq('territoire', enf.id).eq('nom', '📋 Administratif').is('parent_id', null).single()
+          let dossierId = dossier?.id
+          if (!dossierId) {
+            const { data: newD } = await supabase.from('documents_dossiers').insert({
+              nom: '📋 Administratif', parent_id: null, territoire: enf.id,
+              created_by: profile.id, type: 'enfant'
+            }).select().single()
+            dossierId = newD?.id
+          }
+          if (dossierId) {
+            const storagePath = `enfants/${enf.id}/docs/${dossierId}/${Date.now()}.pdf`
+            const { error: storageErr } = await supabase.storage
+              .from('documents-enfants')
+              .upload(storagePath, blob, { contentType: 'application/pdf' })
+            if (!storageErr) {
+              await supabase.from('documents_generaux').insert({
+                dossier_id: dossierId,
+                nom: nomFichier,
+                storage_path: storagePath,
+                taille: pdfBytes.length,
+                mime_type: 'application/pdf',
+                uploaded_by: profile.id,
+              })
+            }
           }
         } catch(e) { console.log('Erreur sauvegarde doc:', e.message) }
       }
