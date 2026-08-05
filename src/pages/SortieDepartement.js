@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-08-05 - ajout modal envoi email + historique 5 dernières demandes avec suivi retour signé
+// SortieDepartement.js - v2026-08-05b - destinataires email par enfant (référent 1, référent 2, gestionnaire, MD)
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -57,7 +57,7 @@ export default function SortieDepartement({ profile, onClose }) {
   async function fetchEnfants() {
     const { data } = await supabase
       .from('enfants')
-      .select('id, prenom, nom, territoire, rt_ase:rt_ase_id(nom, prenom)')
+      .select('id, prenom, nom, territoire, rt_ase:rt_ase_id(nom, prenom), referent:referent_id(nom, prenom, email), referent2:referent2_id(nom, prenom, email), gestionnaire:gestionnaire_id(nom, prenom, email), md:md_id(nom, territoire, email_gestionnaire)')
       .eq('af_principal_id', profile.id)
       .not('type_placement', 'eq', 'non_place')
     if (data) {
@@ -137,17 +137,22 @@ export default function SortieDepartement({ profile, onClose }) {
 
   function preparerEnvois(groupes) {
     const fonction = profile.civilite === 'Madame' ? 'Assistante Familiale' : 'Assistant Familial'
-    const groupesEnvoi = Object.entries(groupes).map(([gestionnaire, enfantsGroupe]) => {
-      const infos = getInfosTerritoire(enfantsGroupe[0]?.territoire)
-      const noms = enfantsGroupe.map(e => `${e.prenom} ${e.nom}`).join(', ')
-      const sujet = `Sortie de département ${destination} - ${noms} - ${profile.nom} ${profile.prenom}`
-      const texte = `Bonjour,\n\nVeuillez trouver ci-joint la demande d'autorisation de sortie de département concernant ${noms}, du ${dateDebut} au ${dateFin}, à destination de ${destination}.\n\nMerci de bien vouloir en prendre connaissance et de me retourner un exemplaire signé.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
-      return { gestionnaire, email: infos.email, enfants: enfantsGroupe, sujet, texte }
+    const enfantsInclus = enfants.filter(e => enfantsSelectionnes[e.id])
+    const blocsParEnfant = enfantsInclus.map(enf => {
+      const destinataires = [
+        { role: 'Référent(e) 1', nom: enf.referent ? `${enf.referent.prenom} ${enf.referent.nom}` : '', email: enf.referent?.email },
+        { role: 'Référent(e) 2', nom: enf.referent2 ? `${enf.referent2.prenom} ${enf.referent2.nom}` : '', email: enf.referent2?.email },
+        { role: 'Gestionnaire', nom: enf.gestionnaire ? `${enf.gestionnaire.prenom} ${enf.gestionnaire.nom}` : '', email: enf.gestionnaire?.email },
+        { role: 'Maison départementale', nom: enf.md?.nom || '', email: enf.md?.email_gestionnaire || getGestionnaire(enf.territoire) },
+      ].filter(d => d.email)
+      const sujet = `Sortie de département ${destination} - ${enf.prenom} ${enf.nom} - ${profile.nom} ${profile.prenom}`
+      const texte = `Bonjour,\n\nVeuillez trouver ci-joint la demande d'autorisation de sortie de département concernant ${enf.prenom} ${enf.nom}, du ${dateDebut} au ${dateFin}, à destination de ${destination}.\n\nMerci de bien vouloir en prendre connaissance et de me retourner un exemplaire signé.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
+      return { enfant: enf, destinataires, sujet, texte }
     })
-    setInfoEnvoi({ groupes: groupesEnvoi })
+    setInfoEnvoi({ groupes: blocsParEnfant })
     // Marquer l'envoi (ouverture de la modal) pour chaque enfant concerné
     const maintenant = new Date().toISOString()
-    const enfantIds = groupesEnvoi.flatMap(g => g.enfants.map(e => e.id))
+    const enfantIds = enfantsInclus.map(e => e.id)
     supabase.from('sorties_departement_suivi')
       .update({ email_envoye_le: maintenant })
       .in('enfant_id', enfantIds)
@@ -470,14 +475,25 @@ export default function SortieDepartement({ profile, onClose }) {
             <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', marginBottom:16 }}>✉️ Envoi — Sortie de département</div>
             {infoEnvoi.groupes.map((g, gi) => (
               <div key={gi} style={{ marginBottom:20, paddingBottom:16, borderBottom: gi < infoEnvoi.groupes.length - 1 ? '1px solid #eef1f8' : 'none' }}>
-                <div style={{ fontSize:12, fontWeight:700, color:'#5a6478', marginBottom:8 }}>{g.gestionnaire} — {g.enfants.map(e => `${e.prenom} ${e.nom}`).join(', ')}</div>
+                <div style={{ fontSize:12, fontWeight:700, color:'#5a6478', marginBottom:8 }}>{g.enfant.prenom} {g.enfant.nom}</div>
                 <div style={{ marginBottom:10 }}>
-                  <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Destinataire</div>
-                  <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
-                    <span style={{ fontSize:12, flex:1 }}>{g.email || '—'}</span>
-                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.email || ''); showToast('📋 Copié !') }}
-                      style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
-                  </div>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Destinataires</div>
+                  {g.destinataires.length === 0 ? (
+                    <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic' }}>Aucune adresse trouvée (référents / gestionnaire / MD non renseignés)</div>
+                  ) : g.destinataires.map((d, di) => (
+                    <div key={di} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8, marginBottom:6 }}>
+                      <span style={{ fontSize:10, color:'#9aa3b8', minWidth:110 }}>{d.role}</span>
+                      <span style={{ fontSize:12, flex:1 }}>{d.email}</span>
+                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(d.email); showToast('📋 Copié !') }}
+                        style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+                    </div>
+                  ))}
+                  {g.destinataires.length > 0 && (
+                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.destinataires.map(d => d.email).join('; ')); showToast('📋 Toutes les adresses copiées !') }}
+                      style={{ width:'100%', padding:'8px', borderRadius:8, border:'1px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontWeight:600, marginTop:4 }}>
+                      📋 Copier toutes les adresses
+                    </button>
+                  )}
                 </div>
                 <div style={{ marginBottom:10 }}>
                   <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Objet suggéré</div>
