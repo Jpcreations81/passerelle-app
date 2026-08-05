@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-07-22k - sauvegarde PDF Administratif validée
+// SortieDepartement.js - v2026-08-05c - fix liste enfants vide (jointures gestionnaire_id/md_id non-FK retirées, résolues séparément)
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -23,6 +23,8 @@ export default function SortieDepartement({ profile, onClose }) {
   const [dateFin, setDateFin] = useState('')
   const [nuiteesFacturees, setNuiteesFacturees] = useState(false)
   const [enfantsSelectionnes, setEnfantsSelectionnes] = useState({})
+  const [infoEnvoi, setInfoEnvoi] = useState(null) // { groupes: [{gestionnaire, email, enfants, sujet, texte}] }
+  const [historique, setHistorique] = useState([])
   const { getSignatureBytes, SignatureModal } = useSignature(profile)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
@@ -30,16 +32,42 @@ export default function SortieDepartement({ profile, onClose }) {
   useEffect(() => {
     fetchEnfants()
     fetchMaisons()
+    fetchHistorique()
   }, [])
+
+  async function fetchHistorique() {
+    const { data } = await supabase
+      .from('sorties_departement_suivi')
+      .select('id, destination, date_debut, date_fin, date_generation, email_envoye_le, retour_signe_le, enfant_id, enfants:enfant_id(prenom, nom)')
+      .eq('af_id', profile.id)
+      .order('date_generation', { ascending: false })
+      .limit(5)
+    if (data) setHistorique(data)
+  }
+
+  async function marquerRetourSigne(id) {
+    const maintenant = new Date().toISOString()
+    const { error } = await supabase.from('sorties_departement_suivi').update({ retour_signe_le: maintenant }).eq('id', id)
+    if (error) { showToast('❌ ' + error.message); return }
+    setHistorique(prev => prev.map(h => h.id === id ? { ...h, retour_signe_le: maintenant } : h))
+    showToast('✅ Retour signé enregistré')
+  }
+
 
   async function fetchEnfants() {
     const { data } = await supabase
       .from('enfants')
-      .select('id, prenom, nom, territoire, rt_ase:rt_ase_id(nom, prenom)')
+      .select('id, prenom, nom, territoire, md_id, gestionnaire_id, rt_ase:rt_ase_id(nom, prenom), referent:referent_id(nom, prenom, email), referent2:referent2_id(nom, prenom, email)')
       .eq('af_principal_id', profile.id)
       .not('type_placement', 'eq', 'non_place')
     if (data) {
-      setEnfants(data)
+      const gestionnaireIds = [...new Set(data.map(e => e.gestionnaire_id).filter(Boolean))]
+      let gestionnairesById = {}
+      if (gestionnaireIds.length > 0) {
+        const { data: gests } = await supabase.from('profiles').select('id, nom, prenom, email').in('id', gestionnaireIds)
+        ;(gests || []).forEach(g => { gestionnairesById[g.id] = g })
+      }
+      setEnfants(data.map(e => ({ ...e, gestionnaire: gestionnairesById[e.gestionnaire_id] || null })))
       // Sélectionner tous les enfants par défaut
       const sel = {}
       data.forEach(e => sel[e.id] = true)
@@ -49,7 +77,7 @@ export default function SortieDepartement({ profile, onClose }) {
   }
 
   async function fetchMaisons() {
-    const { data } = await supabase.from('maisons_departementales').select('nom, territoire, email_gestionnaire')
+    const { data } = await supabase.from('maisons_departementales').select('id, nom, territoire, email_gestionnaire')
     if (data) setMaisons(data)
   }
 
@@ -109,6 +137,35 @@ export default function SortieDepartement({ profile, onClose }) {
 
     setGenerating(false)
     showToast(`✅ ${Object.keys(groupes).length} PDF(s) générés !`)
+    fetchHistorique()
+    preparerEnvois(groupes)
+  }
+
+  function preparerEnvois(groupes) {
+    const fonction = profile.civilite === 'Madame' ? 'Assistante Familiale' : 'Assistant Familial'
+    const enfantsInclus = enfants.filter(e => enfantsSelectionnes[e.id])
+    const blocsParEnfant = enfantsInclus.map(enf => {
+      const md = maisons.find(m => m.id === enf.md_id)
+      const destinataires = [
+        { role: 'Référent(e) 1', nom: enf.referent ? `${enf.referent.prenom} ${enf.referent.nom}` : '', email: enf.referent?.email },
+        { role: 'Référent(e) 2', nom: enf.referent2 ? `${enf.referent2.prenom} ${enf.referent2.nom}` : '', email: enf.referent2?.email },
+        { role: 'Gestionnaire', nom: enf.gestionnaire ? `${enf.gestionnaire.prenom} ${enf.gestionnaire.nom}` : '', email: enf.gestionnaire?.email },
+        { role: 'Maison départementale', nom: md?.nom || '', email: md?.email_gestionnaire || getGestionnaire(enf.territoire) },
+      ].filter(d => d.email)
+      const sujet = `Sortie de département ${destination} - ${enf.prenom} ${enf.nom} - ${profile.nom} ${profile.prenom}`
+      const texte = `Bonjour,\n\nVeuillez trouver ci-joint la demande d'autorisation de sortie de département concernant ${enf.prenom} ${enf.nom}, du ${dateDebut} au ${dateFin}, à destination de ${destination}.\n\nMerci de bien vouloir en prendre connaissance et de me retourner un exemplaire signé.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
+      return { enfant: enf, destinataires, sujet, texte }
+    })
+    setInfoEnvoi({ groupes: blocsParEnfant })
+    // Marquer l'envoi (ouverture de la modal) pour chaque enfant concerné
+    const maintenant = new Date().toISOString()
+    const enfantIds = enfantsInclus.map(e => e.id)
+    supabase.from('sorties_departement_suivi')
+      .update({ email_envoye_le: maintenant })
+      .in('enfant_id', enfantIds)
+      .eq('destination', destination)
+      .eq('date_debut', dateDebut)
+      .then(({ error }) => { if (error) console.log('Marquage envoyé échoué:', error.message); else fetchHistorique() })
   }
 
   async function genererUnPDF(gestionnaire, enfantsGroupe, sigBytes) {
@@ -254,6 +311,18 @@ export default function SortieDepartement({ profile, onClose }) {
                 mime_type: 'application/pdf',
                 uploaded_by: profile.id,
               })
+              // Trace de suivi (historique / badges généré-envoyé-signé)
+              const { error: suiviErr } = await supabase.from('sorties_departement_suivi').insert({
+                enfant_id: enf.id,
+                af_id: profile.id,
+                destination,
+                date_debut: dateDebut,
+                date_fin: dateFin,
+                gestionnaire,
+                pdf_path: storagePath,
+                date_generation: new Date().toISOString(),
+              })
+              if (suiviErr) console.log('Suivi sortie échoué:', suiviErr.message)
             }
           } else {
           }
@@ -370,6 +439,33 @@ export default function SortieDepartement({ profile, onClose }) {
           </div>
         )}
 
+        {/* Historique */}
+        {historique.length > 0 && (
+          <div style={{ background:'#f8faff', border:'1px solid #dde3f0', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:12 }}>
+            <div style={{ fontWeight:700, color:'#1a4b8f', marginBottom:8 }}>🕓 5 dernières demandes</div>
+            {historique.map(h => (
+              <div key={h.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0', borderBottom:'1px solid #eef1f8' }}>
+                <div style={{ flex:1 }}>
+                  <strong>{h.enfants?.prenom} {h.enfants?.nom}</strong> — {h.destination} ({h.date_debut} → {h.date_fin})
+                </div>
+                {h.retour_signe_le ? (
+                  <span style={{ fontSize:10, color:'#15803d' }}>✅ Signé retour</span>
+                ) : h.email_envoye_le ? (
+                  <>
+                    <span style={{ fontSize:10, color:'#d97706' }}>⏳ Envoyé, pas de retour</span>
+                    <button onClick={() => marquerRetourSigne(h.id)}
+                      style={{ padding:'2px 6px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:10, cursor:'pointer' }}>
+                      Marquer signé
+                    </button>
+                  </>
+                ) : (
+                  <span style={{ fontSize:10, color:'#9aa3b8' }}>Généré, pas envoyé</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Annuler</button>
           <button className="btn btn-primary" onClick={genererPDFs} disabled={generating}>
@@ -380,6 +476,60 @@ export default function SortieDepartement({ profile, onClose }) {
         {toast && <div className="toast">{toast}</div>}
         {SignatureModal}
       </div>
+      {infoEnvoi && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={() => setInfoEnvoi(null)}>
+          <div style={{ background:'#fff', borderRadius:16, padding:24, maxWidth:520, width:'100%', maxHeight:'85vh', overflowY:'auto', fontFamily:'Sora,sans-serif' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', marginBottom:16 }}>✉️ Envoi — Sortie de département</div>
+            {infoEnvoi.groupes.map((g, gi) => (
+              <div key={gi} style={{ marginBottom:20, paddingBottom:16, borderBottom: gi < infoEnvoi.groupes.length - 1 ? '1px solid #eef1f8' : 'none' }}>
+                <div style={{ fontSize:12, fontWeight:700, color:'#5a6478', marginBottom:8 }}>{g.enfant.prenom} {g.enfant.nom}</div>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Destinataires</div>
+                  {g.destinataires.length === 0 ? (
+                    <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic' }}>Aucune adresse trouvée (référents / gestionnaire / MD non renseignés)</div>
+                  ) : g.destinataires.map((d, di) => (
+                    <div key={di} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8, marginBottom:6 }}>
+                      <span style={{ fontSize:10, color:'#9aa3b8', minWidth:110 }}>{d.role}</span>
+                      <span style={{ fontSize:12, flex:1 }}>{d.email}</span>
+                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(d.email); showToast('📋 Copié !') }}
+                        style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+                    </div>
+                  ))}
+                  {g.destinataires.length > 0 && (
+                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.destinataires.map(d => d.email).join('; ')); showToast('📋 Toutes les adresses copiées !') }}
+                      style={{ width:'100%', padding:'8px', borderRadius:8, border:'1px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontWeight:600, marginTop:4 }}>
+                      📋 Copier toutes les adresses
+                    </button>
+                  )}
+                </div>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Objet suggéré</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+                    <span style={{ fontSize:12, flex:1 }}>{g.sujet}</span>
+                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.sujet); showToast('📋 Objet copié !') }}
+                      style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Texte du mail</div>
+                  <div style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+                    <span style={{ fontSize:12, flex:1, whiteSpace:'pre-wrap' }}>{g.texte}</span>
+                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.texte); showToast('📋 Texte copié !') }}
+                      style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer', flexShrink:0 }}>📋</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic', marginBottom:16 }}>
+              💡 Collez l'adresse, l'objet et le texte dans Bluemind, puis joignez le(s) PDF téléchargé(s).
+            </div>
+            <button onClick={() => setInfoEnvoi(null)}
+              style={{ width:'100%', padding:'10px', borderRadius:8, border:'none', background:'#1a4b8f', color:'#fff', fontSize:12, cursor:'pointer', fontWeight:700 }}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
