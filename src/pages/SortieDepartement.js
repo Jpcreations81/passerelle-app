@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-08-05b - destinataires email par enfant (référent 1, référent 2, gestionnaire, MD)
+// SortieDepartement.js - v2026-08-05c - fix liste enfants vide (jointures gestionnaire_id/md_id non-FK retirées, résolues séparément)
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -57,11 +57,17 @@ export default function SortieDepartement({ profile, onClose }) {
   async function fetchEnfants() {
     const { data } = await supabase
       .from('enfants')
-      .select('id, prenom, nom, territoire, rt_ase:rt_ase_id(nom, prenom), referent:referent_id(nom, prenom, email), referent2:referent2_id(nom, prenom, email), gestionnaire:gestionnaire_id(nom, prenom, email), md:md_id(nom, territoire, email_gestionnaire)')
+      .select('id, prenom, nom, territoire, md_id, gestionnaire_id, rt_ase:rt_ase_id(nom, prenom), referent:referent_id(nom, prenom, email), referent2:referent2_id(nom, prenom, email)')
       .eq('af_principal_id', profile.id)
       .not('type_placement', 'eq', 'non_place')
     if (data) {
-      setEnfants(data)
+      const gestionnaireIds = [...new Set(data.map(e => e.gestionnaire_id).filter(Boolean))]
+      let gestionnairesById = {}
+      if (gestionnaireIds.length > 0) {
+        const { data: gests } = await supabase.from('profiles').select('id, nom, prenom, email').in('id', gestionnaireIds)
+        ;(gests || []).forEach(g => { gestionnairesById[g.id] = g })
+      }
+      setEnfants(data.map(e => ({ ...e, gestionnaire: gestionnairesById[e.gestionnaire_id] || null })))
       // Sélectionner tous les enfants par défaut
       const sel = {}
       data.forEach(e => sel[e.id] = true)
@@ -71,7 +77,7 @@ export default function SortieDepartement({ profile, onClose }) {
   }
 
   async function fetchMaisons() {
-    const { data } = await supabase.from('maisons_departementales').select('nom, territoire, email_gestionnaire')
+    const { data } = await supabase.from('maisons_departementales').select('id, nom, territoire, email_gestionnaire')
     if (data) setMaisons(data)
   }
 
@@ -139,11 +145,12 @@ export default function SortieDepartement({ profile, onClose }) {
     const fonction = profile.civilite === 'Madame' ? 'Assistante Familiale' : 'Assistant Familial'
     const enfantsInclus = enfants.filter(e => enfantsSelectionnes[e.id])
     const blocsParEnfant = enfantsInclus.map(enf => {
+      const md = maisons.find(m => m.id === enf.md_id)
       const destinataires = [
         { role: 'Référent(e) 1', nom: enf.referent ? `${enf.referent.prenom} ${enf.referent.nom}` : '', email: enf.referent?.email },
         { role: 'Référent(e) 2', nom: enf.referent2 ? `${enf.referent2.prenom} ${enf.referent2.nom}` : '', email: enf.referent2?.email },
         { role: 'Gestionnaire', nom: enf.gestionnaire ? `${enf.gestionnaire.prenom} ${enf.gestionnaire.nom}` : '', email: enf.gestionnaire?.email },
-        { role: 'Maison départementale', nom: enf.md?.nom || '', email: enf.md?.email_gestionnaire || getGestionnaire(enf.territoire) },
+        { role: 'Maison départementale', nom: md?.nom || '', email: md?.email_gestionnaire || getGestionnaire(enf.territoire) },
       ].filter(d => d.email)
       const sujet = `Sortie de département ${destination} - ${enf.prenom} ${enf.nom} - ${profile.nom} ${profile.prenom}`
       const texte = `Bonjour,\n\nVeuillez trouver ci-joint la demande d'autorisation de sortie de département concernant ${enf.prenom} ${enf.nom}, du ${dateDebut} au ${dateFin}, à destination de ${destination}.\n\nMerci de bien vouloir en prendre connaissance et de me retourner un exemplaire signé.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
