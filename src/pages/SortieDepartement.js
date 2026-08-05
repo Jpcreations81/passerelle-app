@@ -245,7 +245,6 @@ export default function SortieDepartement({ profile, onClose }) {
             const { error: storageErr } = await supabase.storage
               .from('documents-enfants')
               .upload(storagePath, blob, { contentType: 'application/pdf' })
-            console.log('Storage error:', storageErr)
             if (!storageErr) {
               const { error: dbErr } = await supabase.from('documents_generaux').insert({
                 dossier_id: dossierId,
