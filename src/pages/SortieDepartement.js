@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-07-22j - debug logs sauvegarde
+// SortieDepartement.js - v2026-07-22k - sauvegarde PDF Administratif validée
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
