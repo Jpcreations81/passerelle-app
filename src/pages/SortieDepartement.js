@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-07-22g - nom enfant dans titre PDF
+// SortieDepartement.js - v2026-07-22k - sauvegarde PDF Administratif validée
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -101,8 +101,11 @@ export default function SortieDepartement({ profile, onClose }) {
       await genererUnPDF(gestionnaire, enfantsGroupe, sigBytes)
     }
 
-    // Créer événement agenda si demandé
-    // TODO: créer événement "Vacances" dans l'agenda
+    // Créer événements agenda pour chaque enfant sélectionné
+    const enfantsInclus = enfants.filter(e => enfantsSelectionnes[e.id])
+    for (const enf of enfantsInclus) {
+      await creerEvenementAgenda(enf)
+    }
 
     setGenerating(false)
     showToast(`✅ ${Object.keys(groupes).length} PDF(s) générés !`)
@@ -218,12 +221,61 @@ export default function SortieDepartement({ profile, onClose }) {
       const a = document.createElement('a')
       a.href = url
       const enfantsNoms = enfantsGroupe.map(e => e.prenom + '_' + e.nom).join('_')
-      a.download = enfantsNoms + '_Autorisation_sortie_' + dateDebut + '.pdf'
+      const nomFichier = enfantsNoms + '_Autorisation_sortie_' + dateDebut + '.pdf'
+      a.download = nomFichier
       document.body.appendChild(a); a.click(); document.body.removeChild(a)
       URL.revokeObjectURL(url)
+
+      // Sauvegarder dans le dossier Administratif de chaque enfant
+      for (const enf of enfantsGroupe) {
+        try {
+          // Trouver ou créer le dossier Administratif
+          let { data: dossier } = await supabase.from('documents_dossiers')
+            .select('id').eq('territoire', enf.id).eq('nom', '📋 Administratif').is('parent_id', null).single()
+          let dossierId = dossier?.id
+          if (!dossierId) {
+            const { data: newD } = await supabase.from('documents_dossiers').insert({
+              nom: '📋 Administratif', parent_id: null, territoire: enf.id,
+              created_by: profile.id, type: 'enfant'
+            }).select().single()
+            dossierId = newD?.id
+          }
+          if (dossierId) {
+            const storagePath = `enfants/${enf.id}/docs/${dossierId}/${Date.now()}.pdf`
+            const { error: storageErr } = await supabase.storage
+              .from('documents-enfants')
+              .upload(storagePath, blob, { contentType: 'application/pdf' })
+            if (!storageErr) {
+              const { error: dbErr } = await supabase.from('documents_generaux').insert({
+                dossier_id: dossierId,
+                nom: nomFichier,
+                storage_path: storagePath,
+                taille: pdfBytes.length,
+                mime_type: 'application/pdf',
+                uploaded_by: profile.id,
+              })
+            }
+          } else {
+          }
+        } catch(e) { console.log('Erreur sauvegarde doc:', e.message) }
+      }
     } catch(e) {
       showToast('Erreur PDF : ' + e.message)
     }
+  }
+
+  async function creerEvenementAgenda(enfant) {
+    const { error } = await supabase.from('evenements').insert({
+      titre: 'Vacances — ' + destination,
+      categorie: 'vacances',
+      date_debut: dateDebut + 'T00:00:00',
+      date_fin: dateFin + 'T23:59:00',
+      af_id: profile.id,
+      enfant_ids: [enfant.id],
+      participants_ids: [profile.id],
+      lieu: destination,
+    })
+    if (error) console.log('Erreur événement:', error.message)
   }
 
   if (loading) return (
