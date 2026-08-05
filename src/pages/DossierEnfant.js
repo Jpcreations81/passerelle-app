@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-07-22d — ajout gestionnaire dans filtre collegues et requête
+// DossierEnfant.js — v2026-08-05 — suppression boutons Inscription scolaire / Centre de loisirs (onglet Scolarité)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2128,10 +2128,6 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                     <Field label="Téléphone école" type="tel" value={v('ecole_tel')} onChange={F('ecole_tel')} readOnly={!editMode} />
                     <Field label="Adresse école" value={v('ecole_adresse')} onChange={F('ecole_adresse')} readOnly={!editMode} span={2} />
                   </FormGrid>
-                  <div style={{ marginTop:12, display:'flex', gap:8 }}>
-                    <button onClick={() => showToast('📝 Formulaire inscription...')} className="btn btn-secondary">📝 Inscription scolaire</button>
-                    <button onClick={() => showToast('🏊 Centre de loisirs...')} className="btn btn-secondary">🏊 Centre de loisirs</button>
-                  </div>
                 </SectionCard>
                 )}
               </>
