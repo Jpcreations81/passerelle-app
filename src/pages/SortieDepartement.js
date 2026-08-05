@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-07-22k - sauvegarde PDF Administratif validée
+// SortieDepartement.js - v2026-08-05 - ajout modal envoi email + historique 5 dernières demandes avec suivi retour signé
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -23,6 +23,8 @@ export default function SortieDepartement({ profile, onClose }) {
   const [dateFin, setDateFin] = useState('')
   const [nuiteesFacturees, setNuiteesFacturees] = useState(false)
   const [enfantsSelectionnes, setEnfantsSelectionnes] = useState({})
+  const [infoEnvoi, setInfoEnvoi] = useState(null) // { groupes: [{gestionnaire, email, enfants, sujet, texte}] }
+  const [historique, setHistorique] = useState([])
   const { getSignatureBytes, SignatureModal } = useSignature(profile)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
@@ -30,7 +32,27 @@ export default function SortieDepartement({ profile, onClose }) {
   useEffect(() => {
     fetchEnfants()
     fetchMaisons()
+    fetchHistorique()
   }, [])
+
+  async function fetchHistorique() {
+    const { data } = await supabase
+      .from('sorties_departement_suivi')
+      .select('id, destination, date_debut, date_fin, date_generation, email_envoye_le, retour_signe_le, enfant_id, enfants:enfant_id(prenom, nom)')
+      .eq('af_id', profile.id)
+      .order('date_generation', { ascending: false })
+      .limit(5)
+    if (data) setHistorique(data)
+  }
+
+  async function marquerRetourSigne(id) {
+    const maintenant = new Date().toISOString()
+    const { error } = await supabase.from('sorties_departement_suivi').update({ retour_signe_le: maintenant }).eq('id', id)
+    if (error) { showToast('❌ ' + error.message); return }
+    setHistorique(prev => prev.map(h => h.id === id ? { ...h, retour_signe_le: maintenant } : h))
+    showToast('✅ Retour signé enregistré')
+  }
+
 
   async function fetchEnfants() {
     const { data } = await supabase
@@ -109,6 +131,29 @@ export default function SortieDepartement({ profile, onClose }) {
 
     setGenerating(false)
     showToast(`✅ ${Object.keys(groupes).length} PDF(s) générés !`)
+    fetchHistorique()
+    preparerEnvois(groupes)
+  }
+
+  function preparerEnvois(groupes) {
+    const fonction = profile.civilite === 'Madame' ? 'Assistante Familiale' : 'Assistant Familial'
+    const groupesEnvoi = Object.entries(groupes).map(([gestionnaire, enfantsGroupe]) => {
+      const infos = getInfosTerritoire(enfantsGroupe[0]?.territoire)
+      const noms = enfantsGroupe.map(e => `${e.prenom} ${e.nom}`).join(', ')
+      const sujet = `Sortie de département ${destination} - ${noms} - ${profile.nom} ${profile.prenom}`
+      const texte = `Bonjour,\n\nVeuillez trouver ci-joint la demande d'autorisation de sortie de département concernant ${noms}, du ${dateDebut} au ${dateFin}, à destination de ${destination}.\n\nMerci de bien vouloir en prendre connaissance et de me retourner un exemplaire signé.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
+      return { gestionnaire, email: infos.email, enfants: enfantsGroupe, sujet, texte }
+    })
+    setInfoEnvoi({ groupes: groupesEnvoi })
+    // Marquer l'envoi (ouverture de la modal) pour chaque enfant concerné
+    const maintenant = new Date().toISOString()
+    const enfantIds = groupesEnvoi.flatMap(g => g.enfants.map(e => e.id))
+    supabase.from('sorties_departement_suivi')
+      .update({ email_envoye_le: maintenant })
+      .in('enfant_id', enfantIds)
+      .eq('destination', destination)
+      .eq('date_debut', dateDebut)
+      .then(({ error }) => { if (error) console.log('Marquage envoyé échoué:', error.message); else fetchHistorique() })
   }
 
   async function genererUnPDF(gestionnaire, enfantsGroupe, sigBytes) {
@@ -254,6 +299,18 @@ export default function SortieDepartement({ profile, onClose }) {
                 mime_type: 'application/pdf',
                 uploaded_by: profile.id,
               })
+              // Trace de suivi (historique / badges généré-envoyé-signé)
+              const { error: suiviErr } = await supabase.from('sorties_departement_suivi').insert({
+                enfant_id: enf.id,
+                af_id: profile.id,
+                destination,
+                date_debut: dateDebut,
+                date_fin: dateFin,
+                gestionnaire,
+                pdf_path: storagePath,
+                date_generation: new Date().toISOString(),
+              })
+              if (suiviErr) console.log('Suivi sortie échoué:', suiviErr.message)
             }
           } else {
           }
@@ -370,6 +427,33 @@ export default function SortieDepartement({ profile, onClose }) {
           </div>
         )}
 
+        {/* Historique */}
+        {historique.length > 0 && (
+          <div style={{ background:'#f8faff', border:'1px solid #dde3f0', borderRadius:8, padding:'10px 14px', marginBottom:16, fontSize:12 }}>
+            <div style={{ fontWeight:700, color:'#1a4b8f', marginBottom:8 }}>🕓 5 dernières demandes</div>
+            {historique.map(h => (
+              <div key={h.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0', borderBottom:'1px solid #eef1f8' }}>
+                <div style={{ flex:1 }}>
+                  <strong>{h.enfants?.prenom} {h.enfants?.nom}</strong> — {h.destination} ({h.date_debut} → {h.date_fin})
+                </div>
+                {h.retour_signe_le ? (
+                  <span style={{ fontSize:10, color:'#15803d' }}>✅ Signé retour</span>
+                ) : h.email_envoye_le ? (
+                  <>
+                    <span style={{ fontSize:10, color:'#d97706' }}>⏳ Envoyé, pas de retour</span>
+                    <button onClick={() => marquerRetourSigne(h.id)}
+                      style={{ padding:'2px 6px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:10, cursor:'pointer' }}>
+                      Marquer signé
+                    </button>
+                  </>
+                ) : (
+                  <span style={{ fontSize:10, color:'#9aa3b8' }}>Généré, pas envoyé</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Annuler</button>
           <button className="btn btn-primary" onClick={genererPDFs} disabled={generating}>
@@ -380,6 +464,49 @@ export default function SortieDepartement({ profile, onClose }) {
         {toast && <div className="toast">{toast}</div>}
         {SignatureModal}
       </div>
+      {infoEnvoi && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={() => setInfoEnvoi(null)}>
+          <div style={{ background:'#fff', borderRadius:16, padding:24, maxWidth:520, width:'100%', maxHeight:'85vh', overflowY:'auto', fontFamily:'Sora,sans-serif' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', marginBottom:16 }}>✉️ Envoi — Sortie de département</div>
+            {infoEnvoi.groupes.map((g, gi) => (
+              <div key={gi} style={{ marginBottom:20, paddingBottom:16, borderBottom: gi < infoEnvoi.groupes.length - 1 ? '1px solid #eef1f8' : 'none' }}>
+                <div style={{ fontSize:12, fontWeight:700, color:'#5a6478', marginBottom:8 }}>{g.gestionnaire} — {g.enfants.map(e => `${e.prenom} ${e.nom}`).join(', ')}</div>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Destinataire</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+                    <span style={{ fontSize:12, flex:1 }}>{g.email || '—'}</span>
+                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.email || ''); showToast('📋 Copié !') }}
+                      style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+                  </div>
+                </div>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Objet suggéré</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+                    <span style={{ fontSize:12, flex:1 }}>{g.sujet}</span>
+                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.sujet); showToast('📋 Objet copié !') }}
+                      style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Texte du mail</div>
+                  <div style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+                    <span style={{ fontSize:12, flex:1, whiteSpace:'pre-wrap' }}>{g.texte}</span>
+                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.texte); showToast('📋 Texte copié !') }}
+                      style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer', flexShrink:0 }}>📋</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic', marginBottom:16 }}>
+              💡 Collez l'adresse, l'objet et le texte dans Bluemind, puis joignez le(s) PDF téléchargé(s).
+            </div>
+            <button onClick={() => setInfoEnvoi(null)}
+              style={{ width:'100%', padding:'10px', borderRadius:8, border:'none', background:'#1a4b8f', color:'#fff', fontSize:12, cursor:'pointer', fontWeight:700 }}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
