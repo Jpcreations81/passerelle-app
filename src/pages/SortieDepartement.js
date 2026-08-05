@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-07-22i - sauvegarde dans documents_generaux dossier Administratif
+// SortieDepartement.js - v2026-07-22j - debug logs sauvegarde
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -242,11 +242,13 @@ export default function SortieDepartement({ profile, onClose }) {
           }
           if (dossierId) {
             const storagePath = `enfants/${enf.id}/docs/${dossierId}/${Date.now()}.pdf`
+            console.log('Upload vers:', storagePath)
             const { error: storageErr } = await supabase.storage
               .from('documents-enfants')
               .upload(storagePath, blob, { contentType: 'application/pdf' })
+            console.log('Storage error:', storageErr)
             if (!storageErr) {
-              await supabase.from('documents_generaux').insert({
+              const { error: dbErr } = await supabase.from('documents_generaux').insert({
                 dossier_id: dossierId,
                 nom: nomFichier,
                 storage_path: storagePath,
@@ -254,7 +256,10 @@ export default function SortieDepartement({ profile, onClose }) {
                 mime_type: 'application/pdf',
                 uploaded_by: profile.id,
               })
+              console.log('DB error:', dbErr)
             }
+          } else {
+            console.log('Pas de dossierId trouvé pour', enf.prenom)
           }
         } catch(e) { console.log('Erreur sauvegarde doc:', e.message) }
       }
