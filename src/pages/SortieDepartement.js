@@ -256,7 +256,6 @@ export default function SortieDepartement({ profile, onClose }) {
               })
             }
           } else {
-            console.log('Pas de dossierId trouvé pour', enf.prenom)
           }
         } catch(e) { console.log('Erreur sauvegarde doc:', e.message) }
       }
