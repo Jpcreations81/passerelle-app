@@ -1,4 +1,4 @@
-// AllocationRentreeScolaire.js - v2026-08-05b - ajout texte du mail dans la modal d'envoi
+// AllocationRentreeScolaire.js - v2026-08-05c - civilité conjuguée dans signature mail, secteur retiré
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -65,8 +65,8 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
   function envoyerEmail(enf) {
     const emails = getEmailsPourEnfant(enf)
     const sujet = `Scolarité 2026/2027 - ${enf.nom} ${enf.prenom} - ${profile.nom} ${profile.prenom}`
-    const territoire = profile.secteur || profile.territoire || ''
-    const texte = `Bonjour,\n\nVeuillez trouver ci-joint la fiche de scolarité 2026/2027 concernant ${enf.prenom} ${enf.nom}.\n\nMerci de bien vouloir en prendre connaissance et de me contacter pour toute information complémentaire.\n\nCordialement,\n${profile.prenom} ${profile.nom}\nAssistant(e) Familial(e) — ${territoire}`
+    const fonction = profile.civilite === 'Madame' ? 'Assistante Familiale' : 'Assistant Familial'
+    const texte = `Bonjour,\n\nVeuillez trouver ci-joint la fiche de scolarité 2026/2027 concernant ${enf.prenom} ${enf.nom}.\n\nMerci de bien vouloir en prendre connaissance et de me contacter pour toute information complémentaire.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
     setInfoEnvoi({ enf, emails, sujet, texte })
   }
 
