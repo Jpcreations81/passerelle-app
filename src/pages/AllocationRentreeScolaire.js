@@ -1,4 +1,4 @@
-// AllocationRentreeScolaire.js - v2026-08-05 - fix modal se ferme au clic sur bouton copie (stopPropagation)
+// AllocationRentreeScolaire.js - v2026-08-05b - ajout texte du mail dans la modal d'envoi
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -65,7 +65,9 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
   function envoyerEmail(enf) {
     const emails = getEmailsPourEnfant(enf)
     const sujet = `Scolarité 2026/2027 - ${enf.nom} ${enf.prenom} - ${profile.nom} ${profile.prenom}`
-    setInfoEnvoi({ enf, emails, sujet })
+    const territoire = profile.secteur || profile.territoire || ''
+    const texte = `Bonjour,\n\nVeuillez trouver ci-joint la fiche de scolarité 2026/2027 concernant ${enf.prenom} ${enf.nom}.\n\nMerci de bien vouloir en prendre connaissance et de me contacter pour toute information complémentaire.\n\nCordialement,\n${profile.prenom} ${profile.nom}\nAssistant(e) Familial(e) — ${territoire}`
+    setInfoEnvoi({ enf, emails, sujet, texte })
   }
 
   async function generatePDFPourEnfant(enf) {
@@ -415,6 +417,14 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
                 <span style={{ fontSize:12, flex:1 }}>{infoEnvoi.sujet}</span>
                 <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(infoEnvoi.sujet); showToast('📋 Objet copié !') }}
                   style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+              </div>
+            </div>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Texte du mail</div>
+              <div style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+                <span style={{ fontSize:12, flex:1, whiteSpace:'pre-wrap' }}>{infoEnvoi.texte}</span>
+                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(infoEnvoi.texte); showToast('📋 Texte copié !') }}
+                  style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer', flexShrink:0 }}>📋</button>
               </div>
             </div>
             <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic', marginBottom:16 }}>
