@@ -254,7 +254,6 @@ export default function SortieDepartement({ profile, onClose }) {
                 mime_type: 'application/pdf',
                 uploaded_by: profile.id,
               })
-              console.log('DB error:', dbErr)
             }
           } else {
             console.log('Pas de dossierId trouvé pour', enf.prenom)
