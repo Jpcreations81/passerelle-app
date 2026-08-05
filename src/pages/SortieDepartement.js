@@ -242,7 +242,6 @@ export default function SortieDepartement({ profile, onClose }) {
           }
           if (dossierId) {
             const storagePath = `enfants/${enf.id}/docs/${dossierId}/${Date.now()}.pdf`
-            console.log('Upload vers:', storagePath)
             const { error: storageErr } = await supabase.storage
               .from('documents-enfants')
               .upload(storagePath, blob, { contentType: 'application/pdf' })
