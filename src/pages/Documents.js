@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'
+// Documents.js - v2026-08-06 - fix duplication dossiers par défaut (race condition useEffect) — 2 dossiers AF d'origine conservés (Administratif, Frais)
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
@@ -70,13 +71,17 @@ export default function Documents({ profile }) {
     setLoading(false)
   }, [fetchDossiers, fetchDocuments])
 
+  const initDoneRef = useRef(false)
+
   useEffect(() => {
     async function init() {
+      if (initDoneRef.current) return
+      initDoneRef.current = true
       setLoading(true)
       // Initialiser les dossiers par défaut si vide
       const racine = await fetchDossiers(null)
       if (racine.length === 0 && profile?.role === 'af') {
-        // Créer les 2 dossiers par défaut pour les AF
+        // Créer les 2 dossiers par défaut pour les AF (avec leurs sous-dossiers)
         for (const d of DOSSIERS_DEFAUT) {
           const { data: parent } = await supabase.from('documents_dossiers').insert({
             nom: d.nom, parent_id: null, created_by: profile.id, type: 'af'
@@ -96,8 +101,8 @@ export default function Documents({ profile }) {
       }
       setLoading(false)
     }
-    init()
-  }, [fetchDossiers, profile])
+    if (profile?.id) init()
+  }, [fetchDossiers, profile?.id])
 
   async function creerDossier() {
     if (!nomNouveauDossier.trim()) { showToast('⚠️ Nom requis'); return }
