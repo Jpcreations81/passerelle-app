@@ -1,4 +1,4 @@
-// Documents.js - v2026-08-05 - fix duplication dossiers par défaut (race condition useEffect) + 4 dossiers par défaut (Médical, Scolaire, Administratif, Frais)
+// Documents.js - v2026-08-06 - fix duplication dossiers par défaut (race condition useEffect) — 2 dossiers AF d'origine conservés (Administratif, Frais)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
@@ -25,10 +25,8 @@ import PageHeader from '../components/PageHeader'
 // );
 
 const DOSSIERS_DEFAUT = [
-  { nom: '🩺 Médical' },
-  { nom: '🏫 Scolaire' },
-  { nom: '📋 Administratif' },
-  { nom: '🚗 Frais' },
+  { nom: '📋 Administratif', enfants: ['Feuilles de présence', 'Relais', 'Courriers'] },
+  { nom: '🚗 Frais', enfants: ['Frais de déplacement', 'Sommes dues', 'Remboursements'] },
 ]
 
 export default function Documents({ profile }) {
@@ -83,11 +81,18 @@ export default function Documents({ profile }) {
       // Initialiser les dossiers par défaut si vide
       const racine = await fetchDossiers(null)
       if (racine.length === 0 && profile?.role === 'af') {
-        // Créer les 4 dossiers par défaut pour les AF
+        // Créer les 2 dossiers par défaut pour les AF (avec leurs sous-dossiers)
         for (const d of DOSSIERS_DEFAUT) {
-          await supabase.from('documents_dossiers').insert({
+          const { data: parent } = await supabase.from('documents_dossiers').insert({
             nom: d.nom, parent_id: null, created_by: profile.id, type: 'af'
-          })
+          }).select().single()
+          if (parent) {
+            for (const enfant of d.enfants) {
+              await supabase.from('documents_dossiers').insert({
+                nom: enfant, parent_id: parent.id, created_by: profile.id, type: 'af'
+              })
+            }
+          }
         }
         const recharged = await fetchDossiers(null)
         setDossiers(recharged)
