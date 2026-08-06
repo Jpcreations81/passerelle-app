@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'
+// Documents.js - v2026-08-05 - fix duplication dossiers par défaut (race condition useEffect) + 4 dossiers par défaut (Médical, Scolaire, Administratif, Frais)
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
@@ -24,8 +25,10 @@ import PageHeader from '../components/PageHeader'
 // );
 
 const DOSSIERS_DEFAUT = [
-  { nom: '📋 Administratif', enfants: ['Feuilles de présence', 'Relais', 'Courriers'] },
-  { nom: '🚗 Frais', enfants: ['Frais de déplacement', 'Sommes dues', 'Remboursements'] },
+  { nom: '🩺 Médical' },
+  { nom: '🏫 Scolaire' },
+  { nom: '📋 Administratif' },
+  { nom: '🚗 Frais' },
 ]
 
 export default function Documents({ profile }) {
@@ -70,24 +73,21 @@ export default function Documents({ profile }) {
     setLoading(false)
   }, [fetchDossiers, fetchDocuments])
 
+  const initDoneRef = useRef(false)
+
   useEffect(() => {
     async function init() {
+      if (initDoneRef.current) return
+      initDoneRef.current = true
       setLoading(true)
       // Initialiser les dossiers par défaut si vide
       const racine = await fetchDossiers(null)
       if (racine.length === 0 && profile?.role === 'af') {
-        // Créer les 2 dossiers par défaut pour les AF
+        // Créer les 4 dossiers par défaut pour les AF
         for (const d of DOSSIERS_DEFAUT) {
-          const { data: parent } = await supabase.from('documents_dossiers').insert({
+          await supabase.from('documents_dossiers').insert({
             nom: d.nom, parent_id: null, created_by: profile.id, type: 'af'
-          }).select().single()
-          if (parent) {
-            for (const enfant of d.enfants) {
-              await supabase.from('documents_dossiers').insert({
-                nom: enfant, parent_id: parent.id, created_by: profile.id, type: 'af'
-              })
-            }
-          }
+          })
         }
         const recharged = await fetchDossiers(null)
         setDossiers(recharged)
@@ -96,8 +96,8 @@ export default function Documents({ profile }) {
       }
       setLoading(false)
     }
-    init()
-  }, [fetchDossiers, profile])
+    if (profile?.id) init()
+  }, [fetchDossiers, profile?.id])
 
   async function creerDossier() {
     if (!nomNouveauDossier.trim()) { showToast('⚠️ Nom requis'); return }
