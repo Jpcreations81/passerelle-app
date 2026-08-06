@@ -1,10 +1,11 @@
-// AllocationRentreeScolaire.js - v2026-08-05c - civilité conjuguée dans signature mail, secteur retiré
+// AllocationRentreeScolaire.js - v2026-08-05d - suivi allocations (Storage + table allocations_scolaires) et badges généré/envoyé
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { useSignature } from './useSignature'
 
 export default function AllocationRentreeScolaire({ profile, onClose }) {
+  const ANNEE_SCOLAIRE = '2026/2027'
   const [enfants, setEnfants] = useState([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
@@ -32,6 +33,13 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       .eq('af_principal_id', profile.id)
       .not('type_placement', 'eq', 'non_place')
     if (data) {
+      const { data: suivis } = await supabase
+        .from('allocations_scolaires')
+        .select('enfant_id, date_generation, email_envoye_le')
+        .eq('af_id', profile.id)
+        .eq('annee_scolaire', ANNEE_SCOLAIRE)
+      const suiviParEnfant = {}
+      ;(suivis || []).forEach(s => { suiviParEnfant[s.enfant_id] = s })
       // Filtrer les enfants scolarisés (qui ont une école ou une classe)
       setEnfants(data.map(e => ({
         ...e,
@@ -39,6 +47,8 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
         classe: e.ecole_classe || '',
         ecole: e.ecole_nom || '',
         lieu: e.ecole_adresse || '',
+        allocation_generee_le: suiviParEnfant[e.id]?.date_generation || null,
+        allocation_envoyee_le: suiviParEnfant[e.id]?.email_envoye_le || null,
       })))
     }
     setLoading(false)
@@ -47,6 +57,7 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
   function updateEnfant(id, field, val) {
     setEnfants(prev => prev.map(e => e.id === id ? { ...e, [field]: val } : e))
   }
+
 
   function getEmailsPourEnfant(enf) {
     // Trouver le territoire de l'enfant dans les MD
@@ -68,6 +79,13 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
     const fonction = profile.civilite === 'Madame' ? 'Assistante Familiale' : 'Assistant Familial'
     const texte = `Bonjour,\n\nVeuillez trouver ci-joint la fiche de scolarité 2026/2027 concernant ${enf.prenom} ${enf.nom}.\n\nMerci de bien vouloir en prendre connaissance et de me contacter pour toute information complémentaire.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
     setInfoEnvoi({ enf, emails, sujet, texte })
+    const maintenant = new Date().toISOString()
+    supabase.from('allocations_scolaires')
+      .upsert({ enfant_id: enf.id, af_id: profile.id, annee_scolaire: ANNEE_SCOLAIRE, email_envoye_le: maintenant }, { onConflict: 'enfant_id,annee_scolaire' })
+      .then(({ error }) => {
+        if (error) console.log('Marquage envoyé échoué:', error.message)
+        else setEnfants(prev => prev.map(e => e.id === enf.id ? { ...e, allocation_envoyee_le: maintenant } : e))
+      })
   }
 
   async function generatePDFPourEnfant(enf) {
@@ -279,6 +297,29 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       }
 
       const pdfBytes = await pdfDoc.save()
+
+      // Sauvegarde dans Supabase Storage
+      const pdfPath = `${ANNEE_SCOLAIRE.replace('/', '-')}/${profile.id}/${enf.id}_${enf.nom}.pdf`
+      const { error: uploadError } = await supabase.storage
+        .from('allocations-scolaires')
+        .upload(pdfPath, pdfBytes, { contentType: 'application/pdf', upsert: true })
+      if (uploadError) console.log('Upload storage échoué:', uploadError.message)
+
+      // Trace en base (généré / classe / école au moment T)
+      const { error: dbError } = await supabase
+        .from('allocations_scolaires')
+        .upsert({
+          enfant_id: enf.id,
+          af_id: profile.id,
+          annee_scolaire: ANNEE_SCOLAIRE,
+          classe: enf.classe,
+          ecole: enf.ecole,
+          pdf_path: pdfPath,
+          date_generation: new Date().toISOString(),
+        }, { onConflict: 'enfant_id,annee_scolaire' })
+      if (dbError) console.log('Suivi allocation échoué:', dbError.message)
+      else setEnfants(prev => prev.map(e => e.id === enf.id ? { ...e, allocation_generee_le: new Date().toISOString() } : e))
+
       const blob = new Blob([pdfBytes], { type: 'application/pdf' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -360,10 +401,14 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
                       placeholder="École Jules Ferry - Graulhet" />
                   </td>
                   <td style={{ padding:'6px 10px', textAlign:'center' }}>
-                    <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
+                    <div style={{ display:'flex', flexDirection:'column', gap:4, alignItems:'center' }}>
                       <button style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:10, cursor:'pointer', fontWeight:600 }}
                         onClick={() => generatePDFPourEnfant(enf)}>📄 PDF</button>
-
+                      {enf.allocation_envoyee_le ? (
+                        <span style={{ fontSize:9, color:'#1a8f4b' }}>✅ Envoyée</span>
+                      ) : enf.allocation_generee_le ? (
+                        <span style={{ fontSize:9, color:'#d97706' }}>⏳ Générée, pas envoyée</span>
+                      ) : null}
                     </div>
                   </td>
                 </tr>
