@@ -1,5 +1,5 @@
-// DossierEnfant.js — v2026-08-05 — suppression boutons Inscription scolaire / Centre de loisirs (onglet Scolarité)
-import React, { useState, useEffect, useCallback } from 'react'
+// DossierEnfant.js — v2026-08-06 — 4 dossiers par défaut (Médical, Scolaire, Visites, Administratif) + fix race condition duplication + suppression boutons Inscription scolaire/Centre de loisirs
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
@@ -704,7 +704,11 @@ export default function DossierEnfant({ profile }) {
   const DOSSIERS_ENFANT_DEFAUT = [
     { nom: '🏥 Médical', enfants: ['Ordonnances', 'Comptes-rendus', 'Vaccinations'] },
     { nom: '🏫 Scolaire', enfants: ['Bulletins', 'Correspondance école', 'Inscriptions'] },
+    { nom: '📅 Visites', enfants: [] },
+    { nom: '📋 Administratif', enfants: [] },
   ]
+
+  const dossiersEnfantInitRef = useRef(null)
 
   const fetchDossiersEnfant = useCallback(async () => {
     // Charger les dossiers de l'enfant
@@ -713,7 +717,8 @@ export default function DossierEnfant({ profile }) {
       .eq('territoire', id) // on utilise territoire = enfant_id pour isoler
       .order('nom')
     if (data) {
-      if (data.length === 0) {
+      if (data.length === 0 && dossiersEnfantInitRef.current !== id) {
+        dossiersEnfantInitRef.current = id
         // Créer les dossiers par défaut
         for (const d of DOSSIERS_ENFANT_DEFAUT) {
           const { data: parent } = await supabase.from('documents_dossiers').insert({
@@ -734,7 +739,7 @@ export default function DossierEnfant({ profile }) {
         setDossiersEnfant(data)
       }
     }
-  }, [id, profile])
+  }, [id, profile?.id])
 
   const fetchSousDossiersEnfant = useCallback(async (parentId) => {
     const { data } = await supabase.from('documents_dossiers')
