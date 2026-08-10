@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-08-06 - fix UX iPad : PDF non téléchargé auto (bloquait l'affichage agenda/modal derrière le viewer PDF Safari), téléchargement via bouton explicite dans la modal d'envoi
+// SortieDepartement.js - v2026-08-06b - fix téléchargement PDF iPad Safari (Web Share API) + format date jj/mm/aaaa dans le texte du mail
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -143,14 +143,30 @@ export default function SortieDepartement({ profile, onClose }) {
     preparerEnvois(groupes, pdfsParGestionnaire)
   }
 
-  function telechargerPDF(pdf) {
+  async function telechargerPDF(pdf) {
     if (!pdf) return
+    try {
+      const file = new File([pdf.blob], pdf.nomFichier, { type: 'application/pdf' })
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: pdf.nomFichier })
+        return
+      }
+    } catch(e) {
+      if (e.name === 'AbortError') return // l'utilisateur a annulé le partage, rien à faire
+      // sinon on tente le repli ci-dessous
+    }
     const url = URL.createObjectURL(pdf.blob)
     const a = document.createElement('a')
     a.href = url
     a.download = pdf.nomFichier
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
     setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+
+  function fmtDateFr(iso) {
+    if (!iso) return ''
+    const [y, m, d] = iso.split('-')
+    return `${d}/${m}/${y}`
   }
 
   function preparerEnvois(groupes, pdfsParGestionnaire) {
@@ -165,7 +181,7 @@ export default function SortieDepartement({ profile, onClose }) {
         { role: 'Maison départementale', nom: md?.nom || '', email: md?.email_gestionnaire || getGestionnaire(enf.territoire) },
       ].filter(d => d.email)
       const sujet = `Sortie de département ${destination} - ${enf.prenom} ${enf.nom} - ${profile.nom} ${profile.prenom}`
-      const texte = `Bonjour,\n\nVeuillez trouver ci-joint la demande d'autorisation de sortie de département concernant ${enf.prenom} ${enf.nom}, du ${dateDebut} au ${dateFin}, à destination de ${destination}.\n\nMerci de bien vouloir en prendre connaissance et de me retourner un exemplaire signé.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
+      const texte = `Bonjour,\n\nVeuillez trouver ci-joint la demande d'autorisation de sortie de département concernant ${enf.prenom} ${enf.nom}, du ${fmtDateFr(dateDebut)} au ${fmtDateFr(dateFin)}, à destination de ${destination}.\n\nMerci de bien vouloir en prendre connaissance et de me retourner un exemplaire signé.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
       const gestionnaireEnf = getGestionnaire(enf.territoire) || 'inconnu'
       const pdf = pdfsParGestionnaire[gestionnaireEnf] || null
       return { enfant: enf, destinataires, sujet, texte, pdf }
