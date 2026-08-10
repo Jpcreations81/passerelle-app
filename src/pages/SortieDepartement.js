@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-08-06b - fix téléchargement PDF iPad Safari (Web Share API) + format date jj/mm/aaaa dans le texte du mail
+// SortieDepartement.js - v2026-08-06c - titre événement agenda simplifié : prénom + Vacances (destination retirée du titre)
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -364,7 +364,7 @@ export default function SortieDepartement({ profile, onClose }) {
 
   async function creerEvenementAgenda(enfant) {
     const { error } = await supabase.from('evenements').insert({
-      titre: 'Vacances — ' + destination,
+      titre: enfant.prenom + ' — Vacances',
       categorie: 'vacances',
       date_debut: dateDebut + 'T00:00:00',
       date_fin: dateFin + 'T23:59:00',
