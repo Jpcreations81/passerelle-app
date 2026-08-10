@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-08-05c - fix liste enfants vide (jointures gestionnaire_id/md_id non-FK retirées, résolues séparément)
+// SortieDepartement.js - v2026-08-06 - fix UX iPad : PDF non téléchargé auto (bloquait l'affichage agenda/modal derrière le viewer PDF Safari), téléchargement via bouton explicite dans la modal d'envoi
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -124,9 +124,11 @@ export default function SortieDepartement({ profile, onClose }) {
     setGenerating(true)
     const sigBytes = await getSignatureBytes()
     const groupes = getGroupesParGestionnaire()
+    const pdfsParGestionnaire = {}
 
     for (const [gestionnaire, enfantsGroupe] of Object.entries(groupes)) {
-      await genererUnPDF(gestionnaire, enfantsGroupe, sigBytes)
+      const res = await genererUnPDF(gestionnaire, enfantsGroupe, sigBytes)
+      if (res) pdfsParGestionnaire[gestionnaire] = res
     }
 
     // Créer événements agenda pour chaque enfant sélectionné
@@ -138,10 +140,20 @@ export default function SortieDepartement({ profile, onClose }) {
     setGenerating(false)
     showToast(`✅ ${Object.keys(groupes).length} PDF(s) générés !`)
     fetchHistorique()
-    preparerEnvois(groupes)
+    preparerEnvois(groupes, pdfsParGestionnaire)
   }
 
-  function preparerEnvois(groupes) {
+  function telechargerPDF(pdf) {
+    if (!pdf) return
+    const url = URL.createObjectURL(pdf.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = pdf.nomFichier
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+
+  function preparerEnvois(groupes, pdfsParGestionnaire) {
     const fonction = profile.civilite === 'Madame' ? 'Assistante Familiale' : 'Assistant Familial'
     const enfantsInclus = enfants.filter(e => enfantsSelectionnes[e.id])
     const blocsParEnfant = enfantsInclus.map(enf => {
@@ -154,7 +166,9 @@ export default function SortieDepartement({ profile, onClose }) {
       ].filter(d => d.email)
       const sujet = `Sortie de département ${destination} - ${enf.prenom} ${enf.nom} - ${profile.nom} ${profile.prenom}`
       const texte = `Bonjour,\n\nVeuillez trouver ci-joint la demande d'autorisation de sortie de département concernant ${enf.prenom} ${enf.nom}, du ${dateDebut} au ${dateFin}, à destination de ${destination}.\n\nMerci de bien vouloir en prendre connaissance et de me retourner un exemplaire signé.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
-      return { enfant: enf, destinataires, sujet, texte }
+      const gestionnaireEnf = getGestionnaire(enf.territoire) || 'inconnu'
+      const pdf = pdfsParGestionnaire[gestionnaireEnf] || null
+      return { enfant: enf, destinataires, sujet, texte, pdf }
     })
     setInfoEnvoi({ groupes: blocsParEnfant })
     // Marquer l'envoi (ouverture de la modal) pour chaque enfant concerné
@@ -274,14 +288,11 @@ export default function SortieDepartement({ profile, onClose }) {
 
       const pdfBytes = await pdfDoc.save()
       const blob = new Blob([pdfBytes], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
       const enfantsNoms = enfantsGroupe.map(e => e.prenom + '_' + e.nom).join('_')
       const nomFichier = enfantsNoms + '_Autorisation_sortie_' + dateDebut + '.pdf'
-      a.download = nomFichier
-      document.body.appendChild(a); a.click(); document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      // Pas de téléchargement automatique ici : sur iPad/Safari, l'ouverture du PDF
+      // prend tout l'écran et masque la mise à jour de l'agenda + la modal d'envoi.
+      // Le téléchargement se fait via un bouton explicite dans la modal d'envoi.
 
       // Sauvegarder dans le dossier Administratif de chaque enfant
       for (const enf of enfantsGroupe) {
@@ -328,8 +339,10 @@ export default function SortieDepartement({ profile, onClose }) {
           }
         } catch(e) { console.log('Erreur sauvegarde doc:', e.message) }
       }
+      return { blob, nomFichier }
     } catch(e) {
       showToast('Erreur PDF : ' + e.message)
+      return null
     }
   }
 
@@ -482,7 +495,15 @@ export default function SortieDepartement({ profile, onClose }) {
             <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', marginBottom:16 }}>✉️ Envoi — Sortie de département</div>
             {infoEnvoi.groupes.map((g, gi) => (
               <div key={gi} style={{ marginBottom:20, paddingBottom:16, borderBottom: gi < infoEnvoi.groupes.length - 1 ? '1px solid #eef1f8' : 'none' }}>
-                <div style={{ fontSize:12, fontWeight:700, color:'#5a6478', marginBottom:8 }}>{g.enfant.prenom} {g.enfant.nom}</div>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:'#5a6478' }}>{g.enfant.prenom} {g.enfant.nom}</div>
+                  {g.pdf && (
+                    <button onClick={(e) => { e.stopPropagation(); telechargerPDF(g.pdf) }}
+                      style={{ padding:'5px 10px', borderRadius:6, border:'1px solid #1a4b8f', background:'#1a4b8f', color:'#fff', fontSize:11, cursor:'pointer', fontWeight:600 }}>
+                      📄 Télécharger le PDF
+                    </button>
+                  )}
+                </div>
                 <div style={{ marginBottom:10 }}>
                   <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Destinataires</div>
                   {g.destinataires.length === 0 ? (
