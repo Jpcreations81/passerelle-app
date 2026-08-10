@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-08-06c - titre événement agenda simplifié : prénom + Vacances (destination retirée du titre)
+// SortieDepartement.js - v2026-08-06d - fix titre agenda dédoublonné (prénom déjà affiché ailleurs, ne stocker que 'Vacances') + Web Share API restreinte à Safari (Chrome gérait déjà le téléchargement classique)
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -143,17 +143,24 @@ export default function SortieDepartement({ profile, onClose }) {
     preparerEnvois(groupes, pdfsParGestionnaire)
   }
 
+  function estSafari() {
+    const ua = navigator.userAgent
+    return /safari/i.test(ua) && !/chrome|crios|fxios|android/i.test(ua)
+  }
+
   async function telechargerPDF(pdf) {
     if (!pdf) return
-    try {
-      const file = new File([pdf.blob], pdf.nomFichier, { type: 'application/pdf' })
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: pdf.nomFichier })
-        return
+    if (estSafari()) {
+      try {
+        const file = new File([pdf.blob], pdf.nomFichier, { type: 'application/pdf' })
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: pdf.nomFichier })
+          return
+        }
+      } catch(e) {
+        if (e.name === 'AbortError') return // l'utilisateur a annulé le partage, rien à faire
+        // sinon on tente le repli ci-dessous
       }
-    } catch(e) {
-      if (e.name === 'AbortError') return // l'utilisateur a annulé le partage, rien à faire
-      // sinon on tente le repli ci-dessous
     }
     const url = URL.createObjectURL(pdf.blob)
     const a = document.createElement('a')
@@ -364,7 +371,7 @@ export default function SortieDepartement({ profile, onClose }) {
 
   async function creerEvenementAgenda(enfant) {
     const { error } = await supabase.from('evenements').insert({
-      titre: enfant.prenom + ' — Vacances',
+      titre: 'Vacances',
       categorie: 'vacances',
       date_debut: dateDebut + 'T00:00:00',
       date_fin: dateFin + 'T23:59:00',
