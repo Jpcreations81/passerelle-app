@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-08-06c — ajout modal d'envoi email (destinataires encadrants) + bouton téléchargement PDF après soumission
+// FicheConges.js — v2026-08-06d — fix format date jj-mm-aaaa dans le nom du fichier + rangement dans Administratif > Demande de congés > année + erreurs de sauvegarde visibles (toast + modal)
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -375,26 +375,61 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     // ── TELECHARGER ───────────────────────────────────────────────
     const pdfBytes = await pdfDoc.save()
     const blob = new Blob([pdfBytes], { type:'application/pdf' })
-    const nomFichier = `Demande_conges_${profile?.nom}_${profile?.prenom}_${dateDebut}.pdf`
+    const dateDebutFr = dateDebut ? dateDebut.split('-').reverse().join('-') : ''
+    const nomFichier = `Demande_conges_${profile?.nom}_${profile?.prenom}_${dateDebutFr}.pdf`
+    let sauvegardeOk = true
+    let sauvegardeErreur = ''
 
     if (sauvegarder) {
       try {
-        let { data: dossier } = await supabase.from('documents_dossiers')
+        const annee = dateDebut ? dateDebut.split('-')[0] : String(new Date().getFullYear())
+
+        // Administratif (racine)
+        let { data: administratif } = await supabase.from('documents_dossiers')
           .select('id').eq('created_by', profile.id).eq('nom', '📋 Administratif').is('parent_id', null).eq('type', 'af').single()
-        let dossierId = dossier?.id
-        if (!dossierId) {
-          const { data: newD } = await supabase.from('documents_dossiers').insert({
+        let administratifId = administratif?.id
+        if (!administratifId) {
+          const { data: newAdmin } = await supabase.from('documents_dossiers').insert({
             nom: '📋 Administratif', parent_id: null, created_by: profile.id, type: 'af'
           }).select().single()
-          dossierId = newD?.id
+          administratifId = newAdmin?.id
         }
+
+        // Administratif > Demande de congés
+        let dossierId = null
+        if (administratifId) {
+          let { data: sousDossier } = await supabase.from('documents_dossiers')
+            .select('id').eq('parent_id', administratifId).eq('nom', 'Demande de congés').single()
+          let congesId = sousDossier?.id
+          if (!congesId) {
+            const { data: newConges } = await supabase.from('documents_dossiers').insert({
+              nom: 'Demande de congés', parent_id: administratifId, created_by: profile.id, type: 'af'
+            }).select().single()
+            congesId = newConges?.id
+          }
+
+          // Administratif > Demande de congés > {année}
+          if (congesId) {
+            let { data: sousAnnee } = await supabase.from('documents_dossiers')
+              .select('id').eq('parent_id', congesId).eq('nom', annee).single()
+            let anneeId = sousAnnee?.id
+            if (!anneeId) {
+              const { data: newAnnee } = await supabase.from('documents_dossiers').insert({
+                nom: annee, parent_id: congesId, created_by: profile.id, type: 'af'
+              }).select().single()
+              anneeId = newAnnee?.id
+            }
+            dossierId = anneeId
+          }
+        }
+
         if (dossierId) {
           const storagePath = `af/${profile.id}/docs/${dossierId}/${Date.now()}.pdf`
           const { error: storageErr } = await supabase.storage
             .from('documents-enfants')
             .upload(storagePath, blob, { contentType: 'application/pdf' })
           if (!storageErr) {
-            await supabase.from('documents_generaux').insert({
+            const { error: dbErr } = await supabase.from('documents_generaux').insert({
               dossier_id: dossierId,
               nom: nomFichier,
               storage_path: storagePath,
@@ -402,9 +437,10 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
               mime_type: 'application/pdf',
               uploaded_by: profile.id,
             })
-          } else { console.log('Upload congés échoué:', storageErr.message) }
-        }
-      } catch(e) { console.log('Erreur sauvegarde congés:', e.message) }
+            if (dbErr) { sauvegardeOk = false; sauvegardeErreur = dbErr.message; console.log('Insert doc congés échoué:', dbErr.message) }
+          } else { sauvegardeOk = false; sauvegardeErreur = storageErr.message; console.log('Upload congés échoué:', storageErr.message) }
+        } else { sauvegardeOk = false; sauvegardeErreur = 'dossier introuvable/non créé' }
+      } catch(e) { sauvegardeOk = false; sauvegardeErreur = e.message; console.log('Erreur sauvegarde congés:', e.message) }
     }
 
     const url  = URL.createObjectURL(blob)
@@ -413,7 +449,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     a.download = nomFichier
     a.click()
     URL.revokeObjectURL(url)
-    return { blob, nomFichier }
+    return { blob, nomFichier, sauvegardeOk, sauvegardeErreur }
   }
 
   function preparerEnvoi(encadrants, pdf) {
@@ -566,8 +602,10 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
       // 4. Générer le PDF
       const pdf = await genererPDF(form.dateDebut, form.dateFin, true)
 
-      setToast('✅ Demande soumise et PDF généré !')
-      setTimeout(() => setToast(''), 2000)
+      setToast(pdf?.sauvegardeOk === false
+        ? `⚠️ Demande soumise, PDF téléchargé, mais échec sauvegarde : ${pdf.sauvegardeErreur}`
+        : '✅ Demande soumise et PDF généré !')
+      setTimeout(() => setToast(''), pdf?.sauvegardeOk === false ? 6000 : 2000)
       preparerEnvoi(encadrants, pdf)
     } catch(e) {
       setToast('❌ Erreur : ' + e.message)
@@ -690,7 +728,11 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
           <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', marginBottom:16 }}>✉️ Envoi — Demande de congés</div>
 
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-            <div style={{ fontSize:12, color:'#5a6478' }}>Le PDF a été sauvegardé dans ton dossier Administratif.</div>
+            <div style={{ fontSize:12, color: infoEnvoi.pdf?.sauvegardeOk === false ? '#d97706' : '#5a6478' }}>
+              {infoEnvoi.pdf?.sauvegardeOk === false
+                ? '⚠️ La sauvegarde dans Administratif a échoué — le PDF téléchargé reste disponible.'
+                : 'Le PDF a été sauvegardé dans Administratif > Demande de congés > ' + new Date().getFullYear() + '.'}
+            </div>
             <button onClick={() => telechargerPDFCongés(infoEnvoi.pdf)}
               style={{ padding:'6px 12px', borderRadius:6, border:'1px solid #1a4b8f', background:'#1a4b8f', color:'#fff', fontSize:11, cursor:'pointer', fontWeight:600, flexShrink:0 }}>
               📄 Télécharger le PDF
