@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-08-06 — sauvegarde du PDF dans le dossier Administratif de l'AF à la soumission (pas à l'aperçu)
+// FicheConges.js — v2026-08-06c — ajout modal d'envoi email (destinataires encadrants) + bouton téléchargement PDF après soumission
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -53,6 +53,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   const [relais2ParEnfant, setRelais2ParEnfant] = useState({})
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
+  const [infoEnvoi, setInfoEnvoi] = useState(null)
   const { getSignatureBytes, SignatureModal } = useSignature(profile)
 
   useEffect(() => {
@@ -412,6 +413,48 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     a.download = nomFichier
     a.click()
     URL.revokeObjectURL(url)
+    return { blob, nomFichier }
+  }
+
+  function preparerEnvoi(encadrants, pdf) {
+    const destinataires = (encadrants || [])
+      .filter(e => e.email)
+      .map(e => ({ role: 'Encadrant(e)', nom: `${e.prenom} ${e.nom}`, email: e.email }))
+    const sujet = `Demande de congés - ${profile?.prenom} ${profile?.nom} - du ${fmtDate(form.dateDebut)} au ${fmtDate(form.dateFin)}`
+    const relaisTxt = enfants
+      .filter(enf => relaisParEnfant[enf.id])
+      .map(enf => {
+        const af = afProfiles.find(a => a.id === relaisParEnfant[enf.id])
+        return `${enf.prenom} : relais ${af ? af.prenom + ' ' + af.nom : ''}`
+      }).join('\n')
+    const texte = `Bonjour,\n\nVeuillez trouver ci-joint ma demande de congés du ${fmtDate(form.dateDebut)} au ${fmtDate(form.dateFin)} (${nbJours} jours).${relaisTxt ? '\n\nRelais prévus :\n' + relaisTxt : ''}\n\nMerci de bien vouloir en prendre connaissance.\n\nCordialement,\n${profile?.prenom} ${profile?.nom}`
+    setInfoEnvoi({ destinataires, sujet, texte, pdf })
+  }
+
+  function estSafari() {
+    const ua = navigator.userAgent
+    return /safari/i.test(ua) && !/chrome|crios|fxios|android/i.test(ua)
+  }
+
+  async function telechargerPDFCongés(pdf) {
+    if (!pdf) return
+    if (estSafari()) {
+      try {
+        const file = new File([pdf.blob], pdf.nomFichier, { type: 'application/pdf' })
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: pdf.nomFichier })
+          return
+        }
+      } catch(e) {
+        if (e.name === 'AbortError') return
+      }
+    }
+    const url = URL.createObjectURL(pdf.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = pdf.nomFichier
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
   }
 
   async function soumettreEtGenerer() {
@@ -489,7 +532,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
 
       // 3. Créer notification pour l'encadrant du secteur
       const { data: encadrants } = await supabase.from('profiles')
-        .select('id').eq('role', 'encadrant').eq('secteur', profile.secteur || '')
+        .select('id, nom, prenom, email').eq('role', 'encadrant').eq('secteur', profile.secteur || '')
       if (encadrants && encadrants.length > 0) {
         const notifs = encadrants.map(enc => ({
           destinataire_id: enc.id,
@@ -501,11 +544,31 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
         await supabase.from('notifications').insert(notifs)
       }
 
+      // 3b. Créer notification pour chaque AF relais (1 et 2), avec la liste des enfants concernés
+      const enfantsParRelais = {}
+      enfants.forEach(enf => {
+        const r1 = relaisParEnfant[enf.id]
+        const r2 = relais2ParEnfant[enf.id]
+        if (r1) { if (!enfantsParRelais[r1]) enfantsParRelais[r1] = []; enfantsParRelais[r1].push(enf) }
+        if (r2) { if (!enfantsParRelais[r2]) enfantsParRelais[r2] = []; enfantsParRelais[r2].push(enf) }
+      })
+      const notifsRelais = Object.entries(enfantsParRelais).map(([relaisId, enfs]) => ({
+        destinataire_id: relaisId,
+        type: 'relais_conge',
+        titre: `Relais demandé — ${profile?.prenom} ${profile?.nom}`,
+        message: `Du ${fmtDate(form.dateDebut)} au ${fmtDate(form.dateFin)} pour ${enfs.map(e => e.prenom).join(', ')}`,
+        lien: `/assfam/${profile.id}`,
+      }))
+      if (notifsRelais.length > 0) {
+        await supabase.from('notifications').insert(notifsRelais)
+      }
+
       // 4. Générer le PDF
-      await genererPDF(form.dateDebut, form.dateFin, true)
+      const pdf = await genererPDF(form.dateDebut, form.dateFin, true)
 
       setToast('✅ Demande soumise et PDF généré !')
-      setTimeout(() => { setToast(''); onClose() }, 2000)
+      setTimeout(() => setToast(''), 2000)
+      preparerEnvoi(encadrants, pdf)
     } catch(e) {
       setToast('❌ Erreur : ' + e.message)
       setTimeout(() => setToast(''), 4000)
@@ -620,6 +683,59 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
         </div>
       </div>
     </div>
+
+    {infoEnvoi && (
+      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={() => { setInfoEnvoi(null); onClose() }}>
+        <div style={{ background:'#fff', borderRadius:16, padding:24, maxWidth:520, width:'100%', maxHeight:'85vh', overflowY:'auto', fontFamily:'Sora,sans-serif' }} onClick={e => e.stopPropagation()}>
+          <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', marginBottom:16 }}>✉️ Envoi — Demande de congés</div>
+
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
+            <div style={{ fontSize:12, color:'#5a6478' }}>Le PDF a été sauvegardé dans ton dossier Administratif.</div>
+            <button onClick={() => telechargerPDFCongés(infoEnvoi.pdf)}
+              style={{ padding:'6px 12px', borderRadius:6, border:'1px solid #1a4b8f', background:'#1a4b8f', color:'#fff', fontSize:11, cursor:'pointer', fontWeight:600, flexShrink:0 }}>
+              📄 Télécharger le PDF
+            </button>
+          </div>
+
+          <div style={{ marginBottom:10 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Destinataires</div>
+            {infoEnvoi.destinataires.length === 0 ? (
+              <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic' }}>Aucun encadrant trouvé pour ce secteur.</div>
+            ) : infoEnvoi.destinataires.map((d, di) => (
+              <div key={di} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8, marginBottom:6 }}>
+                <span style={{ fontSize:10, color:'#9aa3b8', minWidth:90 }}>{d.role}</span>
+                <span style={{ fontSize:12, flex:1 }}>{d.email}</span>
+                <button onClick={() => { navigator.clipboard.writeText(d.email); setToast('📋 Copié !'); setTimeout(() => setToast(''), 2000) }}
+                  style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginBottom:10 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Objet suggéré</div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+              <span style={{ fontSize:12, flex:1 }}>{infoEnvoi.sujet}</span>
+              <button onClick={() => { navigator.clipboard.writeText(infoEnvoi.sujet); setToast('📋 Objet copié !'); setTimeout(() => setToast(''), 2000) }}
+                style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+            </div>
+          </div>
+
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Texte du mail</div>
+            <div style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+              <span style={{ fontSize:12, flex:1, whiteSpace:'pre-wrap' }}>{infoEnvoi.texte}</span>
+              <button onClick={() => { navigator.clipboard.writeText(infoEnvoi.texte); setToast('📋 Texte copié !'); setTimeout(() => setToast(''), 2000) }}
+                style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer', flexShrink:0 }}>📋</button>
+            </div>
+          </div>
+
+          <button onClick={() => { setInfoEnvoi(null); onClose() }}
+            style={{ width:'100%', padding:'10px', borderRadius:8, border:'none', background:'#1a4b8f', color:'#fff', fontSize:12, cursor:'pointer', fontWeight:700 }}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    )}
     </>
   )
 }
