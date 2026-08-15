@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-07-21a — signature AF + date du jour + cadre DECISION décalé
+// FicheConges.js — v2026-08-06 — sauvegarde du PDF dans le dossier Administratif de l'AF à la soumission (pas à l'aperçu)
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -118,7 +118,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     setSaving(false)
   }
 
-  async function genererPDF(overrideDebut, overrideFin) {
+  async function genererPDF(overrideDebut, overrideFin, sauvegarder) {
     const dateDebut = overrideDebut || form.dateDebut
     const dateFin   = overrideFin   || form.dateFin
     // Récupérer la signature (ouvre le canvas si mode=chaque_fois)
@@ -374,10 +374,42 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     // ── TELECHARGER ───────────────────────────────────────────────
     const pdfBytes = await pdfDoc.save()
     const blob = new Blob([pdfBytes], { type:'application/pdf' })
+    const nomFichier = `Demande_conges_${profile?.nom}_${profile?.prenom}_${dateDebut}.pdf`
+
+    if (sauvegarder) {
+      try {
+        let { data: dossier } = await supabase.from('documents_dossiers')
+          .select('id').eq('created_by', profile.id).eq('nom', '📋 Administratif').is('parent_id', null).eq('type', 'af').single()
+        let dossierId = dossier?.id
+        if (!dossierId) {
+          const { data: newD } = await supabase.from('documents_dossiers').insert({
+            nom: '📋 Administratif', parent_id: null, created_by: profile.id, type: 'af'
+          }).select().single()
+          dossierId = newD?.id
+        }
+        if (dossierId) {
+          const storagePath = `af/${profile.id}/docs/${dossierId}/${Date.now()}.pdf`
+          const { error: storageErr } = await supabase.storage
+            .from('documents-enfants')
+            .upload(storagePath, blob, { contentType: 'application/pdf' })
+          if (!storageErr) {
+            await supabase.from('documents_generaux').insert({
+              dossier_id: dossierId,
+              nom: nomFichier,
+              storage_path: storagePath,
+              taille: pdfBytes.length,
+              mime_type: 'application/pdf',
+              uploaded_by: profile.id,
+            })
+          } else { console.log('Upload congés échoué:', storageErr.message) }
+        }
+      } catch(e) { console.log('Erreur sauvegarde congés:', e.message) }
+    }
+
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
     a.href = url
-    a.download = `Demande_conges_${profile?.nom}_${profile?.prenom}_${dateDebut}.pdf`
+    a.download = nomFichier
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -470,7 +502,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
       }
 
       // 4. Générer le PDF
-      await genererPDF(form.dateDebut, form.dateFin)
+      await genererPDF(form.dateDebut, form.dateFin, true)
 
       setToast('✅ Demande soumise et PDF généré !')
       setTimeout(() => { setToast(''); onClose() }, 2000)
