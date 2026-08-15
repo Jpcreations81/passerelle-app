@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-25f — suppression bloc AF obligatoire import PDF + message rappel
+// Agenda.js — v2026-08-06 — fix : agenda pas rafraîchi après fermeture modal FicheConges (nouveaux événements invisibles sans reload manuel)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -3563,7 +3563,7 @@ export default function Agenda({ profile }) {
           dateDebutInit={dernierConge.dateDebut}
           dateFinInit={dernierConge.dateFin}
           congeRelaisInit={dernierConge.congeRelais}
-          onClose={() => { setShowFicheCongesPDF(false); setDernierConge(null) }}
+          onClose={() => { setShowFicheCongesPDF(false); setDernierConge(null); fetchEvenements() }}
           pdfSeulement={true}
         />
       )}
