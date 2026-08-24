@@ -1,4 +1,4 @@
-// Agenda.js — v2026-08-06 — fix : agenda pas rafraîchi après fermeture modal FicheConges (nouveaux événements invisibles sans reload manuel)
+// Agenda.js — v2026-08-06c — fix bug critique : `enf` hors scope dans fetchEvenements() faisait planter la fonction à chaque exécution (ReferenceError), empêchant le calcul des afProfiles pour titrePOV — corrige potentiellement le bug titrePOV non résolu depuis des mois
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -355,8 +355,10 @@ export default function Agenda({ profile }) {
 
     const allEnfantIds = []
     data.forEach(e => { if (e.enfant_ids) e.enfant_ids.forEach(id => { if (!allEnfantIds.includes(id)) allEnfantIds.push(id) }) })
+    let enf = null
     if (allEnfantIds.length > 0) {
-      const { data: enf } = await supabase.from('enfants').select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)').in('id', allEnfantIds)
+      const { data: enfData } = await supabase.from('enfants').select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)').in('id', allEnfantIds)
+      enf = enfData
       if (enf) {
         setEnfants(prev => {
           const merged = [...prev]
@@ -1036,7 +1038,11 @@ export default function Agenda({ profile }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pdf: base64, filename: file.name })
       })
-      if (!resp.ok) throw new Error('Erreur serveur ' + resp.status)
+      if (!resp.ok) {
+        let msg = 'Erreur serveur ' + resp.status
+        try { const errData = await resp.json(); if (errData.error) msg = errData.error } catch(e) {}
+        throw new Error(msg)
+      }
       const data = await resp.json()
       if (data.evenements && data.evenements.length > 0) {
         // Mapper enfants_noms → enfant_ids puis dupliquer : 1 ligne par enfant
