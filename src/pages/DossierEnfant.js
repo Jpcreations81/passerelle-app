@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-08-06 — 4 dossiers par défaut (Médical, Scolaire, Visites, Administratif) + fix race condition duplication + suppression boutons Inscription scolaire/Centre de loisirs
+// DossierEnfant.js — v2026-08-06e — réintégration boutons tags journal (6 catégories) + fixes précédents (4 dossiers défaut, fix race condition, suppression boutons scolaires)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2344,10 +2344,36 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
             </div>
 
             <div className="form-group" style={{ marginBottom:12 }}>
-              <label className="form-label">Tags <span style={{ fontSize:10, color:'#9aa3b8', fontWeight:400 }}>(séparés par des virgules)</span></label>
-              <input className="form-control" value={newNote.tags}
-                onChange={e => setNewNote(n => ({...n, tags: e.target.value}))}
-                placeholder="École, Comportement, Sommeil, Post-visite..." />
+              <label className="form-label">Tags</label>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:4 }}>
+                {[
+                  { nom: 'Comportement', icon: '🟣' },
+                  { nom: 'Scolarité', icon: '📚' },
+                  { nom: 'Santé', icon: '🏥' },
+                  { nom: 'Famille', icon: '👨‍👩‍👧' },
+                  { nom: 'Activités', icon: '⚽' },
+                  { nom: 'Admin', icon: '📋' },
+                ].map(t => {
+                  const tagsArr = newNote.tags ? newNote.tags.split(',').map(x => x.trim()).filter(Boolean) : []
+                  const actif = tagsArr.includes(t.nom)
+                  return (
+                    <button key={t.nom} type="button"
+                      onClick={() => {
+                        const set = new Set(tagsArr)
+                        if (actif) set.delete(t.nom); else set.add(t.nom)
+                        setNewNote(n => ({ ...n, tags: Array.from(set).join(', ') }))
+                      }}
+                      style={{
+                        padding:'6px 12px', borderRadius:15, fontSize:12, fontWeight:600, cursor:'pointer',
+                        border: actif ? '1px solid #1a4b8f' : '1px solid #dde3f0',
+                        background: actif ? '#e8eef8' : '#fff',
+                        color: actif ? '#1a4b8f' : '#5a6478',
+                      }}>
+                      {t.icon} {t.nom}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             <div className="modal-footer">
