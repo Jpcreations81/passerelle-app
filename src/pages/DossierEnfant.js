@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-08-06e — réintégration boutons tags journal (6 catégories) + fixes précédents (4 dossiers défaut, fix race condition, suppression boutons scolaires)
+// DossierEnfant.js — v2026-08-06f — ajout tag libre en plus des 6 boutons préréglés (journal enfant)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2374,6 +2374,45 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                   )
                 })}
               </div>
+              <div style={{ display:'flex', gap:6, marginTop:8 }}>
+                <input className="form-control" placeholder="Autre tag..." id="tagLibreInput"
+                  style={{ fontSize:12, padding:'6px 10px' }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const val = e.target.value.trim()
+                      if (val) {
+                        const tagsArr = newNote.tags ? newNote.tags.split(',').map(x => x.trim()).filter(Boolean) : []
+                        if (!tagsArr.includes(val)) setNewNote(n => ({ ...n, tags: [...tagsArr, val].join(', ') }))
+                        e.target.value = ''
+                      }
+                    }
+                  }} />
+                <button type="button" onClick={() => {
+                  const input = document.getElementById('tagLibreInput')
+                  const val = input.value.trim()
+                  if (val) {
+                    const tagsArr = newNote.tags ? newNote.tags.split(',').map(x => x.trim()).filter(Boolean) : []
+                    if (!tagsArr.includes(val)) setNewNote(n => ({ ...n, tags: [...tagsArr, val].join(', ') }))
+                    input.value = ''
+                  }
+                }} style={{ padding:'6px 12px', borderRadius:8, border:'1px solid #dde3f0', background:'#fff', fontSize:12, cursor:'pointer' }}>
+                  + Ajouter
+                </button>
+              </div>
+              {newNote.tags && newNote.tags.split(',').map(t => t.trim()).filter(Boolean).some(t => !['Comportement','Scolarité','Santé','Famille','Activités','Admin'].includes(t)) && (
+                <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:8 }}>
+                  {newNote.tags.split(',').map(t => t.trim()).filter(t => t && !['Comportement','Scolarité','Santé','Famille','Activités','Admin'].includes(t)).map((t, i) => (
+                    <span key={i} style={{ padding:'5px 10px', borderRadius:15, fontSize:11, fontWeight:600, background:'#f4f6fb', color:'#5a6478', border:'1px solid #dde3f0', display:'flex', alignItems:'center', gap:4 }}>
+                      {t}
+                      <span onClick={() => {
+                        const tagsArr = newNote.tags.split(',').map(x => x.trim()).filter(Boolean).filter(x => x !== t)
+                        setNewNote(n => ({ ...n, tags: tagsArr.join(', ') }))
+                      }} style={{ cursor:'pointer', color:'#c0392b', marginLeft:2 }}>×</span>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="modal-footer">
