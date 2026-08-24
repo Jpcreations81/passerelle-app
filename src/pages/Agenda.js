@@ -1,4 +1,4 @@
-// Agenda.js — v2026-06-21a — profils temporaires exclus des recherches AF
+// Agenda.js — v2026-08-06 — fix : agenda pas rafraîchi après fermeture modal FicheConges (nouveaux événements invisibles sans reload manuel)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -109,16 +109,17 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
 
   const creerTemporaire = async () => {
     if (!newPrenom.trim() || !newNom.trim()) return
-    if (!afSelectionne) { alert("L'AF principal est obligatoire avant de créer l'enfant."); return }
     setSaving(true)
     const { data, error } = await supabase.from('enfants').insert({
       prenom: newPrenom.trim(),
       nom: newNom.trim().toUpperCase(),
       statut_profil: 'temporaire',
-      af_principal_id: afSelectionne.id
+      type_placement: 'judiciaire',
+      ...(afSelectionne ? { af_principal_id: afSelectionne.id } : {})
     }).select().single()
     setSaving(false)
     if (error) { alert('Erreur : ' + error.message); return }
+    if (!afSelectionne) { alert("⚠️ Enfant créé ! Pensez à renseigner l'AF principal dans la fiche de l'enfant.") }
     onSelect(data)
     setModeCreation(false)
   }
@@ -133,53 +134,11 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
           placeholder="NOM *" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())} />
       </div>
 
-      {/* AF principal — obligatoire */}
-      <div style={{ borderTop:'1px solid #fcd34d', paddingTop:8, marginBottom:8 }}>
-        <div style={{ fontSize:10, fontWeight:700, color:'#b45309', marginBottom:6 }}>👨‍👩‍👧 AF principal * (obligatoire)</div>
-        {afSelectionne ? (
-          <div style={{ display:'flex', alignItems:'center', gap:6, background:'#f0fdf4', border:'1px solid #16a34a', borderRadius:6, padding:'4px 8px' }}>
-            <span style={{ fontSize:11, flex:1, color:'#15803d', fontWeight:600 }}>✅ {afSelectionne.prenom} {afSelectionne.nom}</span>
-            <button style={{ fontSize:10, border:'none', background:'none', color:'#888', cursor:'pointer' }}
-              onClick={() => setAfSelectionne(null)}>✕</button>
-          </div>
-        ) : afModeCreation ? (
-          <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
-            <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }}
-              placeholder="Prénom *" value={afNewPrenom} onChange={e => setAfNewPrenom(e.target.value)} />
-            <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:100 }}
-              placeholder="NOM *" value={afNewNom} onChange={e => setAfNewNom(e.target.value.toUpperCase())} />
-            <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }}
-              placeholder="Ville" value={afNewVille} onChange={e => setAfNewVille(e.target.value)} />
-            <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
-              onClick={creerAfTemporaire}>✅ Créer</button>
-            <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
-              onClick={() => setAfModeCreation(false)}>✕</button>
-          </div>
-        ) : (
-          <div>
-            <div style={{ display:'flex', gap:4, alignItems:'center' }}>
-              <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:130 }}
-                placeholder="Rechercher un AF…" value={afQuery} onChange={e => rechercherAf(e.target.value)} />
-              <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
-                onClick={() => setAfModeCreation(true)}>⏳ Nouveau</button>
-            </div>
-            {afResultats.length > 0 && (
-              <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:6, marginTop:4, maxHeight:100, overflowY:'auto' }}>
-                {afResultats.map(af => (
-                  <div key={af.id} style={{ padding:'4px 8px', fontSize:11, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}
-                    onClick={() => { setAfSelectionne(af); setAfResultats([]); setAfQuery('') }}>
-                    {af.prenom} {af.nom}{af.ville ? ` — ${af.ville}` : ''}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+      <div style={{ fontSize:10, color:'#b45309', fontStyle:'italic', marginBottom:8 }}>⚠️ Pensez à renseigner l'AF principal dans la fiche de l'enfant après création.</div>
 
       <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
-        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background: afSelectionne ? '#f0fdf4' : '#f1f1f1', color: afSelectionne ? '#15803d' : '#aaa', cursor: afSelectionne ? 'pointer' : 'not-allowed', fontWeight:700 }}
-          onClick={creerTemporaire} disabled={saving || !afSelectionne}>
+        <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
+          onClick={creerTemporaire} disabled={saving}>
           {saving ? '⏳' : '✅ Créer l\'enfant'}
         </button>
         <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
@@ -253,6 +212,7 @@ function RechercheAfImport({ nomDetecte, afTousListe, onSelect }) {
     }).select().single()
     setSaving(false)
     if (error) { alert('Erreur : ' + error.message); return }
+    if (!afSelectionne) { alert("⚠️ Enfant créé ! Pensez à renseigner l'AF principal dans la fiche de l'enfant.") }
     onSelect(data)
     setModeCreation(false)
   }
@@ -3603,7 +3563,7 @@ export default function Agenda({ profile }) {
           dateDebutInit={dernierConge.dateDebut}
           dateFinInit={dernierConge.dateFin}
           congeRelaisInit={dernierConge.congeRelais}
-          onClose={() => { setShowFicheCongesPDF(false); setDernierConge(null) }}
+          onClose={() => { setShowFicheCongesPDF(false); setDernierConge(null); fetchEvenements() }}
           pdfSeulement={true}
         />
       )}
