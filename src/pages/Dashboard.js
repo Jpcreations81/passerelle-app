@@ -1,4 +1,4 @@
-// Dashboard.js — v2026-06-25d — alerte fiche présence dynamique (mois en cours)
+// Dashboard.js — v2026-08-06 — ajout alerte "relais à venir chez vous" (Dashboard n'utilisait pas la table notifications, alertes construites par fonction dédiée)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -14,6 +14,7 @@ export default function Dashboard({ profile, session }) {
   const [relaisInconnus, setRelaisInconnus] = useState([])    // événements relais avec famille inconnue
   const [alertesAgrement, setAlertesAgrement] = useState([])  // AF avec agrément expiré ou expirant
   const [alertesRelaisManquant, setAlertesRelaisManquant] = useState([]) // congés sans relais
+  const [mesRelaisAVenir, setMesRelaisAVenir] = useState([]) // relais où JE suis famille d'accueil
   const [transfertsEnAttente, setTransfertsEnAttente] = useState([]) // transferts d'enfants à accepter/refuser
   const navigate = useNavigate()
 
@@ -26,6 +27,7 @@ export default function Dashboard({ profile, session }) {
     fetchRelaisInconnus()
     fetchAlertesAgrement()
     fetchAlertesRelaisManquant()
+    fetchMesRelaisAVenir()
     fetchTransfertsEnAttente()
   }, [profile])
 
@@ -194,7 +196,20 @@ export default function Dashboard({ profile, session }) {
     }
   }
 
-  // Retours sur mes demandes (accepté/refusé, non encore vus)
+  // Relais à venir où JE suis la famille d'accueil désignée
+  async function fetchMesRelaisAVenir() {
+    if (!profile || profile.role !== 'af') return
+    const { data } = await supabase
+      .from('evenements')
+      .select('id, titre, date_debut, date_fin, enfant_ids, af_id')
+      .eq('categorie', 'relais')
+      .contains('participants_ids', [profile.id])
+      .gte('date_fin', new Date().toISOString())
+      .order('date_debut', { ascending: true })
+    if (data) setMesRelaisAVenir(data)
+  }
+
+
   async function fetchMesRetours() {
     if (!profile) return
     const { data } = await supabase
@@ -317,6 +332,17 @@ export default function Dashboard({ profile, session }) {
                 />
               )}
 
+              {/* ── Alerte : JE suis désigné(e) famille relais ── */}
+              {mesRelaisAVenir.length > 0 && (
+                <AlertItem
+                  icon="🤝"
+                  title={`${mesRelaisAVenir.length} relais à venir chez vous`}
+                  sub={mesRelaisAVenir.map(r => new Date(r.date_debut).toLocaleDateString('fr-FR', { day:'numeric', month:'short' })).join(' · ')}
+                  type="info"
+                  onClick={() => navigate('/agenda')}
+                />
+              )}
+
               {/* ── Alerte : MES demandes envoyées en attente (Bernard) ── */}
               {mesEnAttente.length > 0 && (
                 <AlertItem
@@ -409,7 +435,7 @@ export default function Dashboard({ profile, session }) {
                 />
               ))}
               {/* ── Aucune alerte ── */}
-              {profile?.role === 'af' && enfants.length === 0 && demandesModif.length === 0 && mesRetours.length === 0 && mesEnAttente.length === 0 && relaisInconnus.length === 0 && alertesRelaisManquant.length === 0 && (
+              {profile?.role === 'af' && enfants.length === 0 && demandesModif.length === 0 && mesRetours.length === 0 && mesEnAttente.length === 0 && relaisInconnus.length === 0 && alertesRelaisManquant.length === 0 && mesRelaisAVenir.length === 0 && (
                 <div style={{ textAlign:'center', color:'#9aa3b8', padding:16, fontSize:12 }}>Aucune alerte pour le moment</div>
               )}
 
