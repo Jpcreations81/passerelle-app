@@ -1,4 +1,4 @@
-// parse-pdf.js — v2026-06-16d — Sonnet dynamique avec fallback claude-sonnet-4-6
+// parse-pdf.js — v2026-08-06 — modèle fixe (retrait du lookup dynamique risqué), max_tokens augmenté à 8192, détection réponse tronquée, messages d'erreur détaillés remontés au frontend
 // api/parse-pdf.js
 // Vercel Serverless Function — lit un PDF et extrait les événements via Claude API
 // Variables d'environnement requises dans Vercel :
@@ -91,19 +91,9 @@ Réponds UNIQUEMENT avec un JSON valide, rien d'autre, pas de markdown :
 
 Si aucun événement n'est trouvé : {"evenements": []}`
 
-  // Récupérer le dernier modèle Sonnet disponible (meilleure extraction que Haiku)
-  let model = 'claude-sonnet-4-6' // fallback
-  try {
-    const modelsResp = await fetch('https://api.anthropic.com/v1/models', {
-      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
-    })
-    if (modelsResp.ok) {
-      const modelsData = await modelsResp.json()
-      const sonnet = modelsData.data?.find(m => m.id.includes('sonnet'))
-      if (sonnet) model = sonnet.id
-    }
-  } catch(e) { /* utilise le fallback */ }
-  console.log('Modèle utilisé:', model)
+  // Modèle fixe (le lookup dynamique ajoutait de la latence et pouvait
+  // sélectionner un modèle imprévisible si la liste Anthropic changeait)
+  const model = 'claude-sonnet-4-6'
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -115,7 +105,7 @@ Si aucun événement n'est trouvé : {"evenements": []}`
       },
       body: JSON.stringify({
         model: model,
-        max_tokens: 4096,
+        max_tokens: 8192,
         messages: [{
           role: 'user',
           content: [
@@ -139,11 +129,16 @@ Si aucun événement n'est trouvé : {"evenements": []}`
     if (!response.ok) {
       const err = await response.text()
       console.error('Anthropic API error:', err)
-      return res.status(500).json({ error: 'Erreur API Claude : ' + response.status })
+      return res.status(500).json({ error: `Erreur API Claude (${response.status}) : ${err.slice(0, 300)}` })
     }
 
     const data = await response.json()
     const text = data.content?.[0]?.text || ''
+
+    if (data.stop_reason === 'max_tokens') {
+      console.error('Réponse Claude tronquée (max_tokens atteint) pour', filename)
+      return res.status(500).json({ error: `Le PDF "${filename}" contient trop d'événements pour être analysé en une fois (réponse tronquée). Essayez de le scinder en plusieurs fichiers.` })
+    }
 
     // Parser le JSON retourné par Claude
     let parsed
@@ -152,13 +147,13 @@ Si aucun événement n'est trouvé : {"evenements": []}`
       parsed = JSON.parse(cleaned)
     } catch (e) {
       console.error('JSON parse error:', e, 'Raw text:', text)
-      return res.status(500).json({ error: 'Impossible de parser la réponse de Claude', raw: text })
+      return res.status(500).json({ error: `Réponse de Claude illisible pour "${filename}" : ${e.message}`, raw: text })
     }
 
     return res.status(200).json(parsed)
 
   } catch (e) {
     console.error('Handler error:', e)
-    return res.status(500).json({ error: e.message })
+    return res.status(500).json({ error: `Erreur traitement "${filename}" : ${e.message}` })
   }
 }
