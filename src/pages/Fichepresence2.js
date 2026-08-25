@@ -1,4 +1,4 @@
-// FichePresence2.js — v2026-08-06 — sauvegarde du PDF dans Administratif > Feuilles de présence (ou Relais) de l'AF
+// FichePresence2.js — v2026-08-25 — fix couleur jaune manquante sur le jour "Retour" de relais + réapplication sauvegarde Administratif (fix du 06/08 absent de cet upload)
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -230,7 +230,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         const key = fmt(d)
         const p = presences[key] || { present: !isRelais, heure_depart:'', heure_arrivee:'', motif:'' }
         const motif = p.motif||''
-        const isRelaisJour = motif.toLowerCase().includes('relais')
+        const isRelaisJour = motif.toLowerCase().includes('relais') || motif.toLowerCase().includes('retour')
 
         // Fond ligne
         let bgColor = WHITE
