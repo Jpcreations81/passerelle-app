@@ -1,4 +1,4 @@
-// Agenda.js — v2026-08-06e — suppression complète du statut 'temporaire' (AF placeholder reste réel, juste sans compte connecté ; renommage fonctions/labels : creerEnfant, creerAf, "Nouvel enfant"/"Nouvel AF")
+// Agenda.js — v2026-08-06f — bloque l'import si un événement relais sélectionné n'a pas d'AF identifié (même logique que le blocage existant pour enfant manquant)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -2902,12 +2902,20 @@ export default function Agenda({ profile }) {
                 const evtsSelectionnesSansEnfant = evtsImportes.filter((evt, i) =>
                   evtsImportesChecked[i] && (!evt.enfant_ids || evt.enfant_ids.length === 0)
                 )
-                const bloque = evtsSelectionnesSansEnfant.length > 0
+                const evtsSelectionnesSansAf = evtsImportes.filter((evt, i) =>
+                  evtsImportesChecked[i] && evt.categorie === 'relais' && !evt.participants_ids?.[0]
+                )
+                const bloque = evtsSelectionnesSansEnfant.length > 0 || evtsSelectionnesSansAf.length > 0
                 return (
                   <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6 }}>
-                    {bloque && (
+                    {evtsSelectionnesSansEnfant.length > 0 && (
                       <div style={{ fontSize:11, color:'#dc2626', fontWeight:600 }}>
                         ⚠️ {evtsSelectionnesSansEnfant.length} événement{evtsSelectionnesSansEnfant.length > 1 ? 's' : ''} sans enfant identifié — recherchez ou créez l'enfant avant d'importer
+                      </div>
+                    )}
+                    {evtsSelectionnesSansAf.length > 0 && (
+                      <div style={{ fontSize:11, color:'#dc2626', fontWeight:600 }}>
+                        ⚠️ {evtsSelectionnesSansAf.length} relais sans AF identifié — recherchez ou créez l'AF avant d'importer
                       </div>
                     )}
                     <button className="btn btn-primary" onClick={() => saveEvtsImportes(null)} disabled={bloque}
