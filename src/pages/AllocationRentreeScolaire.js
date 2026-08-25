@@ -1,4 +1,4 @@
-// AllocationRentreeScolaire.js - v2026-08-05d - suivi allocations (Storage + table allocations_scolaires) et badges généré/envoyé
+// AllocationRentreeScolaire.js - v2026-08-06 - PDF également sauvegardé dans le dossier Administratif de l'enfant (visible dans l'onglet Docs)
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -321,10 +321,41 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       else setEnfants(prev => prev.map(e => e.id === enf.id ? { ...e, allocation_generee_le: new Date().toISOString() } : e))
 
       const blob = new Blob([pdfBytes], { type: 'application/pdf' })
+      const nomFichier = `Allocation_rentree_scolaire_2026_2027_${enf.nom}_${enf.prenom}.pdf`
+
+      // Sauvegarde aussi dans le dossier Administratif de l'enfant (visible dans l'onglet Docs)
+      try {
+        let { data: dossier } = await supabase.from('documents_dossiers')
+          .select('id').eq('territoire', enf.id).eq('nom', '📋 Administratif').is('parent_id', null).single()
+        let dossierId = dossier?.id
+        if (!dossierId) {
+          const { data: newD } = await supabase.from('documents_dossiers').insert({
+            nom: '📋 Administratif', parent_id: null, territoire: enf.id, created_by: profile.id
+          }).select().single()
+          dossierId = newD?.id
+        }
+        if (dossierId) {
+          const storagePath = `enfants/${enf.id}/docs/${dossierId}/${Date.now()}.pdf`
+          const { error: storageErr } = await supabase.storage
+            .from('documents-enfants')
+            .upload(storagePath, blob, { contentType: 'application/pdf' })
+          if (!storageErr) {
+            await supabase.from('documents_generaux').insert({
+              dossier_id: dossierId,
+              nom: nomFichier,
+              storage_path: storagePath,
+              taille: pdfBytes.length,
+              mime_type: 'application/pdf',
+              uploaded_by: profile.id,
+            })
+          } else { console.log('Upload doc enfant échoué:', storageErr.message) }
+        }
+      } catch(e) { console.log('Erreur sauvegarde doc enfant:', e.message) }
+
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `Allocation_rentree_scolaire_2026_2027_${enf.nom}_${enf.prenom}.pdf`
+      a.download = nomFichier
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
