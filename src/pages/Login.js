@@ -1,4 +1,4 @@
-// Login.js — v2026-06-25i — message confirmation avec prénom + initiale nom enfant
+// Login.js — v2026-08-06 — ajout recherche + fusion des profils relais "en attente" (transferer_relais_vers_af), en plus des enfants (AF principal)
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -51,9 +51,22 @@ export default function Login() {
       p_seuil: 0.4
     })
 
-    if (enfantsTrouves && enfantsTrouves.length > 0) {
-      // Enfant(s) trouvé(s) avec cet AF — demander confirmation
-      setProfilTemp({ nom: nom.trim().toUpperCase(), prenom: prenom.trim(), enfants: enfantsTrouves })
+    // Chercher un profil AF relais "en attente" (créé à l'import PDF, faux email temp.*)
+    const { data: relaisTrouve } = await supabase.rpc('rechercher_af_relais_en_attente', {
+      p_nom: nom.trim().toUpperCase(),
+      p_prenom: prenom.trim(),
+      p_seuil: 0.4
+    })
+
+    if ((enfantsTrouves && enfantsTrouves.length > 0) || (relaisTrouve && relaisTrouve.length > 0)) {
+      // Profil(s) trouvé(s) — demander confirmation
+      setProfilTemp({
+        nom: nom.trim().toUpperCase(),
+        prenom: prenom.trim(),
+        enfants: enfantsTrouves || [],
+        relaisId: relaisTrouve && relaisTrouve.length > 0 ? relaisTrouve[0].id : null,
+        relaisNbEvenements: relaisTrouve && relaisTrouve.length > 0 ? relaisTrouve[0].nb_evenements : 0,
+      })
       setShowConfirmTemp(true)
       setLoading(false)
       return
@@ -63,7 +76,7 @@ export default function Login() {
     await creerCompte()
   }
 
-  async function creerCompte(profilTempId = null) {
+  async function creerCompte(estProfilTemp = false) {
     setLoading(true)
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
@@ -74,7 +87,6 @@ export default function Login() {
           prenom: prenom.trim(),
           ville: ville.trim() || null,
           role: 'af',
-          ...(profilTempId ? { profil_temp_id: profilTempId } : {})
         }
       }
     })
@@ -88,12 +100,19 @@ export default function Login() {
     }
 
     if (data?.user) {
-      // Si AF connu → lier les enfants qui ont af_principal_nom/prenom correspondant
-      if (profilTempId) {
-        // profilTempId contient ici le nom+prénom de l'AF
+      if (estProfilTemp) {
+        // Lier les enfants dont af_principal_nom/prenom correspond
         await supabase.from('enfants')
           .update({ af_principal_id: data.user.id, af_principal_nom: null, af_principal_prenom: null, af_principal_ville: null, statut_profil: null })
           .eq('af_principal_nom', nom.trim().toUpperCase())
+
+        // Transférer les événements relais du profil "en attente" vers le nouveau compte réel
+        if (profilTemp?.relaisId) {
+          await supabase.rpc('transferer_relais_vers_af', {
+            p_ancien_id: profilTemp.relaisId,
+            p_nouveau_id: data.user.id,
+          })
+        }
       }
 
       setSuccess('✅ Compte créé ! Vérifiez votre email pour confirmer votre inscription, puis connectez-vous.')
@@ -154,6 +173,9 @@ export default function Login() {
                 {profilTemp.ville && ` (${profilTemp.ville})`}.
                 {profilTemp.enfants && profilTemp.enfants.length > 0 && (
                   <> Vous avez en accueil <strong>{profilTemp.enfants.map(e => `${e.prenom} ${e.nom.charAt(0)}.`).join(', ')}</strong>.</>
+                )}
+                {profilTemp.relaisNbEvenements > 0 && (
+                  <> Vous avez <strong>{profilTemp.relaisNbEvenements} événement{profilTemp.relaisNbEvenements > 1 ? 's' : ''} de relais</strong> en attente.</>
                 )}
                 <br />Est-ce bien vous ?
               </div>
