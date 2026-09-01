@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-08-06g — liste des référents filtrée par MD sélectionnée (onglet Placement) + nouveau référent créé auto-assigné à cette MD
+// DossierEnfant.js — v2026-08-06h — carte d'affichage MD reconstruite depuis md_id + maisonsDept (source unique) au lieu de champs texte dupliqués (md_nom/md_adresse/...) jamais renseignés quand la MD est choisie ailleurs (ex. ListeEnfants.js)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1587,14 +1587,19 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                     </div>
                   ) : null}
 
-                  {v('md_nom') && (
-                    <div style={{ background:'#f4f6fb', borderRadius:10, padding:16, border:'1px solid #dde3f0', marginBottom:16 }}>
-                      <div style={{ fontSize:14, fontWeight:700, color:'#1a4b8f', marginBottom:6 }}>🏛️ {v('md_nom')}</div>
-                      {v('md_adresse') && <div style={{ fontSize:13, color:'#5a6478' }}>📍 {v('md_adresse')}</div>}
-                      {v('md_tel') && <div style={{ fontSize:13, color:'#5a6478', marginTop:4 }}>📞 <a href={`tel:${v('md_tel')}`} style={{ color:'#1a4b8f' }}>{v('md_tel')}</a></div>}
-                      {v('md_email') && <div style={{ fontSize:13, color:'#5a6478', marginTop:4 }}>✉️ <a href={`mailto:${v('md_email')}`} style={{ color:'#1a4b8f' }}>{v('md_email')}</a></div>}
-                    </div>
-                  )}
+                  {(() => {
+                    const mdInfo = maisonsDept.find(m => m.id === v('md_id'))
+                    if (!mdInfo) return null
+                    const adresseComplete = [mdInfo.adresse, mdInfo.code_postal, mdInfo.ville].filter(Boolean).join(' ')
+                    return (
+                      <div style={{ background:'#f4f6fb', borderRadius:10, padding:16, border:'1px solid #dde3f0', marginBottom:16 }}>
+                        <div style={{ fontSize:14, fontWeight:700, color:'#1a4b8f', marginBottom:6 }}>🏛️ {mdInfo.nom}</div>
+                        {adresseComplete && <div style={{ fontSize:13, color:'#5a6478' }}>📍 {adresseComplete}</div>}
+                        {mdInfo.telephone && <div style={{ fontSize:13, color:'#5a6478', marginTop:4 }}>📞 <a href={`tel:${mdInfo.telephone}`} style={{ color:'#1a4b8f' }}>{mdInfo.telephone}</a></div>}
+                        {mdInfo.email && <div style={{ fontSize:13, color:'#5a6478', marginTop:4 }}>✉️ <a href={`mailto:${mdInfo.email}`} style={{ color:'#1a4b8f' }}>{mdInfo.email}</a></div>}
+                      </div>
+                    )
+                  })()}
 
                   {/* Contacts ASE */}
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:12, marginTop:12 }}>
