@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-06-21e — profils temporaires exclus des recherches AF
+// ListeEnfants.js — v2026-06-21g — fix source unique MD : maisons_departementales (mauvaise table) → maisons_departement (vraie table, 12 MD réelles) ; g inclut aussi le contenu de f (modal simplifié + cascade département)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -93,7 +93,7 @@ export default function ListeEnfants({ profile }) {
   }, [location.search])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
-  const [newEnfant, setNewEnfant] = useState({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', lieu_accueil:'af_principal', af_principal_id:'', referent_id:'', fratrie:[] })
+  const [newEnfant, setNewEnfant] = useState({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', departement:'', md_id:'', af_principal_id:'', referent_id:'', fratrie:[] })
   const [doublonsDetectes, setDoublonsDetectes] = useState([])
   const [verifEnCours, setVerifEnCours] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -208,11 +208,21 @@ export default function ListeEnfants({ profile }) {
 
   const fetchCollegues = useCallback(async () => {
     // Charger tous les AF + référents sans filtre territoire
-    const { data } = await supabase.from('profiles').select('id, nom, prenom, role').in('role', ['af','referent','encadrant','rtase','admin'])
+    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, md_id').in('role', ['af','referent','encadrant','rtase','admin'])
     if (data) setCollegues(data)
   }, [profile])
 
-  useEffect(() => { fetchEnfants(); fetchCollegues() }, [fetchEnfants, fetchCollegues])
+  const [maisons, setMaisons] = useState([])
+  const fetchMaisons = useCallback(async () => {
+    const { data } = await supabase.from('maisons_departement').select('id, nom, departement, territoire')
+    if (data) setMaisons(data)
+  }, [])
+
+  useEffect(() => { fetchEnfants(); fetchCollegues(); fetchMaisons() }, [fetchEnfants, fetchCollegues, fetchMaisons])
+
+  const departements = [...new Set(maisons.map(m => m.departement).filter(Boolean))].sort()
+  const maisonsFiltrees = maisons.filter(m => m.departement === newEnfant.departement)
+  const referentsFiltres = collegues.filter(c => c.role === 'referent' && c.md_id === newEnfant.md_id)
 
   function calcAge(ddn) {
     if (!ddn) return ''
@@ -273,7 +283,7 @@ export default function ListeEnfants({ profile }) {
         nom: afTemp.nom.trim().toUpperCase(),
         ville: afTemp.ville.trim() || null,
         role: 'af',
-        statut_profil: 'temporaire'
+        email: `temp.${Date.now()}@passerelle.local`
       }).select().single()
       if (errAf) { showToast('❌ Erreur AF : ' + errAf.message); setSaving(false); return }
       afPrincipalId = newAf.id
@@ -287,12 +297,12 @@ export default function ListeEnfants({ profile }) {
       sexe: newEnfant.sexe || null,
       numero_dossier: newEnfant.numero_dossier || null,
       type_placement: newEnfant.type_placement || 'judiciaire',
-      lieu_accueil: newEnfant.lieu_accueil || 'af_principal',
-      af_principal_id: afPrincipalId,
+      lieu_accueil: 'af_principal',
+      af_principal_id: evenementEnAttente ? afPrincipalId : profile.id,
       fratrie: newEnfant.fratrie?.length > 0 ? newEnfant.fratrie : null,
       referent_id: newEnfant.referent_id || null,
+      md_id: newEnfant.md_id || null,
       territoire: profile.territoire,
-      statut_profil: evenementEnAttente ? 'temporaire' : null,
     }).select().single()
 
     if (!error && data) {
@@ -333,12 +343,12 @@ export default function ListeEnfants({ profile }) {
         setEvenementEnAttente(null)
         showToast('✅ Dossier et événement créés !')
         setShowModal(false)
-        setNewEnfant({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', lieu_accueil:'af_principal', af_principal_id:'', referent_id:'', fratrie:[] })
+        setNewEnfant({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', departement:'', md_id:'', af_principal_id:'', referent_id:'', fratrie:[] })
         navigate('/agenda')
       } else {
         showToast('✅ Dossier créé !')
         setShowModal(false)
-        setNewEnfant({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', lieu_accueil:'af_principal', af_principal_id:'', referent_id:'', fratrie:[] })
+        setNewEnfant({ prenom:'', nom:'', date_naissance:'', sexe:'', numero_dossier:'', type_placement:'judiciaire', departement:'', md_id:'', af_principal_id:'', referent_id:'', fratrie:[] })
         navigate(`/enfants/${data.id}`)
       }
     } else showToast('❌ Erreur : ' + error?.message)
@@ -544,20 +554,15 @@ export default function ListeEnfants({ profile }) {
                   </select>
                 </div>
                 <div className="form-group col-span-2">
-                  <label className="form-label">N° dossier CD81</label>
-                  <input className="form-control" value={newEnfant.numero_dossier} onChange={e => setNewEnfant(n => ({...n, numero_dossier: e.target.value}))} placeholder="CD81-2026-XXXX" />
+                  <label className="form-label">N° dossier</label>
+                  <input className="form-control" value={newEnfant.numero_dossier} onChange={e => setNewEnfant(n => ({...n, numero_dossier: e.target.value}))} placeholder="Ex : 2026-XXXX" />
                 </div>
               </div>
               <div style={{ fontSize:11, fontWeight:700, color:'#1a4b8f', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>Type de placement</div>
               <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:16 }}>
                 {[
-                  {v:'non_place', icon:'🏠', l:'Non placé'},
                   {v:'judiciaire', icon:'⚖️', l:'Judiciaire'},
                   {v:'administratif', icon:'📋', l:'Administratif'},
-                  {v:'urgence', icon:'🚨', l:'Urgence'},
-                  {v:'aemo', icon:'👁', l:'AEMO'},
-                  {v:'aemo_r', icon:'👁', l:'AEMO-R'},
-                  {v:'secret', icon:'🔒', l:'Secret'},
                 ].map(p => (
                   <button key={p.v} type="button"
                     onClick={() => setNewEnfant(n => ({...n, type_placement: p.v}))}
@@ -566,36 +571,31 @@ export default function ListeEnfants({ profile }) {
                   </button>
                 ))}
               </div>
-              <div style={{ fontSize:11, fontWeight:700, color:'#1a4b8f', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>Lieu d'accueil</div>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:12 }}>
-                {[
-                  {v:'af_principal', icon:'👨‍👩‍👧', l:'AF Principal'},
-                  {v:'foyer', icon:'🏛️', l:'Foyer'},
-                  {v:'lva', icon:'🏠', l:'LVA'},
-                  {v:'autre_structure', icon:'📋', l:'Autre structure'},
-                  {v:'domicile_parental', icon:'🏡', l:'Domicile parental'},
-                ].map(p => (
-                  <button key={p.v} type="button"
-                    onClick={() => setNewEnfant(n => ({...n, lieu_accueil: p.v}))}
-                    style={{ padding:'6px 12px', borderRadius:20, border:`1.5px solid ${newEnfant.lieu_accueil === p.v ? '#2e8b4a' : '#dde3f0'}`, background: newEnfant.lieu_accueil === p.v ? '#2e8b4a' : '#fff', color: newEnfant.lieu_accueil === p.v ? '#fff' : '#5a6478', fontSize:12, fontWeight: newEnfant.lieu_accueil === p.v ? 700 : 500, cursor:'pointer' }}>
-                    {p.icon} {p.l}
-                  </button>
-                ))}
-              </div>
-              {newEnfant.lieu_accueil === 'af_principal' && (
-                <div className="form-group" style={{ marginBottom:16 }}>
-                  <label className="form-label">AF Principal</label>
-                  <RechercheAfSelectLocal
-                    value={newEnfant.af_principal_id || null}
-                    onSelect={(id) => setNewEnfant(n => ({...n, af_principal_id: id || ''}))}
-                  />
+              <div style={{ fontSize:11, fontWeight:700, color:'#1a4b8f', textTransform:'uppercase', letterSpacing:'.5px', marginBottom:8 }}>Département</div>
+              <div className="form-grid-2" style={{ marginBottom:16 }}>
+                <div className="form-group">
+                  <label className="form-label">Département</label>
+                  <select className="form-control" value={newEnfant.departement}
+                    onChange={e => setNewEnfant(n => ({...n, departement: e.target.value, md_id: '', referent_id: ''}))}>
+                    <option value="">—</option>
+                    {departements.map(d => <option key={d} value={d}>{d}</option>)}
+                  </select>
                 </div>
-              )}
+                <div className="form-group">
+                  <label className="form-label">Maison du département (MD)</label>
+                  <select className="form-control" value={newEnfant.md_id} disabled={!newEnfant.departement}
+                    onChange={e => setNewEnfant(n => ({...n, md_id: e.target.value, referent_id: ''}))}>
+                    <option value="">—</option>
+                    {maisonsFiltrees.map(m => <option key={m.id} value={m.id}>{m.nom}</option>)}
+                  </select>
+                </div>
+              </div>
               <div className="form-group" style={{ marginBottom:16 }}>
                 <label className="form-label">Référent(e) ASE</label>
-                <select className="form-control" value={newEnfant.referent_id || ''} onChange={e => setNewEnfant(n => ({...n, referent_id: e.target.value}))}>
+                <select className="form-control" value={newEnfant.referent_id || ''} disabled={!newEnfant.md_id}
+                  onChange={e => setNewEnfant(n => ({...n, referent_id: e.target.value}))}>
                   <option value="">— Sélectionner (optionnel) —</option>
-                  {collegues.filter(c => c.role === 'referent').map(c => (
+                  {referentsFiltres.map(c => (
                     <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
                   ))}
                 </select>
