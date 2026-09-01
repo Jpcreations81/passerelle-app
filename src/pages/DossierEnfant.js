@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-08-06f — ajout tag libre en plus des 6 boutons préréglés (journal enfant)
+// DossierEnfant.js — v2026-08-06g — liste des référents filtrée par MD sélectionnée (onglet Placement) + nouveau référent créé auto-assigné à cette MD
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -278,7 +278,8 @@ export default function DossierEnfant({ profile }) {
       prenom: prenomSaisi,
       role: roleDb,
       email: emailSaisi || `temp.${crypto.randomUUID()}@passerelle.local`,
-      ...(tel ? { telephone: tel } : {})
+      ...(tel ? { telephone: tel } : {}),
+      ...(roleDb === 'referent' && v('md_id') ? { md_id: v('md_id') } : {})
     }
     const { data, error } = await supabase.from('profiles').insert(payload).select().single()
     if (error) { showToast('❌ ' + error.message); return }
@@ -344,7 +345,7 @@ export default function DossierEnfant({ profile }) {
   }, [id])
 
   const fetchCollegues = useCallback(async () => {
-    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire, telephone, email, ville, statut_profil').in('role', ['af','referent','encadrant','rtase','admin','gestionnaire'])
+    const { data } = await supabase.from('profiles').select('id, nom, prenom, role, territoire, telephone, email, ville, statut_profil, md_id').in('role', ['af','referent','encadrant','rtase','admin','gestionnaire'])
     if (data) setCollegues(data)
   }, [profile])
 
@@ -1656,7 +1657,10 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                               ) : (
                                 <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
                                   <option value="">— Sélectionner —</option>
-                                  {collegues.filter(c => ['referent','encadrant','rtase','admin','gestionnaire'].includes(c.role)).map(c => (
+                                  {collegues
+                                    .filter(c => ['referent','encadrant','rtase','admin','gestionnaire'].includes(c.role))
+                                    .filter(c => roleDb !== 'referent' || !v('md_id') || c.md_id === v('md_id'))
+                                    .map(c => (
                                     <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
                                   ))}
                                 </select>
