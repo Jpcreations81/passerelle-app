@@ -1,4 +1,4 @@
-// FichePresence2.js — v2026-08-25 — fix couleur jaune manquante sur le jour "Retour" de relais + réapplication sauvegarde Administratif (fix du 06/08 absent de cet upload)
+// FichePresence2.js — v2026-08-06b — fix couleur jaune manquante sur le jour "Retour" de relais (réapplication du fix sauvegarde Administratif déjà présent)
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
