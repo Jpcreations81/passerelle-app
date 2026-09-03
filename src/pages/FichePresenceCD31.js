@@ -1,4 +1,4 @@
-// FichePresenceCD31.js — v2026-08-25 — générateur fiche de présence CD31 (Haute-Garonne), 3 enfants/feuille, pdf-lib
+// FichePresenceCD31.js — v2026-08-25b — accepte enfantIdInitial (pré-sélection auto du groupe) + bouton retour vers la vue CD81
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -39,7 +39,7 @@ function getJoursMoisEnCours(annee, mois) {
   return jours
 }
 
-export default function FichePresenceCD31({ profile }) {
+export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourListe }) {
   const navigate = useNavigate()
   const [groupes, setGroupes] = useState([]) // tableaux de 1 à 3 enfants
   const [groupeIndex, setGroupeIndex] = useState(0)
@@ -71,6 +71,10 @@ export default function FichePresenceCD31({ profile }) {
     const grps = []
     for (let i = 0; i < enfantsCD31.length; i += 3) grps.push(enfantsCD31.slice(i, i + 3))
     setGroupes(grps)
+    if (enfantIdInitial) {
+      const idx = grps.findIndex(g => g.some(e => e.id === enfantIdInitial))
+      if (idx >= 0) setGroupeIndex(idx)
+    }
     setLoading(false)
   }
 
@@ -291,6 +295,9 @@ export default function FichePresenceCD31({ profile }) {
       <Sidebar profile={profile} />
       <div className="main-content" style={{ padding:24 }}>
         <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+          {onRetourListe && (
+            <button onClick={onRetourListe} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'#5a6478' }}>‹</button>
+          )}
           <h2 style={{ margin:0 }}>📋 Fiche de présence — CD31</h2>
           {groupes.length > 1 && (
             <select value={groupeIndex} onChange={e => setGroupeIndex(Number(e.target.value))} className="form-control" style={{ width:'auto' }}>
