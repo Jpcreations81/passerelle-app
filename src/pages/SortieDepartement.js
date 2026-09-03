@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-08-06d - fix titre agenda dédoublonné (prénom déjà affiché ailleurs, ne stocker que 'Vacances') + Web Share API restreinte à Safari (Chrome gérait déjà le téléchargement classique)
+// SortieDepartement.js - v2026-08-06e - fix source unique MD (maisons_departement, plus maisons_departementales) ; reconstruction complète avec tout l'historique de fixes du 05-06/08
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -23,7 +23,7 @@ export default function SortieDepartement({ profile, onClose }) {
   const [dateFin, setDateFin] = useState('')
   const [nuiteesFacturees, setNuiteesFacturees] = useState(false)
   const [enfantsSelectionnes, setEnfantsSelectionnes] = useState({})
-  const [infoEnvoi, setInfoEnvoi] = useState(null) // { groupes: [{gestionnaire, email, enfants, sujet, texte}] }
+  const [infoEnvoi, setInfoEnvoi] = useState(null) // { groupes: [{enfant, destinataires, sujet, texte, pdf}] }
   const [historique, setHistorique] = useState([])
   const { getSignatureBytes, SignatureModal } = useSignature(profile)
 
@@ -53,7 +53,6 @@ export default function SortieDepartement({ profile, onClose }) {
     showToast('✅ Retour signé enregistré')
   }
 
-
   async function fetchEnfants() {
     const { data } = await supabase
       .from('enfants')
@@ -77,14 +76,14 @@ export default function SortieDepartement({ profile, onClose }) {
   }
 
   async function fetchMaisons() {
-    const { data } = await supabase.from('maisons_departementales').select('id, nom, territoire, email_gestionnaire')
+    const { data } = await supabase.from('maisons_departement').select('id, nom, territoire, email')
     if (data) setMaisons(data)
   }
 
   function getGestionnaire(territoire) {
     // Chercher d'abord par nom exact, sinon par territoire
     const md = maisons.find(m => m.nom === territoire) || maisons.find(m => m.territoire === territoire)
-    return md ? md.email_gestionnaire : null
+    return md ? md.email : null
   }
 
   function getInfosTerritoire(territoire) {
@@ -97,7 +96,7 @@ export default function SortieDepartement({ profile, onClose }) {
       'Sud': '05 63 71 02 21'
     }
     return {
-      email: md.email_gestionnaire,
+      email: md.email,
       nomTerritoire: md.territoire,
       tel: tels[md.territoire] || '',
     }
@@ -116,31 +115,10 @@ export default function SortieDepartement({ profile, onClose }) {
     return groupes
   }
 
-  async function genererPDFs() {
-    if (!destination.trim()) { showToast('⚠️ Destination obligatoire'); return }
-    if (!dateDebut || !dateFin) { showToast('⚠️ Dates obligatoires'); return }
-    if (Object.values(enfantsSelectionnes).every(v => !v)) { showToast('⚠️ Sélectionnez au moins un enfant'); return }
-
-    setGenerating(true)
-    const sigBytes = await getSignatureBytes()
-    const groupes = getGroupesParGestionnaire()
-    const pdfsParGestionnaire = {}
-
-    for (const [gestionnaire, enfantsGroupe] of Object.entries(groupes)) {
-      const res = await genererUnPDF(gestionnaire, enfantsGroupe, sigBytes)
-      if (res) pdfsParGestionnaire[gestionnaire] = res
-    }
-
-    // Créer événements agenda pour chaque enfant sélectionné
-    const enfantsInclus = enfants.filter(e => enfantsSelectionnes[e.id])
-    for (const enf of enfantsInclus) {
-      await creerEvenementAgenda(enf)
-    }
-
-    setGenerating(false)
-    showToast(`✅ ${Object.keys(groupes).length} PDF(s) générés !`)
-    fetchHistorique()
-    preparerEnvois(groupes, pdfsParGestionnaire)
+  function fmtDateFr(iso) {
+    if (!iso) return ''
+    const [y, m, d] = iso.split('-')
+    return `${d}/${m}/${y}`
   }
 
   function estSafari() {
@@ -170,10 +148,31 @@ export default function SortieDepartement({ profile, onClose }) {
     setTimeout(() => URL.revokeObjectURL(url), 5000)
   }
 
-  function fmtDateFr(iso) {
-    if (!iso) return ''
-    const [y, m, d] = iso.split('-')
-    return `${d}/${m}/${y}`
+  async function genererPDFs() {
+    if (!destination.trim()) { showToast('⚠️ Destination obligatoire'); return }
+    if (!dateDebut || !dateFin) { showToast('⚠️ Dates obligatoires'); return }
+    if (Object.values(enfantsSelectionnes).every(v => !v)) { showToast('⚠️ Sélectionnez au moins un enfant'); return }
+
+    setGenerating(true)
+    const sigBytes = await getSignatureBytes()
+    const groupes = getGroupesParGestionnaire()
+    const pdfsParGestionnaire = {}
+
+    for (const [gestionnaire, enfantsGroupe] of Object.entries(groupes)) {
+      const res = await genererUnPDF(gestionnaire, enfantsGroupe, sigBytes)
+      if (res) pdfsParGestionnaire[gestionnaire] = res
+    }
+
+    // Créer événements agenda pour chaque enfant sélectionné
+    const enfantsInclus = enfants.filter(e => enfantsSelectionnes[e.id])
+    for (const enf of enfantsInclus) {
+      await creerEvenementAgenda(enf)
+    }
+
+    setGenerating(false)
+    showToast(`✅ ${Object.keys(groupes).length} PDF(s) générés !`)
+    fetchHistorique()
+    preparerEnvois(groupes, pdfsParGestionnaire)
   }
 
   function preparerEnvois(groupes, pdfsParGestionnaire) {
@@ -185,7 +184,7 @@ export default function SortieDepartement({ profile, onClose }) {
         { role: 'Référent(e) 1', nom: enf.referent ? `${enf.referent.prenom} ${enf.referent.nom}` : '', email: enf.referent?.email },
         { role: 'Référent(e) 2', nom: enf.referent2 ? `${enf.referent2.prenom} ${enf.referent2.nom}` : '', email: enf.referent2?.email },
         { role: 'Gestionnaire', nom: enf.gestionnaire ? `${enf.gestionnaire.prenom} ${enf.gestionnaire.nom}` : '', email: enf.gestionnaire?.email },
-        { role: 'Maison départementale', nom: md?.nom || '', email: md?.email_gestionnaire || getGestionnaire(enf.territoire) },
+        { role: 'Maison départementale', nom: md?.nom || '', email: md?.email || getGestionnaire(enf.territoire) },
       ].filter(d => d.email)
       const sujet = `Sortie de département ${destination} - ${enf.prenom} ${enf.nom} - ${profile.nom} ${profile.prenom}`
       const texte = `Bonjour,\n\nVeuillez trouver ci-joint la demande d'autorisation de sortie de département concernant ${enf.prenom} ${enf.nom}, du ${fmtDateFr(dateDebut)} au ${fmtDateFr(dateFin)}, à destination de ${destination}.\n\nMerci de bien vouloir en prendre connaissance et de me retourner un exemplaire signé.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
