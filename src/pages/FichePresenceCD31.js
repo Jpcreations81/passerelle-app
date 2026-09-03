@@ -1,4 +1,4 @@
-// FichePresenceCD31.js — v2026-08-25e — bloc attestation remonté, ajout ville AF ("Fait le ... à ..."), signature de l'AF intégrée (useSignature, comme les autres documents)
+// FichePresenceCD31.js — v2026-08-25f — titres encore agrandis (en-tête + "État de présence"), descendus de quelques lignes, logo agrandi en proportion
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -170,27 +170,27 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
 
         // Logo (haut gauche)
         if (logoImg) {
-          const logoW = 62
+          const logoW = 72
           const logoH = logoW * (logoImg.height / logoImg.width)
-          page.drawImage(logoImg, { x: M, y: height - 30 - logoH, width: logoW, height: logoH })
+          page.drawImage(logoImg, { x: M, y: height - 28 - logoH, width: logoW, height: logoH })
         }
 
         // En-tête texte (à droite du logo)
         const txX = M + 70
-        page.drawText('CONSEIL DÉPARTEMENTAL DE LA HAUTE-GARONNE', { x: txX, y: height - 42, size: 13, font: fontB, color: bleu })
-        page.drawText('Direction Enfance et Famille', { x: txX, y: height - 58, size: 11, font: fontB, color: gris })
-        page.drawText('Dispositif Enfance - Placement Familial', { x: txX, y: height - 72, size: 10, font, color: gris })
+        page.drawText('CONSEIL DÉPARTEMENTAL DE LA HAUTE-GARONNE', { x: txX, y: height - 44, size: 16, font: fontB, color: bleu })
+        page.drawText('Direction Enfance et Famille', { x: txX, y: height - 62, size: 13, font: fontB, color: gris })
+        page.drawText('Dispositif Enfance - Placement Familial', { x: txX, y: height - 78, size: 12, font, color: gris })
 
         // Titre centré
         const titre = 'État de présence'
         const sousTitre = "de l'Assistant(e) Familial(e)"
-        const titreW = fontB.widthOfTextAtSize(titre, 22)
-        const sousTitreW = font.widthOfTextAtSize(sousTitre, 13)
-        page.drawText(titre, { x: (width - titreW) / 2, y: height - 112, size: 22, font: fontB, color: bleu })
-        page.drawText(sousTitre, { x: (width - sousTitreW) / 2, y: height - 130, size: 13, font, color: gris })
+        const titreW = fontB.widthOfTextAtSize(titre, 26)
+        const sousTitreW = font.widthOfTextAtSize(sousTitre, 15)
+        page.drawText(titre, { x: (width - titreW) / 2, y: height - 132, size: 26, font: fontB, color: bleu })
+        page.drawText(sousTitre, { x: (width - sousTitreW) / 2, y: height - 152, size: 15, font, color: gris })
 
         // Identité
-        let yId = height - 160
+        let yId = height - 182
         page.drawText('NOM :', { x: M, y: yId, size: 10, font: fontB })
         page.drawText(profile.nom, { x: M + 40, y: yId, size: 10, font })
         page.drawText('Prénom :', { x: M + 200, y: yId, size: 10, font: fontB })
@@ -198,7 +198,7 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
         page.drawText('Mois :', { x: M + 380, y: yId, size: 10, font: fontB })
         page.drawText(`${MOIS_LABELS[selectedMois]} ${selectedAnnee}`, { x: M + 415, y: yId, size: 10, font })
 
-        let y = height - 185
+        let y = height - 205
 
         // Cadre "à retourner" (phrase avec segment en gras) + cadre nota bene (page 1 uniquement)
         if (avecNotaBene) {
