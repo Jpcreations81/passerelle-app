@@ -1,4 +1,4 @@
-// FichePresenceCD31.js — v2026-08-25g — logo remis à sa taille précédente (62pt), reste inchangé par rapport à v2026-08-25f
+// FichePresenceCD31.js — v2026-09-03g — logo remis à sa taille précédente (62pt), reste inchangé par rapport à v2026-09-03f — [correction date : ce fichier et ses versions a→g ont tous été créés le 03/09/2026, pas le 25/08]
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
