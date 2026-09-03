@@ -1,9 +1,17 @@
-// FichePresenceCD31.js — v2026-08-25b — accepte enfantIdInitial (pré-sélection auto du groupe) + bouton retour vers la vue CD81
+// FichePresenceCD31.js — v2026-08-25c — logo Haute-Garonne intégré + mise en page rapprochée du modèle officiel (cadre nota bene page 1, titre/sous-titre, bandeau période, colonnes centrées)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import Sidebar from '../components/Sidebar'
+import { LOGO_HG_B64 } from './logoHauteGaronne'
+
+function b64ToBytes(b64) {
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return bytes
+}
 
 const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -136,81 +144,137 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
     try {
       const pdfDoc = await PDFDocument.create()
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
-      const fontB = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+      const fontB = await pdfDoc.embedFont(StandardFonts.HelveticaBoldOblique === undefined ? StandardFonts.HelveticaBold : StandardFonts.HelveticaBold)
+      const fontI = await pdfDoc.embedFont(StandardFonts.HelveticaOblique)
+
+      let logoImg = null
+      try { logoImg = await pdfDoc.embedPng(b64ToBytes(LOGO_HG_B64)) } catch(e) { console.log('Logo error:', e.message) }
 
       const joursPrec = getJoursMoisPrecedent(selectedAnnee, selectedMois)
       const joursCourant = getJoursMoisEnCours(selectedAnnee, selectedMois)
 
-      function dessinerPage(jours, titrePeriode) {
+      function dessinerPage(jours, titrePeriode, avecNotaBene) {
         const page = pdfDoc.addPage([595, 842])
         const { width, height } = page.getSize()
-        const M = 40
+        const M = 42
+        const bleu = rgb(0.10, 0.16, 0.42)
+        const gris = rgb(0.35, 0.35, 0.35)
 
-        // En-tête
-        page.drawText('CONSEIL DÉPARTEMENTAL DE LA HAUTE-GARONNE', { x: M, y: height - 40, size: 12, font: fontB })
-        page.drawText('DIRECTION ENFANCE ET FAMILLE', { x: M, y: height - 55, size: 10, font: fontB })
-        page.drawText('Dispositif Enfance - Placement Familial', { x: M, y: height - 68, size: 9, font })
-        page.drawText('État de présence de l\'Assistant(e) Familial(e)', { x: M, y: height - 90, size: 13, font: fontB })
+        // Logo (haut gauche)
+        if (logoImg) {
+          const logoW = 55
+          const logoH = logoW * (logoImg.height / logoImg.width)
+          page.drawImage(logoImg, { x: M, y: height - 32 - logoH, width: logoW, height: logoH })
+        }
 
-        page.drawText(`NOM : ${profile.nom}`, { x: M, y: height - 112, size: 10, font })
-        page.drawText(`Prénom : ${profile.prenom}`, { x: M + 200, y: height - 112, size: 10, font })
-        page.drawText(`Mois : ${MOIS_LABELS[selectedMois]} ${selectedAnnee}`, { x: M + 380, y: height - 112, size: 10, font })
+        // En-tête texte (à droite du logo)
+        const txX = M + 70
+        page.drawText('CONSEIL DÉPARTEMENTAL DE LA HAUTE-GARONNE', { x: txX, y: height - 40, size: 11, font: fontB, color: bleu })
+        page.drawText('Direction Enfance et Famille', { x: txX, y: height - 54, size: 9, font: fontB, color: gris })
+        page.drawText('Dispositif Enfance - Placement Familial', { x: txX, y: height - 66, size: 9, font, color: gris })
+
+        // Titre centré
+        const titre = 'État de présence'
+        const sousTitre = "de l'Assistant(e) Familial(e)"
+        const titreW = fontB.widthOfTextAtSize(titre, 18)
+        const sousTitreW = font.widthOfTextAtSize(sousTitre, 11)
+        page.drawText(titre, { x: (width - titreW) / 2, y: height - 108, size: 18, font: fontB, color: bleu })
+        page.drawText(sousTitre, { x: (width - sousTitreW) / 2, y: height - 124, size: 11, font, color: gris })
+
+        // Identité
+        let yId = height - 155
+        page.drawText('NOM :', { x: M, y: yId, size: 10, font: fontB })
+        page.drawText(profile.nom, { x: M + 40, y: yId, size: 10, font })
+        page.drawText('Prénom :', { x: M + 200, y: yId, size: 10, font: fontB })
+        page.drawText(profile.prenom, { x: M + 250, y: yId, size: 10, font })
+        page.drawText('Mois :', { x: M + 380, y: yId, size: 10, font: fontB })
+        page.drawText(`${MOIS_LABELS[selectedMois]} ${selectedAnnee}`, { x: M + 415, y: yId, size: 10, font })
+
+        let y = height - 180
+
+        // Cadre nota bene (page 1 uniquement)
+        if (avecNotaBene) {
+          const notaLines = [
+            "À retourner sans faute le 25 de chaque mois, nom et signature indispensable pour le paiement.",
+            "Vous pouvez compléter le calendrier jusqu'au 30 ou 31.",
+            "La paye étant établie avec un mois d'avance, merci d'indiquer les éventuelles sorties",
+            "durant les périodes de vacances scolaires du mois suivant s'il y a lieu.",
+          ]
+          const notaH = 16 + notaLines.length * 13
+          page.drawRectangle({ x: M, y: y - notaH, width: width - 2*M, height: notaH, borderColor: gris, borderWidth: 0.7 })
+          notaLines.forEach((l, i) => {
+            page.drawText(l, { x: M + 8, y: y - 16 - i * 13, size: 8, font: fontI, color: gris })
+          })
+          y -= notaH + 12
+        }
+
+        // Bandeau titre tableau
+        const bandH = 22
+        page.drawRectangle({ x: M, y: y - bandH, width: width - 2*M, height: bandH, color: rgb(0.90, 0.93, 0.98) })
+        const periodeW = fontB.widthOfTextAtSize(titrePeriode, 10)
+        page.drawText(titrePeriode, { x: (width - periodeW) / 2, y: y - bandH + 7, size: 10, font: fontB, color: bleu })
+        y -= bandH
 
         // Tableau
-        const colJourW = 90
+        const colJourW = 85
         const colEnfW = (width - 2 * M - colJourW) / 3
-        let y = height - 150
-        const tableTop = y
+        const headH = 22
 
-        // En-têtes colonnes
-        page.drawText('Jours', { x: M + 5, y: y - 14, size: 9, font: fontB })
+        page.drawRectangle({ x: M, y: y - headH, width: width - 2*M, height: headH, color: rgb(0.95,0.96,0.98) })
+        page.drawText('Jours', { x: M + 8, y: y - headH + 7, size: 9, font: fontB, color: bleu })
         groupe.forEach((enf, i) => {
           const x = M + colJourW + i * colEnfW
-          page.drawText(enf ? `${enf.prenom} ${enf.nom}` : '', { x: x + 5, y: y - 14, size: 8, font: fontB })
+          const label = enf ? `${enf.prenom} ${enf.nom}` : ''
+          const lw = fontB.widthOfTextAtSize(label, 8)
+          page.drawText(label, { x: x + (colEnfW - lw)/2, y: y - headH + 7, size: 8, font: fontB, color: bleu })
         })
-        y -= 20
-        const periodeW = fontB.widthOfTextAtSize(titrePeriode, 9)
-        page.drawText(titrePeriode, { x: M + colJourW + (width - 2*M - colJourW - periodeW)/2, y: y - 12, size: 9, font: fontB })
-        y -= 18
+        y -= headH
 
-        const rowH = (y - 30) / jours.length
+        const rowH = 15.5
         jours.forEach((d, idx) => {
           const rowY = y - idx * rowH
           const key = fmt(d)
           const dim = d.getDay() === 0
           if (dim) {
-            page.drawRectangle({ x: M, y: rowY - rowH, width: width - 2*M, height: rowH, color: rgb(0.9,0.93,0.98) })
+            page.drawRectangle({ x: M, y: rowY - rowH, width: width - 2*M, height: rowH, color: rgb(0.92,0.95,0.99) })
           }
-          page.drawText(`${JOURS_LABELS[d.getDay()].slice(0,3)} ${d.getDate()}`, { x: M + 5, y: rowY - rowH + 4, size: 8, font })
+          page.drawText(`${JOURS_LABELS[d.getDay()].slice(0,3)}. ${d.getDate()}`, { x: M + 8, y: rowY - rowH + 4.5, size: 8, font: dim ? fontB : font })
           groupe.forEach((enf, i) => {
             const x = M + colJourW + i * colEnfW
             const present = presencesParEnfant[enf.id]?.[key]
             if (present) {
-              page.drawText('x', { x: x + colEnfW/2 - 3, y: rowY - rowH + 4, size: 9, font: fontB })
+              const xw = fontB.widthOfTextAtSize('x', 9)
+              page.drawText('x', { x: x + colEnfW/2 - xw/2, y: rowY - rowH + 4.5, size: 9, font: fontB, color: bleu })
             }
           })
-          page.drawLine({ start:{x:M, y:rowY-rowH}, end:{x:width-M, y:rowY-rowH}, thickness:0.3, color: rgb(0.7,0.7,0.7) })
+          page.drawLine({ start:{x:M, y:rowY-rowH}, end:{x:width-M, y:rowY-rowH}, thickness:0.4, color: rgb(0.75,0.75,0.75) })
         })
 
-        // Cadre extérieur
-        page.drawRectangle({ x: M, y: y - jours.length*rowH, width: width - 2*M, height: jours.length*rowH + 20, borderColor: rgb(0.3,0.3,0.3), borderWidth: 0.7 })
-        for (let i = 0; i <= 3; i++) {
+        const tableBottom = y - jours.length * rowH
+        // Cadre extérieur + séparateurs colonnes
+        page.drawRectangle({ x: M, y: tableBottom, width: width - 2*M, height: (y + headH) - tableBottom, borderColor: gris, borderWidth: 0.8 })
+        for (let i = 1; i <= 3; i++) {
           const x = M + colJourW + i * colEnfW
-          page.drawLine({ start:{x, y: y+20}, end:{x, y: y - jours.length*rowH}, thickness:0.3, color: rgb(0.7,0.7,0.7) })
+          page.drawLine({ start:{x, y: y + headH}, end:{x, y: tableBottom}, thickness: i === 0 ? 0.8 : 0.4, color: gris })
         }
-        page.drawLine({ start:{x:M+colJourW, y:y+20}, end:{x:M+colJourW, y: y - jours.length*rowH}, thickness:0.7, color: rgb(0.3,0.3,0.3) })
+        page.drawLine({ start:{x:M+colJourW, y:y+headH}, end:{x:M+colJourW, y: tableBottom}, thickness:0.8, color: gris })
 
-        return page
+        // Pied de page
+        page.drawText('WWW.HAUTEGARONNE.FR', { x: (width - font.widthOfTextAtSize('WWW.HAUTEGARONNE.FR', 7))/2, y: 25, size: 7, font, color: gris })
+
+        return { page, bottom: tableBottom }
       }
 
-      dessinerPage(joursPrec, 'MOIS PRÉCÉDENT')
-      const dernierePage = dessinerPage(joursCourant, 'MOIS EN COURS')
+      const p1 = dessinerPage(joursPrec, 'MOIS PRÉCÉDENT', true)
+      const p2 = dessinerPage(joursCourant, 'MOIS EN COURS', false)
+      const dernierePage = p2.page
 
       // Attestation + signature sur la dernière page
       const { height } = dernierePage.getSize()
-      dernierePage.drawText("J'atteste sur l'honneur l'exactitude des renseignements portés ci-après.", { x: 40, y: 60, size: 9, font: fontB })
-      dernierePage.drawText(`Fait le : ${new Date().toLocaleDateString('fr-FR')}`, { x: 40, y: 40, size: 9, font })
-      dernierePage.drawText("Signature de l'Assistant(e) Familial(e)", { x: 350, y: 40, size: 9, font })
+      const ySign = Math.min(p2.bottom - 30, 70)
+      dernierePage.drawText("J'atteste sur l'honneur l'exactitude des renseignements portés ci-après.", { x: 42, y: ySign, size: 9, font: fontB })
+      dernierePage.drawText(`Fait le : ${new Date().toLocaleDateString('fr-FR')}`, { x: 42, y: ySign - 20, size: 9, font })
+      dernierePage.drawText("Signature de l'Assistant(e) Familial(e)", { x: 350, y: ySign - 20, size: 9, font })
 
       const pdfBytes = await pdfDoc.save()
       const blob = new Blob([pdfBytes], { type: 'application/pdf' })
