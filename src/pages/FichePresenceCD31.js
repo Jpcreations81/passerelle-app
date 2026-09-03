@@ -1,10 +1,11 @@
-// FichePresenceCD31.js — v2026-08-25d — titres agrandis, consigne de retour et nota bene séparés en 2 cadres distincts (segment gras dans le premier, puces "." dans le second)
+// FichePresenceCD31.js — v2026-08-25e — bloc attestation remonté, ajout ville AF ("Fait le ... à ..."), signature de l'AF intégrée (useSignature, comme les autres documents)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import Sidebar from '../components/Sidebar'
 import { LOGO_HG_B64 } from './logoHauteGaronne'
+import { useSignature } from './useSignature'
 
 function b64ToBytes(b64) {
   const bin = atob(b64)
@@ -57,6 +58,7 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [toast, setToast] = useState('')
+  const { getSignatureBytes, SignatureModal } = useSignature(profile)
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
@@ -149,6 +151,12 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
 
       let logoImg = null
       try { logoImg = await pdfDoc.embedPng(b64ToBytes(LOGO_HG_B64)) } catch(e) { console.log('Logo error:', e.message) }
+
+      let sigImg = null
+      try {
+        const sigBytes = await getSignatureBytes()
+        if (sigBytes) sigImg = await pdfDoc.embedPng(sigBytes)
+      } catch(e) { console.log('Signature error:', e.message) }
 
       const joursPrec = getJoursMoisPrecedent(selectedAnnee, selectedMois)
       const joursCourant = getJoursMoisEnCours(selectedAnnee, selectedMois)
@@ -296,10 +304,15 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
 
       // Attestation + signature sur la dernière page
       const { height } = dernierePage.getSize()
-      const ySign = Math.min(p2.bottom - 30, 70)
+      const ySign = Math.min(p2.bottom + 30, 100)
       dernierePage.drawText("J'atteste sur l'honneur l'exactitude des renseignements portés ci-après.", { x: 42, y: ySign, size: 9, font: fontB })
-      dernierePage.drawText(`Fait le : ${new Date().toLocaleDateString('fr-FR')}`, { x: 42, y: ySign - 20, size: 9, font })
+      dernierePage.drawText(`Fait le : ${new Date().toLocaleDateString('fr-FR')} à ${profile.ville || '........................'}`, { x: 42, y: ySign - 20, size: 9, font })
       dernierePage.drawText("Signature de l'Assistant(e) Familial(e)", { x: 350, y: ySign - 20, size: 9, font })
+      if (sigImg) {
+        const sigW = 140
+        const sigH = sigW * (sigImg.height / sigImg.width)
+        dernierePage.drawImage(sigImg, { x: 350, y: ySign - 25 - sigH, width: sigW, height: sigH })
+      }
 
       const pdfBytes = await pdfDoc.save()
       const blob = new Blob([pdfBytes], { type: 'application/pdf' })
@@ -456,6 +469,7 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
         </button>
 
         {toast && <div className="toast">{toast}</div>}
+        {SignatureModal}
       </div>
     </div>
   )
