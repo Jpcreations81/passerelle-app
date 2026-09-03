@@ -1,4 +1,4 @@
-// FichePresence.js — v2026-05-21d — ajout log debug temporaire pour diagnostiquer le routage CD31
+// FichePresence.js — v2026-05-21e — marqueur visuel rouge de version (diagnostic déploiement) + nettoyage doublon showToast
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -279,8 +279,6 @@ export default function FichePresence({ profile }) {
     showToast('📤 Fiche transmise à ase.gaillac-graulhet@tarn.fr !')
   }
 
-  function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
-
   if (loading) return (
     <div className="app-layout"><Sidebar profile={profile} />
       <div className="main-content"><div className="loading-spinner">⏳ Chargement...</div></div>
@@ -353,7 +351,7 @@ export default function FichePresence({ profile }) {
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
                 <div className="form-group">
-                  <label className="form-label">Enfant</label>
+                  <label className="form-label" style={{ background:'red', color:'#fff', padding:'2px 8px' }}>Enfant [v2026-05-21d]</label>
                   <select className="form-control" value={selectedEnfant?.id || ''}
                     onChange={e => {
                       const liste = typeFiche === 'intermittent' ? enfantsRelais : enfants
