@@ -1,9 +1,10 @@
-// FichePresence.js — v2026-05-21a — fiche intermittente pour AF relais + fiche permanente AF principal
+// FichePresence.js — v2026-05-21b — ajout switcher CD81/CD31 et détection auto (nouveau composant FichePresenceCD31.js)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import FichePresencePrint from './FichePresencePrint'
+import FichePresenceCD31 from './FichePresenceCD31'
 
 const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -61,11 +62,21 @@ export default function FichePresence({ profile }) {
   const [typeFiche, setTypeFiche] = useState('permanent') // 'permanent' | 'intermittent'
   const [afPrincipal, setAfPrincipal] = useState(null) // pour fiche intermittente
   const [relaisEnCours, setRelaisEnCours] = useState(null) // événement relais sélectionné
+  const [hasCD31, setHasCD31] = useState(false)
+  const [vue, setVue] = useState('cd81') // 'cd81' | 'cd31'
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
-  useEffect(() => { fetchEnfants() }, [])
+  useEffect(() => { fetchEnfants(); detecterCD31() }, [])
   useEffect(() => { if (selectedEnfant) loadFiche() }, [selectedEnfant, selectedMois, selectedAnnee, typeFiche])
+
+  async function detecterCD31() {
+    const { data: enfants } = await supabase.from('enfants').select('md_id').eq('af_principal_id', profile.id)
+    const mdIds = [...new Set((enfants || []).map(e => e.md_id).filter(Boolean))]
+    if (mdIds.length === 0) return
+    const { data: maisons } = await supabase.from('maisons_departement').select('id, departement').in('id', mdIds)
+    if ((maisons || []).some(m => m.departement === '31')) setHasCD31(true)
+  }
 
   async function fetchEnfants() {
     // Enfants principaux de l'AF
@@ -277,10 +288,19 @@ export default function FichePresence({ profile }) {
     </div>
   )
 
+  if (vue === 'cd31') return <FichePresenceCD31 profile={profile} />
+
   return (
     <div className="app-layout">
       <Sidebar profile={profile} />
       <div className="main-content">
+
+        {hasCD31 && (
+          <div className="no-print" style={{ display:'flex', gap:8, padding:'12px 16px 0' }}>
+            <button onClick={() => setVue('cd81')} style={{ padding:'6px 14px', borderRadius:20, border:'1px solid #1a4b8f', background:'#1a4b8f', color:'#fff', fontSize:12, fontWeight:700, cursor:'pointer' }}>Tarn (81)</button>
+            <button onClick={() => setVue('cd31')} style={{ padding:'6px 14px', borderRadius:20, border:'1px solid #1a4b8f', background:'#fff', color:'#1a4b8f', fontSize:12, fontWeight:700, cursor:'pointer' }}>Haute-Garonne (31)</button>
+          </div>
+        )}
 
         <header className="page-header no-print">
           <button onClick={() => navigate('/')} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'#5a6478' }}>‹</button>
