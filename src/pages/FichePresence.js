@@ -1,10 +1,9 @@
-// FichePresence.js — v2026-05-21e — marqueur visuel rouge de version (diagnostic déploiement) + nettoyage doublon showToast
+// FichePresence.js — v2026-05-21f — retour au fichier v2026-05-21, version erreur de code : fichier non routé dans App.js (mort), modifié par erreur le 25/08/2026 en pensant qu'il était le vrai fichier de la page /fiche-presence (c'est en réalité Fichepresencepermanent.js) ; restauré à l'identique de la version d'origine, aucune modification fonctionnelle
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import FichePresencePrint from './FichePresencePrint'
-import FichePresenceCD31 from './FichePresenceCD31'
 
 const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -71,17 +70,8 @@ export default function FichePresence({ profile }) {
   async function fetchEnfants() {
     // Enfants principaux de l'AF
     const { data: enfantsPrincipaux } = await supabase
-      .from('enfants').select('id, nom, prenom, numero_dossier, af_principal_id, md_id')
+      .from('enfants').select('id, nom, prenom, numero_dossier, af_principal_id')
       .eq('af_principal_id', profile.id)
-
-    // Départements des MD concernées
-    const mdIds = [...new Set((enfantsPrincipaux || []).map(e => e.md_id).filter(Boolean))]
-    let departementParMd = {}
-    if (mdIds.length > 0) {
-      const { data: maisons } = await supabase.from('maisons_departement').select('id, departement').in('id', mdIds)
-      ;(maisons || []).forEach(m => { departementParMd[m.id] = m.departement })
-    }
-    const enfantsAvecDept = (enfantsPrincipaux || []).map(e => ({ ...e, departement: e.md_id ? departementParMd[e.md_id] : '81' }))
 
     // Relais actifs où cet AF est participant
     const debut = new Date(new Date().getFullYear(), 0, 1)
@@ -109,7 +99,7 @@ export default function FichePresence({ profile }) {
     }
     setEnfantsRelais(relaisEnfants)
 
-    const tous = [...enfantsAvecDept]
+    const tous = [...(enfantsPrincipaux || [])]
     if (tous.length > 0) setSelectedEnfant(tous[0])
     setEnfants(tous)
     setLoading(false)
@@ -279,14 +269,13 @@ export default function FichePresence({ profile }) {
     showToast('📤 Fiche transmise à ase.gaillac-graulhet@tarn.fr !')
   }
 
+  function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
+
   if (loading) return (
     <div className="app-layout"><Sidebar profile={profile} />
       <div className="main-content"><div className="loading-spinner">⏳ Chargement...</div></div>
     </div>
   )
-
-  if (selectedEnfant) console.log('DEBUG selectedEnfant:', selectedEnfant.prenom, 'departement:', selectedEnfant.departement)
-  if (selectedEnfant?.departement === '31') return <FichePresenceCD31 profile={profile} enfantIdInitial={selectedEnfant.id} onRetourListe={() => setSelectedEnfant(null)} />
 
   return (
     <div className="app-layout">
@@ -351,7 +340,7 @@ export default function FichePresence({ profile }) {
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
                 <div className="form-group">
-                  <label className="form-label" style={{ background:'red', color:'#fff', padding:'2px 8px' }}>Enfant [v2026-05-21d]</label>
+                  <label className="form-label">Enfant</label>
                   <select className="form-control" value={selectedEnfant?.id || ''}
                     onChange={e => {
                       const liste = typeFiche === 'intermittent' ? enfantsRelais : enfants
