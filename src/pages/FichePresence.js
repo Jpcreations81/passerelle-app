@@ -1,4 +1,4 @@
-// FichePresence.js — v2026-05-21a — fiche intermittente pour AF relais + fiche permanente AF principal
+// FichePresence.js — v2026-05-21f — retour au fichier v2026-05-21, version erreur de code : fichier non routé dans App.js (mort), modifié par erreur le 25/08/2026 en pensant qu'il était le vrai fichier de la page /fiche-presence (c'est en réalité Fichepresencepermanent.js) ; restauré à l'identique de la version d'origine, aucune modification fonctionnelle
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
