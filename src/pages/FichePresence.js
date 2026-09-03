@@ -1,4 +1,4 @@
-// FichePresence.js — v2026-05-21c — routage automatique CD31 selon l'enfant sélectionné (plus de bouton bascule manuel)
+// FichePresence.js — v2026-05-21d — ajout log debug temporaire pour diagnostiquer le routage CD31
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -287,6 +287,7 @@ export default function FichePresence({ profile }) {
     </div>
   )
 
+  if (selectedEnfant) console.log('DEBUG selectedEnfant:', selectedEnfant.prenom, 'departement:', selectedEnfant.departement)
   if (selectedEnfant?.departement === '31') return <FichePresenceCD31 profile={profile} enfantIdInitial={selectedEnfant.id} onRetourListe={() => setSelectedEnfant(null)} />
 
   return (
