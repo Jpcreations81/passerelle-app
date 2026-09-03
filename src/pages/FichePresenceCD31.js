@@ -1,4 +1,4 @@
-// FichePresenceCD31.js — v2026-08-25f — titres encore agrandis (en-tête + "État de présence"), descendus de quelques lignes, logo agrandi en proportion
+// FichePresenceCD31.js — v2026-08-25g — logo remis à sa taille précédente (62pt), reste inchangé par rapport à v2026-08-25f
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -170,9 +170,9 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
 
         // Logo (haut gauche)
         if (logoImg) {
-          const logoW = 72
+          const logoW = 62
           const logoH = logoW * (logoImg.height / logoImg.width)
-          page.drawImage(logoImg, { x: M, y: height - 28 - logoH, width: logoW, height: logoH })
+          page.drawImage(logoImg, { x: M, y: height - 30 - logoH, width: logoW, height: logoH })
         }
 
         // En-tête texte (à droite du logo)
