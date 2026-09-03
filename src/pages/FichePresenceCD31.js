@@ -1,4 +1,4 @@
-// FichePresenceCD31.js — v2026-08-25c — logo Haute-Garonne intégré + mise en page rapprochée du modèle officiel (cadre nota bene page 1, titre/sous-titre, bandeau période, colonnes centrées)
+// FichePresenceCD31.js — v2026-08-25d — titres agrandis, consigne de retour et nota bene séparés en 2 cadres distincts (segment gras dans le premier, puces "." dans le second)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -162,27 +162,27 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
 
         // Logo (haut gauche)
         if (logoImg) {
-          const logoW = 55
+          const logoW = 62
           const logoH = logoW * (logoImg.height / logoImg.width)
-          page.drawImage(logoImg, { x: M, y: height - 32 - logoH, width: logoW, height: logoH })
+          page.drawImage(logoImg, { x: M, y: height - 30 - logoH, width: logoW, height: logoH })
         }
 
         // En-tête texte (à droite du logo)
         const txX = M + 70
-        page.drawText('CONSEIL DÉPARTEMENTAL DE LA HAUTE-GARONNE', { x: txX, y: height - 40, size: 11, font: fontB, color: bleu })
-        page.drawText('Direction Enfance et Famille', { x: txX, y: height - 54, size: 9, font: fontB, color: gris })
-        page.drawText('Dispositif Enfance - Placement Familial', { x: txX, y: height - 66, size: 9, font, color: gris })
+        page.drawText('CONSEIL DÉPARTEMENTAL DE LA HAUTE-GARONNE', { x: txX, y: height - 42, size: 13, font: fontB, color: bleu })
+        page.drawText('Direction Enfance et Famille', { x: txX, y: height - 58, size: 11, font: fontB, color: gris })
+        page.drawText('Dispositif Enfance - Placement Familial', { x: txX, y: height - 72, size: 10, font, color: gris })
 
         // Titre centré
         const titre = 'État de présence'
         const sousTitre = "de l'Assistant(e) Familial(e)"
-        const titreW = fontB.widthOfTextAtSize(titre, 18)
-        const sousTitreW = font.widthOfTextAtSize(sousTitre, 11)
-        page.drawText(titre, { x: (width - titreW) / 2, y: height - 108, size: 18, font: fontB, color: bleu })
-        page.drawText(sousTitre, { x: (width - sousTitreW) / 2, y: height - 124, size: 11, font, color: gris })
+        const titreW = fontB.widthOfTextAtSize(titre, 22)
+        const sousTitreW = font.widthOfTextAtSize(sousTitre, 13)
+        page.drawText(titre, { x: (width - titreW) / 2, y: height - 112, size: 22, font: fontB, color: bleu })
+        page.drawText(sousTitre, { x: (width - sousTitreW) / 2, y: height - 130, size: 13, font, color: gris })
 
         // Identité
-        let yId = height - 155
+        let yId = height - 160
         page.drawText('NOM :', { x: M, y: yId, size: 10, font: fontB })
         page.drawText(profile.nom, { x: M + 40, y: yId, size: 10, font })
         page.drawText('Prénom :', { x: M + 200, y: yId, size: 10, font: fontB })
@@ -190,22 +190,47 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
         page.drawText('Mois :', { x: M + 380, y: yId, size: 10, font: fontB })
         page.drawText(`${MOIS_LABELS[selectedMois]} ${selectedAnnee}`, { x: M + 415, y: yId, size: 10, font })
 
-        let y = height - 180
+        let y = height - 185
 
-        // Cadre nota bene (page 1 uniquement)
+        // Cadre "à retourner" (phrase avec segment en gras) + cadre nota bene (page 1 uniquement)
         if (avecNotaBene) {
+          // Boîte 1 : consigne de retour
+          const retourH = 26
+          page.drawRectangle({ x: M, y: y - retourH, width: width - 2*M, height: retourH, borderColor: gris, borderWidth: 0.7 })
+          const seg1 = 'À retourner sans faute le '
+          const seg2 = '25 de chaque mois, nom et signature indispensable'
+          const seg3 = ' pour le paiement.'
+          const seg1W = font.widthOfTextAtSize(seg1, 9)
+          const seg2W = fontB.widthOfTextAtSize(seg2, 9)
+          const totalW = seg1W + seg2W + font.widthOfTextAtSize(seg3, 9)
+          let cx = M + (width - 2*M - totalW) / 2
+          const cy = y - retourH/2 - 3
+          page.drawText(seg1, { x: cx, y: cy, size: 9, font, color: rgb(0,0,0) }); cx += seg1W
+          page.drawText(seg2, { x: cx, y: cy, size: 9, font: fontB, color: rgb(0,0,0) }); cx += seg2W
+          page.drawText(seg3, { x: cx, y: cy, size: 9, font, color: rgb(0,0,0) })
+          y -= retourH + 8
+
+          // Boîte 2 : nota bene
+          const notaLabel = 'nota bene'
           const notaLines = [
-            "À retourner sans faute le 25 de chaque mois, nom et signature indispensable pour le paiement.",
             "Vous pouvez compléter le calendrier jusqu'au 30 ou 31.",
-            "La paye étant établie avec un mois d'avance, merci d'indiquer les éventuelles sorties",
-            "durant les périodes de vacances scolaires du mois suivant s'il y a lieu.",
+            "Au cas où la période du 25 au 31 ne serait pas exacte, il vous appartient le mois suivant de",
+            "compléter les cases du début du calendrier (25 au 31).",
+            "La paye étant établie avec un mois d'avance, vous seriez aimable de nous indiquer si possible,",
+            "en bas du calendrier, les éventuelles sorties durant les périodes de vacances scolaires du mois",
+            "suivant s'il y a lieu.",
+            "Ce renseignement concerne surtout les mois de Juin, Juillet, Août, Septembre.",
           ]
-          const notaH = 16 + notaLines.length * 13
+          const puces = [0, 3, 6] // lignes qui commencent une nouvelle puce (reçoivent le ".")
+          const notaH = 24 + notaLines.length * 12
           page.drawRectangle({ x: M, y: y - notaH, width: width - 2*M, height: notaH, borderColor: gris, borderWidth: 0.7 })
+          const labelW = fontI.widthOfTextAtSize(notaLabel, 9)
+          page.drawText(notaLabel, { x: (width - labelW)/2, y: y - 14, size: 9, font: fontI, color: gris })
           notaLines.forEach((l, i) => {
-            page.drawText(l, { x: M + 8, y: y - 16 - i * 13, size: 8, font: fontI, color: gris })
+            const prefix = puces.includes(i) ? '. ' : '   '
+            page.drawText(prefix + l, { x: M + 10, y: y - 30 - i * 12, size: 8, font, color: rgb(0,0,0) })
           })
-          y -= notaH + 12
+          y -= notaH + 10
         }
 
         // Bandeau titre tableau
