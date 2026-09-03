@@ -1,9 +1,10 @@
-// Fichepresencepermanent.js — v2026-06-17a — mois par défaut = mois en cours
+// Fichepresencepermanent.js — v2026-06-17b — routage automatique CD31 selon département de l'enfant sélectionné (nouveau composant FichePresenceCD31.js)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import FichePresence2 from './Fichepresence2'
+import FichePresenceCD31 from './FichePresenceCD31'
 
 const MOIS_LABELS = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
 const JOURS_LABELS = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
@@ -64,8 +65,18 @@ export default function FichePresence({ profile }) {
   useEffect(() => { if (selectedEnfant) loadFiche() }, [selectedEnfant, selectedMois, selectedAnnee])
 
   async function fetchEnfants() {
-    const { data } = await supabase.from('enfants').select('id, nom, prenom, numero_dossier, territoire').eq('af_principal_id', profile.id)
-    if (data) { setEnfants(data); if (data.length > 0) setSelectedEnfant(data[0]) }
+    const { data } = await supabase.from('enfants').select('id, nom, prenom, numero_dossier, territoire, md_id').eq('af_principal_id', profile.id)
+    if (data) {
+      const mdIds = [...new Set(data.map(e => e.md_id).filter(Boolean))]
+      let departementParMd = {}
+      if (mdIds.length > 0) {
+        const { data: maisons } = await supabase.from('maisons_departement').select('id, departement').in('id', mdIds)
+        ;(maisons || []).forEach(m => { departementParMd[m.id] = m.departement })
+      }
+      const enfantsAvecDept = data.map(e => ({ ...e, departement: e.md_id ? departementParMd[e.md_id] : '81' }))
+      setEnfants(enfantsAvecDept)
+      if (enfantsAvecDept.length > 0) setSelectedEnfant(enfantsAvecDept[0])
+    }
     setLoading(false)
   }
 
@@ -174,6 +185,8 @@ export default function FichePresence({ profile }) {
       <div className="main-content"><div className="loading-spinner">⏳ Chargement...</div></div>
     </div>
   )
+
+  if (selectedEnfant?.departement === '31') return <FichePresenceCD31 profile={profile} enfantIdInitial={selectedEnfant.id} onRetourListe={() => setSelectedEnfant(null)} />
 
   return (
     <div className="app-layout">
