@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-08-06h — carte d'affichage MD reconstruite depuis md_id + maisonsDept (source unique) au lieu de champs texte dupliqués (md_nom/md_adresse/...) jamais renseignés quand la MD est choisie ailleurs (ex. ListeEnfants.js)
+// DossierEnfant.js — v2026-08-06i — fix bug critique : champ 'type' manquant à la création des dossiers enfant par défaut (défaut base = 'af'), faisait apparaître les dossiers Médical/Scolaire/Visites dans l'espace personnel de l'AF au lieu de la fiche enfant
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -723,12 +723,12 @@ export default function DossierEnfant({ profile }) {
         // Créer les dossiers par défaut
         for (const d of DOSSIERS_ENFANT_DEFAUT) {
           const { data: parent } = await supabase.from('documents_dossiers').insert({
-            nom: d.nom, parent_id: null, territoire: id, created_by: profile?.id
+            nom: d.nom, parent_id: null, territoire: id, created_by: profile?.id, type: 'enfant'
           }).select().single()
           if (parent) {
             for (const enfant of d.enfants) {
               await supabase.from('documents_dossiers').insert({
-                nom: enfant, parent_id: parent.id, territoire: id, created_by: profile?.id
+                nom: enfant, parent_id: parent.id, territoire: id, created_by: profile?.id, type: 'enfant'
               })
             }
           }
