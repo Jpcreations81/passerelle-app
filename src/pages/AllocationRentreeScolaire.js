@@ -1,4 +1,4 @@
-// AllocationRentreeScolaire.js - v2026-08-06 - PDF également sauvegardé dans le dossier Administratif de l'enfant (visible dans l'onglet Docs)
+// AllocationRentreeScolaire.js - v2026-08-06b - séparation Télécharger (aucune sauvegarde) / Transmettre (sauvegarde Storage+Administratif+suivi + modal d'envoi multi-enfants) ; fix destinataires (table/colonne maisons_departement correctes, priorité au md_id précis) ; fix type manquant sur le dossier Administratif enfant (même bug que DossierEnfant.js)
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -22,14 +22,14 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
   }, [])
 
   async function fetchMaisons() {
-    const { data } = await supabase.from('maisons_departementales').select('nom, territoire, email_gestionnaire')
+    const { data } = await supabase.from('maisons_departement').select('id, nom, territoire, email')
     if (data) setMaisonsDepart(data)
   }
 
   async function fetchEnfants() {
     const { data } = await supabase
       .from('enfants')
-      .select('id, prenom, nom, ecole_nom, ecole_classe, ecole_adresse, type_placement, territoire')
+      .select('id, prenom, nom, ecole_nom, ecole_classe, ecole_adresse, type_placement, territoire, md_id')
       .eq('af_principal_id', profile.id)
       .not('type_placement', 'eq', 'non_place')
     if (data) {
@@ -60,32 +60,21 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
 
 
   function getEmailsPourEnfant(enf) {
-    // Trouver le territoire de l'enfant dans les MD
+    // Priorité : MD précise via md_id (source unique, fiable)
+    if (enf.md_id) {
+      const md = maisonsDepart.find(m => m.id === enf.md_id)
+      if (md?.email) return [md.email]
+    }
+    // Repli pour les enfants sans md_id encore renseigné : toutes les MD du même secteur
     const md = maisonsDepart.find(m => m.nom === enf.territoire)
     const territoire = md ? md.territoire : 'Ouest'
-    // Récupérer toutes les adresses distinctes du territoire
     const emails = [...new Set(
       maisonsDepart
         .filter(m => m.territoire === territoire)
-        .map(m => m.email_gestionnaire)
+        .map(m => m.email)
+        .filter(Boolean)
     )]
-    console.log('territoire:', enf.territoire, '→', territoire, '→ emails:', emails)
     return emails
-  }
-
-  function envoyerEmail(enf) {
-    const emails = getEmailsPourEnfant(enf)
-    const sujet = `Scolarité 2026/2027 - ${enf.nom} ${enf.prenom} - ${profile.nom} ${profile.prenom}`
-    const fonction = profile.civilite === 'Madame' ? 'Assistante Familiale' : 'Assistant Familial'
-    const texte = `Bonjour,\n\nVeuillez trouver ci-joint la fiche de scolarité 2026/2027 concernant ${enf.prenom} ${enf.nom}.\n\nMerci de bien vouloir en prendre connaissance et de me contacter pour toute information complémentaire.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
-    setInfoEnvoi({ enf, emails, sujet, texte })
-    const maintenant = new Date().toISOString()
-    supabase.from('allocations_scolaires')
-      .upsert({ enfant_id: enf.id, af_id: profile.id, annee_scolaire: ANNEE_SCOLAIRE, email_envoye_le: maintenant }, { onConflict: 'enfant_id,annee_scolaire' })
-      .then(({ error }) => {
-        if (error) console.log('Marquage envoyé échoué:', error.message)
-        else setEnfants(prev => prev.map(e => e.id === enf.id ? { ...e, allocation_envoyee_le: maintenant } : e))
-      })
   }
 
   async function generatePDFPourEnfant(enf) {
@@ -93,7 +82,7 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
     if (!sigBytes && profile?.signature_mode !== 'chaque_fois') {
       // signature optionnelle
     }
-    await genererUnPDF(enf, sigBytes)
+    await genererUnPDF(enf, sigBytes, false)
   }
 
   async function generatePDF() {
@@ -104,11 +93,36 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       return
     }
     for (const enf of enfantsInclus) {
-      await genererUnPDF(enf, sigBytes)
+      await genererUnPDF(enf, sigBytes, false)
     }
   }
 
-  async function genererUnPDF(enf, sigBytes) {
+  async function transmettre() {
+    const enfantsInclus = enfants.filter(e => e.inclus)
+    if (enfantsInclus.length === 0) { showToast('⚠️ Aucun enfant sélectionné'); return }
+    setGenerating(true)
+    const sigBytes = await getSignatureBytes()
+    const fonction = profile.civilite === 'Madame' ? 'Assistante Familiale' : 'Assistant Familial'
+    const blocs = []
+    for (const enf of enfantsInclus) {
+      const res = await genererUnPDF(enf, sigBytes, true)
+      const emails = getEmailsPourEnfant(enf)
+      const sujet = `Scolarité ${ANNEE_SCOLAIRE} - ${enf.nom} ${enf.prenom} - ${profile.nom} ${profile.prenom}`
+      const texte = `Bonjour,\n\nVeuillez trouver ci-joint la fiche de scolarité ${ANNEE_SCOLAIRE} concernant ${enf.prenom} ${enf.nom}.\n\nMerci de bien vouloir en prendre connaissance et de me contacter pour toute information complémentaire.\n\nCordialement,\n${profile.prenom} ${profile.nom}\n${fonction}`
+      blocs.push({ enf, emails, sujet, texte, pdf: res })
+      const maintenant = new Date().toISOString()
+      supabase.from('allocations_scolaires')
+        .upsert({ enfant_id: enf.id, af_id: profile.id, annee_scolaire: ANNEE_SCOLAIRE, email_envoye_le: maintenant }, { onConflict: 'enfant_id,annee_scolaire' })
+        .then(({ error }) => {
+          if (error) console.log('Marquage envoyé échoué:', error.message)
+          else setEnfants(prev => prev.map(e => e.id === enf.id ? { ...e, allocation_envoyee_le: maintenant } : e))
+        })
+    }
+    setGenerating(false)
+    setInfoEnvoi({ groupes: blocs })
+  }
+
+  async function genererUnPDF(enf, sigBytes, avecEnvoi) {
 
     setGenerating(true)
     try {
@@ -297,70 +311,74 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       }
 
       const pdfBytes = await pdfDoc.save()
-
-      // Sauvegarde dans Supabase Storage
-      const pdfPath = `${ANNEE_SCOLAIRE.replace('/', '-')}/${profile.id}/${enf.id}_${enf.nom}.pdf`
-      const { error: uploadError } = await supabase.storage
-        .from('allocations-scolaires')
-        .upload(pdfPath, pdfBytes, { contentType: 'application/pdf', upsert: true })
-      if (uploadError) console.log('Upload storage échoué:', uploadError.message)
-
-      // Trace en base (généré / classe / école au moment T)
-      const { error: dbError } = await supabase
-        .from('allocations_scolaires')
-        .upsert({
-          enfant_id: enf.id,
-          af_id: profile.id,
-          annee_scolaire: ANNEE_SCOLAIRE,
-          classe: enf.classe,
-          ecole: enf.ecole,
-          pdf_path: pdfPath,
-          date_generation: new Date().toISOString(),
-        }, { onConflict: 'enfant_id,annee_scolaire' })
-      if (dbError) console.log('Suivi allocation échoué:', dbError.message)
-      else setEnfants(prev => prev.map(e => e.id === enf.id ? { ...e, allocation_generee_le: new Date().toISOString() } : e))
-
       const blob = new Blob([pdfBytes], { type: 'application/pdf' })
       const nomFichier = `Allocation_rentree_scolaire_2026_2027_${enf.nom}_${enf.prenom}.pdf`
 
-      // Sauvegarde aussi dans le dossier Administratif de l'enfant (visible dans l'onglet Docs)
-      try {
-        let { data: dossier } = await supabase.from('documents_dossiers')
-          .select('id').eq('territoire', enf.id).eq('nom', '📋 Administratif').is('parent_id', null).single()
-        let dossierId = dossier?.id
-        if (!dossierId) {
-          const { data: newD } = await supabase.from('documents_dossiers').insert({
-            nom: '📋 Administratif', parent_id: null, territoire: enf.id, created_by: profile.id
-          }).select().single()
-          dossierId = newD?.id
-        }
-        if (dossierId) {
-          const storagePath = `enfants/${enf.id}/docs/${dossierId}/${Date.now()}.pdf`
-          const { error: storageErr } = await supabase.storage
-            .from('documents-enfants')
-            .upload(storagePath, blob, { contentType: 'application/pdf' })
-          if (!storageErr) {
-            await supabase.from('documents_generaux').insert({
-              dossier_id: dossierId,
-              nom: nomFichier,
-              storage_path: storagePath,
-              taille: pdfBytes.length,
-              mime_type: 'application/pdf',
-              uploaded_by: profile.id,
-            })
-          } else { console.log('Upload doc enfant échoué:', storageErr.message) }
-        }
-      } catch(e) { console.log('Erreur sauvegarde doc enfant:', e.message) }
+      if (avecEnvoi) {
+        // Sauvegarde dans Supabase Storage
+        const pdfPath = `${ANNEE_SCOLAIRE.replace('/', '-')}/${profile.id}/${enf.id}_${enf.nom}.pdf`
+        const { error: uploadError } = await supabase.storage
+          .from('allocations-scolaires')
+          .upload(pdfPath, pdfBytes, { contentType: 'application/pdf', upsert: true })
+        if (uploadError) console.log('Upload storage échoué:', uploadError.message)
 
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = nomFichier
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      showToast(`✅ PDF généré pour ${enf.prenom} ${enf.nom} !`)
+        // Trace en base (généré / classe / école au moment T)
+        const { error: dbError } = await supabase
+          .from('allocations_scolaires')
+          .upsert({
+            enfant_id: enf.id,
+            af_id: profile.id,
+            annee_scolaire: ANNEE_SCOLAIRE,
+            classe: enf.classe,
+            ecole: enf.ecole,
+            pdf_path: pdfPath,
+            date_generation: new Date().toISOString(),
+          }, { onConflict: 'enfant_id,annee_scolaire' })
+        if (dbError) console.log('Suivi allocation échoué:', dbError.message)
+        else setEnfants(prev => prev.map(e => e.id === enf.id ? { ...e, allocation_generee_le: new Date().toISOString() } : e))
+
+        // Sauvegarde aussi dans le dossier Administratif de l'enfant (visible dans l'onglet Docs)
+        try {
+          let { data: dossier } = await supabase.from('documents_dossiers')
+            .select('id').eq('territoire', enf.id).eq('nom', '📋 Administratif').is('parent_id', null).eq('type', 'enfant').single()
+          let dossierId = dossier?.id
+          if (!dossierId) {
+            const { data: newD } = await supabase.from('documents_dossiers').insert({
+              nom: '📋 Administratif', parent_id: null, territoire: enf.id, created_by: profile.id, type: 'enfant'
+            }).select().single()
+            dossierId = newD?.id
+          }
+          if (dossierId) {
+            const storagePath = `enfants/${enf.id}/docs/${dossierId}/${Date.now()}.pdf`
+            const { error: storageErr } = await supabase.storage
+              .from('documents-enfants')
+              .upload(storagePath, blob, { contentType: 'application/pdf' })
+            if (!storageErr) {
+              await supabase.from('documents_generaux').insert({
+                dossier_id: dossierId,
+                nom: nomFichier,
+                storage_path: storagePath,
+                taille: pdfBytes.length,
+                mime_type: 'application/pdf',
+                uploaded_by: profile.id,
+              })
+            } else { console.log('Upload doc enfant échoué:', storageErr.message) }
+          }
+        } catch(e) { console.log('Erreur sauvegarde doc enfant:', e.message) }
+
+        showToast(`✅ PDF généré et sauvegardé pour ${enf.prenom} ${enf.nom} !`)
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = nomFichier
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        showToast(`✅ PDF téléchargé pour ${enf.prenom} ${enf.nom} !`)
+      }
+      return { blob, nomFichier }
     } catch(e) {
       showToast('❌ Erreur : ' + e.message)
     }
@@ -434,7 +452,7 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
                   <td style={{ padding:'6px 10px', textAlign:'center' }}>
                     <div style={{ display:'flex', flexDirection:'column', gap:4, alignItems:'center' }}>
                       <button style={{ padding:'4px 8px', borderRadius:6, border:'1px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:10, cursor:'pointer', fontWeight:600 }}
-                        onClick={() => generatePDFPourEnfant(enf)}>📄 PDF</button>
+                        onClick={() => generatePDFPourEnfant(enf)}>📄 Télécharger</button>
                       {enf.allocation_envoyee_le ? (
                         <span style={{ fontSize:9, color:'#1a8f4b' }}>✅ Envoyée</span>
                       ) : enf.allocation_generee_le ? (
@@ -457,13 +475,11 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
 
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Annuler</button>
-          <button className="btn btn-primary" onClick={() => {
-              const enfantsInclus = enfants.filter(e => e.inclus)
-              if (enfantsInclus.length === 0) { showToast('⚠️ Aucun enfant sélectionné'); return }
-              // Ouvrir le modal d'envoi pour le premier enfant sélectionné
-              enfantsInclus.forEach(enf => envoyerEmail(enf))
-            }} disabled={generating || enfants.filter(e => e.inclus).length === 0}>
-            📤 Envoyer
+          <button className="btn btn-secondary" onClick={generatePDF} disabled={generating || enfants.filter(e => e.inclus).length === 0}>
+            📄 Télécharger
+          </button>
+          <button className="btn btn-success" onClick={transmettre} disabled={generating || enfants.filter(e => e.inclus).length === 0}>
+            {generating ? '⏳...' : '📤 Transmettre'}
           </button>
         </div>
 
@@ -471,51 +487,65 @@ export default function AllocationRentreeScolaire({ profile, onClose }) {
       </div>
       {infoEnvoi && (
         <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={() => setInfoEnvoi(null)}>
-          <div style={{ background:'#fff', borderRadius:16, padding:24, maxWidth:500, width:'100%', fontFamily:'Sora,sans-serif' }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', marginBottom:16 }}>✉️ Envoi — {infoEnvoi.enf.prenom} {infoEnvoi.enf.nom}</div>
-            <div style={{ marginBottom:12 }}>
-              <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Destinataires</div>
-              {infoEnvoi.emails.map((email, i) => (
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8, marginBottom:6 }}>
-                  <span style={{ fontSize:12, flex:1 }}>{email}</span>
-                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(email); showToast('📋 Copié !') }}
-                    style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+          <div style={{ background:'#fff', borderRadius:16, padding:24, maxWidth:520, width:'100%', maxHeight:'85vh', overflowY:'auto', fontFamily:'Sora,sans-serif' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', marginBottom:16 }}>✉️ Envoi — Allocation rentrée scolaire</div>
+            {infoEnvoi.groupes.map((g, gi) => (
+              <div key={gi} style={{ marginBottom:20, paddingBottom:16, borderBottom: gi < infoEnvoi.groupes.length - 1 ? '1px solid #eef1f8' : 'none' }}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color:'#5a6478' }}>{g.enf.prenom} {g.enf.nom}</div>
+                  {g.pdf && (
+                    <button onClick={(e) => {
+                      e.stopPropagation()
+                      const url = URL.createObjectURL(g.pdf.blob)
+                      const a = document.createElement('a')
+                      a.href = url; a.download = g.pdf.nomFichier
+                      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+                      setTimeout(() => URL.revokeObjectURL(url), 5000)
+                    }} style={{ padding:'5px 10px', borderRadius:6, border:'1px solid #1a4b8f', background:'#1a4b8f', color:'#fff', fontSize:11, cursor:'pointer', fontWeight:600 }}>
+                      📄 Télécharger le PDF
+                    </button>
+                  )}
                 </div>
-              ))}
-              <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(infoEnvoi.emails.join('; ')); showToast('📋 Les 2 adresses copiées !') }}
-                style={{ width:'100%', padding:'8px', borderRadius:8, border:'1px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontWeight:600, marginTop:4 }}>
-                📋 Copier les 2 adresses
-              </button>
-            </div>
-            <div style={{ marginBottom:16 }}>
-              <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Objet suggéré</div>
-              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
-                <span style={{ fontSize:12, flex:1 }}>{infoEnvoi.sujet}</span>
-                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(infoEnvoi.sujet); showToast('📋 Objet copié !') }}
-                  style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Destinataires</div>
+                  {g.emails.length === 0 ? (
+                    <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic' }}>⚠️ Aucune adresse trouvée pour ce territoire</div>
+                  ) : g.emails.map((email, i) => (
+                    <div key={i} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8, marginBottom:6 }}>
+                      <span style={{ fontSize:12, flex:1 }}>{email}</span>
+                      <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(email); showToast('📋 Copié !') }}
+                        style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+                    </div>
+                  ))}
+                  {g.emails.length > 0 && (
+                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.emails.join('; ')); showToast('📋 Adresses copiées !') }}
+                      style={{ width:'100%', padding:'8px', borderRadius:8, border:'1px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontWeight:600, marginTop:4 }}>
+                      📋 Copier toutes les adresses
+                    </button>
+                  )}
+                </div>
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Objet suggéré</div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+                    <span style={{ fontSize:12, flex:1 }}>{g.sujet}</span>
+                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.sujet); showToast('📋 Objet copié !') }}
+                      style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Texte du mail</div>
+                  <div style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+                    <span style={{ fontSize:12, flex:1, whiteSpace:'pre-wrap' }}>{g.texte}</span>
+                    <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(g.texte); showToast('📋 Texte copié !') }}
+                      style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer', flexShrink:0 }}>📋</button>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div style={{ marginBottom:16 }}>
-              <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Texte du mail</div>
-              <div style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
-                <span style={{ fontSize:12, flex:1, whiteSpace:'pre-wrap' }}>{infoEnvoi.texte}</span>
-                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(infoEnvoi.texte); showToast('📋 Texte copié !') }}
-                  style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer', flexShrink:0 }}>📋</button>
-              </div>
-            </div>
-            <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic', marginBottom:16 }}>
-              💡 Collez les adresses et l'objet dans Bluemind, puis joignez le PDF téléchargé.
-            </div>
-            <div style={{ display:'flex', gap:8 }}>
-              <button onClick={() => setInfoEnvoi(null)}
-                style={{ flex:1, padding:'10px', borderRadius:8, border:'1px solid #dde3f0', background:'#f4f6fb', color:'#5a6478', fontSize:12, cursor:'pointer', fontWeight:600 }}>
-                Fermer
-              </button>
-              <button onClick={() => { generatePDFPourEnfant(infoEnvoi.enf); setInfoEnvoi(null) }}
-                style={{ flex:2, padding:'10px', borderRadius:8, border:'none', background:'#1a4b8f', color:'#fff', fontSize:12, cursor:'pointer', fontWeight:700 }}>
-                📄 Générer le PDF aussi
-              </button>
-            </div>
+            ))}
+            <button onClick={() => setInfoEnvoi(null)}
+              style={{ width:'100%', padding:'10px', borderRadius:8, border:'none', background:'#1a4b8f', color:'#fff', fontSize:12, cursor:'pointer', fontWeight:700 }}>
+              Fermer
+            </button>
           </div>
         </div>
       )}
