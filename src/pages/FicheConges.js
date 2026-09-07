@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-08-06d — fix format date jj-mm-aaaa dans le nom du fichier + rangement dans Administratif > Demande de congés > année + erreurs de sauvegarde visibles (toast + modal)
+// FicheConges.js — v2026-08-06e — libellés boutons harmonisés (Télécharger/Transmettre) ; destinataire encadrant confirmé correct tel quel (toujours l'encadrant propre de l'AF via profile.secteur, indépendamment du département des enfants)
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -710,11 +710,11 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
               Annuler
             </button>
             <button onClick={() => genererPDF()} style={{ padding:'10px 20px', borderRadius:8, border:'1px solid #c4d4f5', background:'#e8eef8', color:'#1a4b8f', fontSize:13, cursor:'pointer', fontFamily:'Sora,sans-serif', fontWeight:600 }}>
-              📄 Aperçu PDF
+              📄 Télécharger
             </button>
             <button onClick={soumettreEtGenerer} disabled={saving}
               style={{ padding:'10px 20px', borderRadius:8, border:'none', background:'linear-gradient(135deg,#1a4b8f,#2563eb)', color:'#fff', fontSize:13, cursor:'pointer', fontFamily:'Sora,sans-serif', fontWeight:700 }}>
-              {saving ? '⏳ Envoi...' : '✅ Soumettre + PDF'}
+              {saving ? '⏳ Envoi...' : '📤 Transmettre'}
             </button>
           </div>
 
