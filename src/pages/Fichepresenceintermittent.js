@@ -1,4 +1,4 @@
-// Fichepresenceintermittent.js — v2026-06-02a — motif enrichi avec notes + props adaptation/formation
+// Fichepresenceintermittent.js — v2026-06-02b — même correctif que Fichepresencepermanent.js : remplacement du bouton "Transmettre ASE" factice par Télécharger (aucune sauvegarde) / Transmettre (sauvegarde + modal d'envoi, via FichePresence2 avecEnvoi) ; pas de routage CD31 ici (confirmé par JP : pas de fiche intermittente pour le 31, tous les enfants sur la même fiche)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -176,13 +176,7 @@ export default function FichePresenceIntermittent({ profile }) {
     setSaving(false)
   }
 
-  async function transmettreASE() {
-    await saveFiche()
-    await supabase.from('fiches_presence').update({ transmise: true, date_transmission: new Date().toISOString() })
-      .eq('enfant_id', selectedEnfant.id).eq('af_id', profile.id)
-      .eq('mois', selectedMois + 1).eq('annee', selectedAnnee).eq('type_fiche', 'relais')
-    showToast('📤 Fiche transmise à ase.gaillac-graulhet@tarn.fr !')
-  }
+  const [modeEnvoi, setModeEnvoi] = useState(false)
 
   if (loading) return (
     <div className="app-layout"><Sidebar profile={profile} />
@@ -205,8 +199,8 @@ export default function FichePresenceIntermittent({ profile }) {
           <div className="header-actions">
             <button className="btn btn-secondary" onClick={() => navigate('/fiche-presence')} style={{ fontSize:12 }}>📋 Fiche permanente</button>
             <button className="btn btn-secondary" onClick={saveFiche} disabled={saving}>{saving ? '⏳...' : '💾 Sauvegarder'}</button>
-            <button className="btn btn-primary" onClick={() => setShowPrint(true)}>🖨️ Imprimer / PDF</button>
-            <button className="btn btn-success" onClick={transmettreASE}>📤 Transmettre ASE</button>
+            <button className="btn btn-primary" onClick={() => { setModeEnvoi(false); setShowPrint(true) }}>📄 Télécharger</button>
+            <button className="btn btn-success" onClick={() => { setModeEnvoi(true); setShowPrint(true) }}>📤 Transmettre</button>
           </div>
         </header>
 
@@ -423,6 +417,7 @@ export default function FichePresenceIntermittent({ profile }) {
           afPrincipal={afPrincipal}
           hasAdaptation={hasAdaptation}
           hasFormation={hasFormation}
+          avecEnvoi={modeEnvoi}
         />
       )}
       {toast && <div className="toast">{toast}</div>}
