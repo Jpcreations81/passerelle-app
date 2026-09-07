@@ -1,4 +1,4 @@
-// FichePresence2.js — v2026-08-06c — rangement des fiches par Administratif > Feuilles de présence (ou Relais) > année > mois, tous enfants confondus dans le même mois
+// FichePresence2.js — v2026-08-06e — destinataire recherché dynamiquement via le territoire de l'enfant (maisons_departement), plus d'email en dur ; message d'avertissement si aucune adresse trouvée
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -36,8 +36,9 @@ function hexToRgb(hex) {
 
 import { useSignature } from './useSignature'
 
-export default function FichePresence2({ enfant, profile, mois, annee, presences, moisComplet, onClose, typeFiche, afPrincipal, hasAdaptation, hasFormation }) {
+export default function FichePresence2({ enfant, profile, mois, annee, presences, moisComplet, onClose, typeFiche, afPrincipal, hasAdaptation, hasFormation, avecEnvoi }) {
   const [status, setStatus] = useState('generating')
+  const [infoEnvoi, setInfoEnvoi] = useState(null)
 
   useEffect(() => { genererPDF() }, [])
 
@@ -297,79 +298,101 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
       const blob = new Blob([pdfBytes], { type:'application/pdf' })
       const nomFichier = `Fiche_${isRelais?'relais':'presence'}_${enfant.prenom}_${enfant.nom}_${moisLabel}_${annee}.pdf`
 
-      // Sauvegarde dans Administratif > Feuilles de présence (ou Relais) de l'AF
-      try {
-        let { data: administratif } = await supabase.from('documents_dossiers')
-          .select('id').eq('created_by', profile.id).eq('nom', '📋 Administratif').is('parent_id', null).eq('type', 'af').single()
-        let administratifId = administratif?.id
-        if (!administratifId) {
-          const { data: newAdmin } = await supabase.from('documents_dossiers').insert({
-            nom: '📋 Administratif', parent_id: null, created_by: profile.id, type: 'af'
-          }).select().single()
-          administratifId = newAdmin?.id
-        }
-        if (administratifId) {
-          const nomSousDossier = isRelais ? 'Relais' : 'Feuilles de présence'
-          let { data: sousDossier } = await supabase.from('documents_dossiers')
-            .select('id').eq('parent_id', administratifId).eq('nom', nomSousDossier).single()
-          let sousDossierId = sousDossier?.id
-          if (!sousDossierId) {
-            const { data: newSous } = await supabase.from('documents_dossiers').insert({
-              nom: nomSousDossier, parent_id: administratifId, created_by: profile.id, type: 'af'
+      if (avecEnvoi) {
+        // Sauvegarde dans Administratif > Feuilles de présence (ou Relais) > année > mois de l'AF
+        try {
+          let { data: administratif } = await supabase.from('documents_dossiers')
+            .select('id').eq('created_by', profile.id).eq('nom', '📋 Administratif').is('parent_id', null).eq('type', 'af').single()
+          let administratifId = administratif?.id
+          if (!administratifId) {
+            const { data: newAdmin } = await supabase.from('documents_dossiers').insert({
+              nom: '📋 Administratif', parent_id: null, created_by: profile.id, type: 'af'
             }).select().single()
-            sousDossierId = newSous?.id
+            administratifId = newAdmin?.id
           }
-          // Sous-dossier année
-          if (sousDossierId) {
-            let { data: dossierAnnee } = await supabase.from('documents_dossiers')
-              .select('id').eq('parent_id', sousDossierId).eq('nom', String(annee)).single()
-            let anneeId = dossierAnnee?.id
-            if (!anneeId) {
-              const { data: newAnnee } = await supabase.from('documents_dossiers').insert({
-                nom: String(annee), parent_id: sousDossierId, created_by: profile.id, type: 'af'
+          if (administratifId) {
+            const nomSousDossier = isRelais ? 'Relais' : 'Feuilles de présence'
+            let { data: sousDossier } = await supabase.from('documents_dossiers')
+              .select('id').eq('parent_id', administratifId).eq('nom', nomSousDossier).single()
+            let sousDossierId = sousDossier?.id
+            if (!sousDossierId) {
+              const { data: newSous } = await supabase.from('documents_dossiers').insert({
+                nom: nomSousDossier, parent_id: administratifId, created_by: profile.id, type: 'af'
               }).select().single()
-              anneeId = newAnnee?.id
+              sousDossierId = newSous?.id
             }
-            // Sous-dossier mois
-            if (anneeId) {
-              let { data: dossierMois } = await supabase.from('documents_dossiers')
-                .select('id').eq('parent_id', anneeId).eq('nom', moisLabel).single()
-              let moisId = dossierMois?.id
-              if (!moisId) {
-                const { data: newMois } = await supabase.from('documents_dossiers').insert({
-                  nom: moisLabel, parent_id: anneeId, created_by: profile.id, type: 'af'
+            // Sous-dossier année
+            if (sousDossierId) {
+              let { data: dossierAnnee } = await supabase.from('documents_dossiers')
+                .select('id').eq('parent_id', sousDossierId).eq('nom', String(annee)).single()
+              let anneeId = dossierAnnee?.id
+              if (!anneeId) {
+                const { data: newAnnee } = await supabase.from('documents_dossiers').insert({
+                  nom: String(annee), parent_id: sousDossierId, created_by: profile.id, type: 'af'
                 }).select().single()
-                moisId = newMois?.id
+                anneeId = newAnnee?.id
               }
-              sousDossierId = moisId
+              // Sous-dossier mois
+              if (anneeId) {
+                let { data: dossierMois } = await supabase.from('documents_dossiers')
+                  .select('id').eq('parent_id', anneeId).eq('nom', moisLabel).single()
+                let moisId = dossierMois?.id
+                if (!moisId) {
+                  const { data: newMois } = await supabase.from('documents_dossiers').insert({
+                    nom: moisLabel, parent_id: anneeId, created_by: profile.id, type: 'af'
+                  }).select().single()
+                  moisId = newMois?.id
+                }
+                sousDossierId = moisId
+              }
+            }
+            if (sousDossierId) {
+              const storagePath = `af/${profile.id}/docs/${sousDossierId}/${Date.now()}.pdf`
+              const { error: storageErr } = await supabase.storage
+                .from('documents-enfants')
+                .upload(storagePath, blob, { contentType: 'application/pdf' })
+              if (!storageErr) {
+                await supabase.from('documents_generaux').insert({
+                  dossier_id: sousDossierId,
+                  nom: nomFichier,
+                  storage_path: storagePath,
+                  taille: pdfBytes.length,
+                  mime_type: 'application/pdf',
+                  uploaded_by: profile.id,
+                })
+              } else { console.log('Upload fiche présence échoué:', storageErr.message) }
             }
           }
-          if (sousDossierId) {
-            const storagePath = `af/${profile.id}/docs/${sousDossierId}/${Date.now()}.pdf`
-            const { error: storageErr } = await supabase.storage
-              .from('documents-enfants')
-              .upload(storagePath, blob, { contentType: 'application/pdf' })
-            if (!storageErr) {
-              await supabase.from('documents_generaux').insert({
-                dossier_id: sousDossierId,
-                nom: nomFichier,
-                storage_path: storagePath,
-                taille: pdfBytes.length,
-                mime_type: 'application/pdf',
-                uploaded_by: profile.id,
-              })
-            } else { console.log('Upload fiche présence échoué:', storageErr.message) }
-          }
-        }
-      } catch(e) { console.log('Erreur sauvegarde fiche présence:', e.message) }
+        } catch(e) { console.log('Erreur sauvegarde fiche présence:', e.message) }
 
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = nomFichier
-      a.click()
-      URL.revokeObjectURL(url)
-      setStatus('done')
+        // Marquer transmise + préparer la modal d'envoi (pas de téléchargement auto)
+        await supabase.from('fiches_presence').upsert({
+          enfant_id: enfant.id, af_id: profile.id, mois: mois + 1, annee, type_fiche: typeFiche,
+          transmise: true, date_transmission: new Date().toISOString(),
+        }, { onConflict: 'enfant_id,af_id,mois,annee,type_fiche' })
+
+        // Destinataire trouvé dynamiquement via le territoire de l'enfant (pas en dur)
+        let emailDestinataire = null
+        try {
+          const { data: md } = await supabase.from('maisons_departement')
+            .select('email').or(`nom.eq.${enfant.territoire},territoire.eq.${enfant.territoire}`).limit(1).single()
+          emailDestinataire = md?.email || null
+        } catch(e) { console.log('MD introuvable pour territoire:', enfant.territoire) }
+
+        const sujet = `Fiche de présence ${moisLabel} ${annee} - ${enfant.prenom} ${enfant.nom} - ${profile.nom} ${profile.prenom}`
+        const texte = `Bonjour,\n\nVeuillez trouver ci-joint la fiche de présence de ${enfant.prenom} ${enfant.nom} pour ${moisLabel} ${annee}.\n\nCordialement,\n${profile.prenom} ${profile.nom}`
+        setInfoEnvoi({ email: emailDestinataire, sujet, texte, pdf: { blob, nomFichier } })
+        setStatus('done')
+      } else {
+        // Téléchargement seul, aucune sauvegarde
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = nomFichier
+        a.click()
+        URL.revokeObjectURL(url)
+        setStatus('done')
+      }
     } catch(e) {
       console.error('Erreur PDF:', e)
       alert('Erreur PDF: ' + e.message + '\n' + e.stack)
@@ -380,6 +403,53 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
   return (
     <>
     {SignatureModal}
+    {status === 'done' && avecEnvoi && infoEnvoi ? (
+      <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:300, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={onClose}>
+        <div style={{ background:'#fff', borderRadius:16, padding:24, maxWidth:520, width:'100%', maxHeight:'85vh', overflowY:'auto', fontFamily:'Sora,sans-serif' }} onClick={e => e.stopPropagation()}>
+          <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', marginBottom:16 }}>✉️ Envoi — Fiche de présence</div>
+          <div style={{ fontSize:12, color:'#5a6478', marginBottom:14 }}>Le PDF a été sauvegardé dans Administratif &gt; {typeFiche === 'relais' ? 'Relais' : 'Feuilles de présence'} &gt; {annee} &gt; {MOIS_FR[mois]}.</div>
+          <div style={{ marginBottom:10 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Destinataire</div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+              <span style={{ fontSize:12, flex:1 }}>{infoEnvoi.email || '⚠️ Aucune adresse trouvée pour ce territoire'}</span>
+              {infoEnvoi.email && (
+                <button onClick={() => navigator.clipboard.writeText(infoEnvoi.email)}
+                  style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+              )}
+            </div>
+          </div>
+          <div style={{ marginBottom:10 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Objet suggéré</div>
+            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+              <span style={{ fontSize:12, flex:1 }}>{infoEnvoi.sujet}</span>
+              <button onClick={() => navigator.clipboard.writeText(infoEnvoi.sujet)}
+                style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+            </div>
+          </div>
+          <div style={{ marginBottom:16 }}>
+            <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Texte du mail</div>
+            <div style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+              <span style={{ fontSize:12, flex:1, whiteSpace:'pre-wrap' }}>{infoEnvoi.texte}</span>
+              <button onClick={() => navigator.clipboard.writeText(infoEnvoi.texte)}
+                style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer', flexShrink:0 }}>📋</button>
+            </div>
+          </div>
+          <button onClick={() => {
+            const url = URL.createObjectURL(infoEnvoi.pdf.blob)
+            const a = document.createElement('a')
+            a.href = url; a.download = infoEnvoi.pdf.nomFichier
+            document.body.appendChild(a); a.click(); document.body.removeChild(a)
+            setTimeout(() => URL.revokeObjectURL(url), 5000)
+          }} style={{ width:'100%', padding:'10px', borderRadius:8, border:'1px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontWeight:600, marginBottom:10 }}>
+            📄 Télécharger le PDF
+          </button>
+          <button onClick={onClose}
+            style={{ width:'100%', padding:'10px', borderRadius:8, border:'none', background:'#1a4b8f', color:'#fff', fontSize:12, cursor:'pointer', fontWeight:700 }}>
+            Fermer
+          </button>
+        </div>
+      </div>
+    ) : (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:300, display:'flex', alignItems:'center', justifyContent:'center' }}>
       <div style={{ background:'#fff', borderRadius:12, padding:'32px 40px', textAlign:'center', fontFamily:'Sora,sans-serif', minWidth:280 }}>
         <div style={{ fontSize:36, marginBottom:12 }}>
@@ -395,6 +465,7 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         )}
       </div>
     </div>
+    )}
     </>
   )
 }
