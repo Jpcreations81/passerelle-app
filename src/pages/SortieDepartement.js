@@ -1,4 +1,4 @@
-// SortieDepartement.js - v2026-08-06e - fix source unique MD (maisons_departement, plus maisons_departementales) ; reconstruction complète avec tout l'historique de fixes du 05-06/08
+// SortieDepartement.js - v2026-08-06f - séparation Télécharger (aucune sauvegarde) / Transmettre (sauvegarde Administratif + suivi + modal d'envoi) ; agenda créé dans les deux cas
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
@@ -148,7 +148,7 @@ export default function SortieDepartement({ profile, onClose }) {
     setTimeout(() => URL.revokeObjectURL(url), 5000)
   }
 
-  async function genererPDFs() {
+  async function genererPDFs(avecEnvoi) {
     if (!destination.trim()) { showToast('⚠️ Destination obligatoire'); return }
     if (!dateDebut || !dateFin) { showToast('⚠️ Dates obligatoires'); return }
     if (Object.values(enfantsSelectionnes).every(v => !v)) { showToast('⚠️ Sélectionnez au moins un enfant'); return }
@@ -159,20 +159,26 @@ export default function SortieDepartement({ profile, onClose }) {
     const pdfsParGestionnaire = {}
 
     for (const [gestionnaire, enfantsGroupe] of Object.entries(groupes)) {
-      const res = await genererUnPDF(gestionnaire, enfantsGroupe, sigBytes)
+      const res = await genererUnPDF(gestionnaire, enfantsGroupe, sigBytes, avecEnvoi)
       if (res) pdfsParGestionnaire[gestionnaire] = res
     }
 
-    // Créer événements agenda pour chaque enfant sélectionné
+    // Créer événements agenda pour chaque enfant sélectionné (dans les deux cas,
+    // la sortie a bien lieu que le formulaire soit transmis ou juste téléchargé)
     const enfantsInclus = enfants.filter(e => enfantsSelectionnes[e.id])
     for (const enf of enfantsInclus) {
       await creerEvenementAgenda(enf)
     }
 
-    setGenerating(false)
-    showToast(`✅ ${Object.keys(groupes).length} PDF(s) générés !`)
-    fetchHistorique()
-    preparerEnvois(groupes, pdfsParGestionnaire)
+    if (avecEnvoi) {
+      setGenerating(false)
+      showToast(`✅ ${Object.keys(groupes).length} PDF(s) générés !`)
+      fetchHistorique()
+      preparerEnvois(groupes, pdfsParGestionnaire)
+    } else {
+      setGenerating(false)
+      showToast(`✅ ${Object.keys(groupes).length} PDF(s) téléchargés !`)
+    }
   }
 
   function preparerEnvois(groupes, pdfsParGestionnaire) {
@@ -204,7 +210,7 @@ export default function SortieDepartement({ profile, onClose }) {
       .then(({ error }) => { if (error) console.log('Marquage envoyé échoué:', error.message); else fetchHistorique() })
   }
 
-  async function genererUnPDF(gestionnaire, enfantsGroupe, sigBytes) {
+  async function genererUnPDF(gestionnaire, enfantsGroupe, sigBytes, avecEnvoi) {
     try {
       const pdfDoc = await PDFDocument.create()
       const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
@@ -312,54 +318,60 @@ export default function SortieDepartement({ profile, onClose }) {
       const blob = new Blob([pdfBytes], { type: 'application/pdf' })
       const enfantsNoms = enfantsGroupe.map(e => e.prenom + '_' + e.nom).join('_')
       const nomFichier = enfantsNoms + '_Autorisation_sortie_' + dateDebut + '.pdf'
-      // Pas de téléchargement automatique ici : sur iPad/Safari, l'ouverture du PDF
-      // prend tout l'écran et masque la mise à jour de l'agenda + la modal d'envoi.
-      // Le téléchargement se fait via un bouton explicite dans la modal d'envoi.
 
-      // Sauvegarder dans le dossier Administratif de chaque enfant
-      for (const enf of enfantsGroupe) {
-        try {
-          // Trouver ou créer le dossier Administratif
-          let { data: dossier } = await supabase.from('documents_dossiers')
-            .select('id').eq('territoire', enf.id).eq('nom', '📋 Administratif').is('parent_id', null).single()
-          let dossierId = dossier?.id
-          if (!dossierId) {
-            const { data: newD } = await supabase.from('documents_dossiers').insert({
-              nom: '📋 Administratif', parent_id: null, territoire: enf.id,
-              created_by: profile.id, type: 'enfant'
-            }).select().single()
-            dossierId = newD?.id
-          }
-          if (dossierId) {
-            const storagePath = `enfants/${enf.id}/docs/${dossierId}/${Date.now()}.pdf`
-            const { error: storageErr } = await supabase.storage
-              .from('documents-enfants')
-              .upload(storagePath, blob, { contentType: 'application/pdf' })
-            if (!storageErr) {
-              const { error: dbErr } = await supabase.from('documents_generaux').insert({
-                dossier_id: dossierId,
-                nom: nomFichier,
-                storage_path: storagePath,
-                taille: pdfBytes.length,
-                mime_type: 'application/pdf',
-                uploaded_by: profile.id,
-              })
-              // Trace de suivi (historique / badges généré-envoyé-signé)
-              const { error: suiviErr } = await supabase.from('sorties_departement_suivi').insert({
-                enfant_id: enf.id,
-                af_id: profile.id,
-                destination,
-                date_debut: dateDebut,
-                date_fin: dateFin,
-                gestionnaire,
-                pdf_path: storagePath,
-                date_generation: new Date().toISOString(),
-              })
-              if (suiviErr) console.log('Suivi sortie échoué:', suiviErr.message)
+      if (avecEnvoi) {
+        // Sauvegarder dans le dossier Administratif de chaque enfant
+        for (const enf of enfantsGroupe) {
+          try {
+            // Trouver ou créer le dossier Administratif
+            let { data: dossier } = await supabase.from('documents_dossiers')
+              .select('id').eq('territoire', enf.id).eq('nom', '📋 Administratif').is('parent_id', null).single()
+            let dossierId = dossier?.id
+            if (!dossierId) {
+              const { data: newD } = await supabase.from('documents_dossiers').insert({
+                nom: '📋 Administratif', parent_id: null, territoire: enf.id,
+                created_by: profile.id, type: 'enfant'
+              }).select().single()
+              dossierId = newD?.id
             }
-          } else {
-          }
-        } catch(e) { console.log('Erreur sauvegarde doc:', e.message) }
+            if (dossierId) {
+              const storagePath = `enfants/${enf.id}/docs/${dossierId}/${Date.now()}.pdf`
+              const { error: storageErr } = await supabase.storage
+                .from('documents-enfants')
+                .upload(storagePath, blob, { contentType: 'application/pdf' })
+              if (!storageErr) {
+                const { error: dbErr } = await supabase.from('documents_generaux').insert({
+                  dossier_id: dossierId,
+                  nom: nomFichier,
+                  storage_path: storagePath,
+                  taille: pdfBytes.length,
+                  mime_type: 'application/pdf',
+                  uploaded_by: profile.id,
+                })
+                // Trace de suivi (historique / badges généré-envoyé-signé)
+                const { error: suiviErr } = await supabase.from('sorties_departement_suivi').insert({
+                  enfant_id: enf.id,
+                  af_id: profile.id,
+                  destination,
+                  date_debut: dateDebut,
+                  date_fin: dateFin,
+                  gestionnaire,
+                  pdf_path: storagePath,
+                  date_generation: new Date().toISOString(),
+                })
+                if (suiviErr) console.log('Suivi sortie échoué:', suiviErr.message)
+              }
+            }
+          } catch(e) { console.log('Erreur sauvegarde doc:', e.message) }
+        }
+      } else {
+        // Télécharger uniquement, aucune sauvegarde
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = nomFichier
+        document.body.appendChild(a); a.click(); document.body.removeChild(a)
+        setTimeout(() => URL.revokeObjectURL(url), 5000)
       }
       return { blob, nomFichier }
     } catch(e) {
@@ -503,8 +515,11 @@ export default function SortieDepartement({ profile, onClose }) {
 
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Annuler</button>
-          <button className="btn btn-primary" onClick={genererPDFs} disabled={generating}>
-            {generating ? '⏳ Génération...' : `📄 Générer ${nbPDFs > 1 ? nbPDFs + ' formulaires' : 'le formulaire'}`}
+          <button className="btn btn-secondary" onClick={() => genererPDFs(false)} disabled={generating}>
+            {generating ? '⏳...' : `📄 Télécharger ${nbPDFs > 1 ? nbPDFs + ' formulaires' : 'le formulaire'}`}
+          </button>
+          <button className="btn btn-success" onClick={() => genererPDFs(true)} disabled={generating}>
+            {generating ? '⏳...' : `📤 Transmettre ${nbPDFs > 1 ? nbPDFs + ' formulaires' : 'le formulaire'}`}
           </button>
         </div>
 
