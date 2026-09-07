@@ -1,4 +1,4 @@
-// FichePresence2.js — v2026-08-06b — fix couleur jaune manquante sur le jour "Retour" de relais (réapplication du fix sauvegarde Administratif déjà présent)
+// FichePresence2.js — v2026-08-06c — rangement des fiches par Administratif > Feuilles de présence (ou Relais) > année > mois, tous enfants confondus dans le même mois
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -318,6 +318,31 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
               nom: nomSousDossier, parent_id: administratifId, created_by: profile.id, type: 'af'
             }).select().single()
             sousDossierId = newSous?.id
+          }
+          // Sous-dossier année
+          if (sousDossierId) {
+            let { data: dossierAnnee } = await supabase.from('documents_dossiers')
+              .select('id').eq('parent_id', sousDossierId).eq('nom', String(annee)).single()
+            let anneeId = dossierAnnee?.id
+            if (!anneeId) {
+              const { data: newAnnee } = await supabase.from('documents_dossiers').insert({
+                nom: String(annee), parent_id: sousDossierId, created_by: profile.id, type: 'af'
+              }).select().single()
+              anneeId = newAnnee?.id
+            }
+            // Sous-dossier mois
+            if (anneeId) {
+              let { data: dossierMois } = await supabase.from('documents_dossiers')
+                .select('id').eq('parent_id', anneeId).eq('nom', moisLabel).single()
+              let moisId = dossierMois?.id
+              if (!moisId) {
+                const { data: newMois } = await supabase.from('documents_dossiers').insert({
+                  nom: moisLabel, parent_id: anneeId, created_by: profile.id, type: 'af'
+                }).select().single()
+                moisId = newMois?.id
+              }
+              sousDossierId = moisId
+            }
           }
           if (sousDossierId) {
             const storagePath = `af/${profile.id}/docs/${sousDossierId}/${Date.now()}.pdf`
