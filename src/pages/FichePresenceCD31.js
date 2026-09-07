@@ -1,4 +1,4 @@
-// FichePresenceCD31.js — v2026-09-03h — rangement des fiches par Administratif > Feuilles de présence > année > mois (règle le cas des PDF groupant plusieurs enfants, plus besoin de choisir un "propriétaire")
+// FichePresenceCD31.js — v2026-09-03i — séparation Télécharger (aucune sauvegarde) / Transmettre (sauvegarde Administratif + modal d'envoi) ; destinataires trouvés dynamiquement par enfant via maisons_departement, plus rien en dur
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -58,12 +58,25 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
   const [toast, setToast] = useState('')
+  const [infoEnvoi, setInfoEnvoi] = useState(null)
   const { getSignatureBytes, SignatureModal } = useSignature(profile)
+
+  function telechargerPDF(pdf) {
+    if (!pdf) return
+    const url = URL.createObjectURL(pdf.blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = pdf.nomFichier
+    document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
   useEffect(() => { fetchEnfantsCD31() }, [])
   useEffect(() => { if (groupes.length > 0) loadPresences() }, [groupes, groupeIndex, selectedMois, selectedAnnee])
+
+  const [maisonsById, setMaisonsById] = useState({})
 
   async function fetchEnfantsCD31() {
     const { data: enfants } = await supabase
@@ -74,7 +87,10 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
 
     const mdIds = [...new Set(enfants.map(e => e.md_id).filter(Boolean))]
     if (mdIds.length === 0) { setLoading(false); return }
-    const { data: maisons } = await supabase.from('maisons_departement').select('id, departement').in('id', mdIds)
+    const { data: maisons } = await supabase.from('maisons_departement').select('id, nom, email, departement').in('id', mdIds)
+    const maisonsMap = {}
+    ;(maisons || []).forEach(m => { maisonsMap[m.id] = m })
+    setMaisonsById(maisonsMap)
     const idsCD31 = new Set((maisons || []).filter(m => m.departement === '31').map(m => m.id))
 
     const enfantsCD31 = enfants.filter(e => idsCD31.has(e.md_id))
@@ -139,7 +155,7 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
     }))
   }
 
-  async function genererEtSauvegarder() {
+  async function genererEtSauvegarder(avecEnvoi) {
     const groupe = groupes[groupeIndex]
     if (!groupe || groupe.length === 0) return
     setGenerating(true)
@@ -319,78 +335,95 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
       const nomsFichier = groupe.map(e => e.prenom).join('-')
       const nomFichier = `Fiche_presence_CD31_${nomsFichier}_${MOIS_LABELS[selectedMois]}_${selectedAnnee}.pdf`
 
-      // Sauvegarde dans Administratif > Feuilles de présence de l'AF
-      try {
-        let { data: administratif } = await supabase.from('documents_dossiers')
-          .select('id').eq('created_by', profile.id).eq('nom', '📋 Administratif').is('parent_id', null).eq('type', 'af').single()
-        let administratifId = administratif?.id
-        if (!administratifId) {
-          const { data: newAdmin } = await supabase.from('documents_dossiers').insert({
-            nom: '📋 Administratif', parent_id: null, created_by: profile.id, type: 'af'
-          }).select().single()
-          administratifId = newAdmin?.id
-        }
-        if (administratifId) {
-          let { data: sousDossier } = await supabase.from('documents_dossiers')
-            .select('id').eq('parent_id', administratifId).eq('nom', 'Feuilles de présence').single()
-          let sousDossierId = sousDossier?.id
-          if (!sousDossierId) {
-            const { data: newSous } = await supabase.from('documents_dossiers').insert({
-              nom: 'Feuilles de présence', parent_id: administratifId, created_by: profile.id, type: 'af'
+      if (avecEnvoi) {
+        // Sauvegarde dans Administratif > Feuilles de présence > année > mois de l'AF
+        try {
+          let { data: administratif } = await supabase.from('documents_dossiers')
+            .select('id').eq('created_by', profile.id).eq('nom', '📋 Administratif').is('parent_id', null).eq('type', 'af').single()
+          let administratifId = administratif?.id
+          if (!administratifId) {
+            const { data: newAdmin } = await supabase.from('documents_dossiers').insert({
+              nom: '📋 Administratif', parent_id: null, created_by: profile.id, type: 'af'
             }).select().single()
-            sousDossierId = newSous?.id
+            administratifId = newAdmin?.id
           }
-          // Sous-dossier année puis mois
-          if (sousDossierId) {
-            let { data: dossierAnnee } = await supabase.from('documents_dossiers')
-              .select('id').eq('parent_id', sousDossierId).eq('nom', String(selectedAnnee)).single()
-            let anneeId = dossierAnnee?.id
-            if (!anneeId) {
-              const { data: newAnnee } = await supabase.from('documents_dossiers').insert({
-                nom: String(selectedAnnee), parent_id: sousDossierId, created_by: profile.id, type: 'af'
+          if (administratifId) {
+            let { data: sousDossier } = await supabase.from('documents_dossiers')
+              .select('id').eq('parent_id', administratifId).eq('nom', 'Feuilles de présence').single()
+            let sousDossierId = sousDossier?.id
+            if (!sousDossierId) {
+              const { data: newSous } = await supabase.from('documents_dossiers').insert({
+                nom: 'Feuilles de présence', parent_id: administratifId, created_by: profile.id, type: 'af'
               }).select().single()
-              anneeId = newAnnee?.id
+              sousDossierId = newSous?.id
             }
-            if (anneeId) {
-              const moisNom = MOIS_LABELS[selectedMois]
-              let { data: dossierMois } = await supabase.from('documents_dossiers')
-                .select('id').eq('parent_id', anneeId).eq('nom', moisNom).single()
-              let moisId = dossierMois?.id
-              if (!moisId) {
-                const { data: newMois } = await supabase.from('documents_dossiers').insert({
-                  nom: moisNom, parent_id: anneeId, created_by: profile.id, type: 'af'
+            if (sousDossierId) {
+              let { data: dossierAnnee } = await supabase.from('documents_dossiers')
+                .select('id').eq('parent_id', sousDossierId).eq('nom', String(selectedAnnee)).single()
+              let anneeId = dossierAnnee?.id
+              if (!anneeId) {
+                const { data: newAnnee } = await supabase.from('documents_dossiers').insert({
+                  nom: String(selectedAnnee), parent_id: sousDossierId, created_by: profile.id, type: 'af'
                 }).select().single()
-                moisId = newMois?.id
+                anneeId = newAnnee?.id
               }
-              sousDossierId = moisId
+              if (anneeId) {
+                const moisNom = MOIS_LABELS[selectedMois]
+                let { data: dossierMois } = await supabase.from('documents_dossiers')
+                  .select('id').eq('parent_id', anneeId).eq('nom', moisNom).single()
+                let moisId = dossierMois?.id
+                if (!moisId) {
+                  const { data: newMois } = await supabase.from('documents_dossiers').insert({
+                    nom: moisNom, parent_id: anneeId, created_by: profile.id, type: 'af'
+                  }).select().single()
+                  moisId = newMois?.id
+                }
+                sousDossierId = moisId
+              }
+            }
+            if (sousDossierId) {
+              const storagePath = `af/${profile.id}/docs/${sousDossierId}/${Date.now()}.pdf`
+              const { error: storageErr } = await supabase.storage
+                .from('documents-enfants')
+                .upload(storagePath, blob, { contentType: 'application/pdf' })
+              if (!storageErr) {
+                await supabase.from('documents_generaux').insert({
+                  dossier_id: sousDossierId,
+                  nom: nomFichier,
+                  storage_path: storagePath,
+                  taille: pdfBytes.length,
+                  mime_type: 'application/pdf',
+                  uploaded_by: profile.id,
+                })
+              } else { console.log('Upload fiche CD31 échoué:', storageErr.message) }
             }
           }
-          if (sousDossierId) {
-            const storagePath = `af/${profile.id}/docs/${sousDossierId}/${Date.now()}.pdf`
-            const { error: storageErr } = await supabase.storage
-              .from('documents-enfants')
-              .upload(storagePath, blob, { contentType: 'application/pdf' })
-            if (!storageErr) {
-              await supabase.from('documents_generaux').insert({
-                dossier_id: sousDossierId,
-                nom: nomFichier,
-                storage_path: storagePath,
-                taille: pdfBytes.length,
-                mime_type: 'application/pdf',
-                uploaded_by: profile.id,
-              })
-            } else { console.log('Upload fiche CD31 échoué:', storageErr.message) }
-          }
-        }
-      } catch(e) { console.log('Erreur sauvegarde fiche CD31:', e.message) }
+        } catch(e) { console.log('Erreur sauvegarde fiche CD31:', e.message) }
 
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = nomFichier
-      a.click()
-      URL.revokeObjectURL(url)
-      showToast('✅ Fiche générée et sauvegardée !')
+        // Destinataires : une MD par enfant du groupe (trouvés dynamiquement, pas en dur), dédoublonnés
+        const destinataires = []
+        const emailsVus = new Set()
+        groupe.forEach(enf => {
+          const md = maisonsById[enf.md_id]
+          if (md?.email && !emailsVus.has(md.email)) {
+            emailsVus.add(md.email)
+            destinataires.push({ role: md.nom, email: md.email })
+          }
+        })
+        const noms = groupe.map(e => `${e.prenom} ${e.nom}`).join(', ')
+        const sujet = `Fiche de présence ${MOIS_LABELS[selectedMois]} ${selectedAnnee} - ${noms} - ${profile.nom} ${profile.prenom}`
+        const texte = `Bonjour,\n\nVeuillez trouver ci-joint la fiche de présence de ${noms} pour ${MOIS_LABELS[selectedMois]} ${selectedAnnee}.\n\nCordialement,\n${profile.prenom} ${profile.nom}`
+        setInfoEnvoi({ destinataires, sujet, texte, pdf: { blob, nomFichier } })
+        showToast('✅ Fiche générée et sauvegardée !')
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = nomFichier
+        a.click()
+        URL.revokeObjectURL(url)
+        showToast('✅ Fiche téléchargée !')
+      }
     } catch(e) {
       showToast('❌ Erreur : ' + e.message)
     }
@@ -489,13 +522,63 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
           </table>
         </div>
 
-        <button className="btn btn-primary" onClick={genererEtSauvegarder} disabled={generating}>
-          {generating ? '⏳ Génération...' : '📄 Générer le PDF'}
-        </button>
+        <div style={{ display:'flex', gap:10 }}>
+          <button className="btn btn-secondary" onClick={() => genererEtSauvegarder(false)} disabled={generating}>
+            {generating ? '⏳...' : '📄 Télécharger'}
+          </button>
+          <button className="btn btn-success" onClick={() => genererEtSauvegarder(true)} disabled={generating}>
+            {generating ? '⏳...' : '📤 Transmettre'}
+          </button>
+        </div>
 
         {toast && <div className="toast">{toast}</div>}
         {SignatureModal}
       </div>
+
+      {infoEnvoi && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:9999, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }} onClick={() => setInfoEnvoi(null)}>
+          <div style={{ background:'#fff', borderRadius:16, padding:24, maxWidth:520, width:'100%', maxHeight:'85vh', overflowY:'auto', fontFamily:'Sora,sans-serif' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize:16, fontWeight:700, color:'#1a4b8f', marginBottom:16 }}>✉️ Envoi — Fiche de présence CD31</div>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Destinataires</div>
+              {infoEnvoi.destinataires.length === 0 ? (
+                <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic' }}>⚠️ Aucune adresse trouvée pour les enfants de ce groupe</div>
+              ) : infoEnvoi.destinataires.map((d, di) => (
+                <div key={di} style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8, marginBottom:6 }}>
+                  <span style={{ fontSize:10, color:'#9aa3b8', minWidth:130 }}>{d.role}</span>
+                  <span style={{ fontSize:12, flex:1 }}>{d.email}</span>
+                  <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(d.email); showToast('📋 Copié !') }}
+                    style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Objet suggéré</div>
+              <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+                <span style={{ fontSize:12, flex:1 }}>{infoEnvoi.sujet}</span>
+                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(infoEnvoi.sujet); showToast('📋 Objet copié !') }}
+                  style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>📋</button>
+              </div>
+            </div>
+            <div style={{ marginBottom:16 }}>
+              <div style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', marginBottom:6 }}>Texte du mail</div>
+              <div style={{ display:'flex', alignItems:'flex-start', gap:8, padding:'8px 12px', background:'#f4f6fb', borderRadius:8 }}>
+                <span style={{ fontSize:12, flex:1, whiteSpace:'pre-wrap' }}>{infoEnvoi.texte}</span>
+                <button onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(infoEnvoi.texte); showToast('📋 Texte copié !') }}
+                  style={{ padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer', flexShrink:0 }}>📋</button>
+              </div>
+            </div>
+            <button onClick={(e) => { e.stopPropagation(); telechargerPDF(infoEnvoi.pdf) }}
+              style={{ width:'100%', padding:'10px', borderRadius:8, border:'1px solid #1a4b8f', background:'#e8eef8', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontWeight:600, marginBottom:10 }}>
+              📄 Télécharger le PDF
+            </button>
+            <button onClick={() => setInfoEnvoi(null)}
+              style={{ width:'100%', padding:'10px', borderRadius:8, border:'none', background:'#1a4b8f', color:'#fff', fontSize:12, cursor:'pointer', fontWeight:700 }}>
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
