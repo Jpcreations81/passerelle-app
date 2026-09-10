@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-08-06f — sélection des enfants concernés (cases à cocher, comme la fiche de présence) avec badge département ; blocage propre si un enfant du CD31 est sélectionné (pas de formulaire congés CD31 pour l'instant) ; possibilité de créer un nouvel AF directement depuis les listes Relais 1/2
+// FicheConges.js — v2026-08-06g — remplacement des listes déroulantes Relais 1/2 (trop longues) par un module de recherche + création AF inline ; fix : les enfants décochés apparaissaient encore dans le tableau DECISION du PDF (utilisait enfants au lieu de enfantsInclus)
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -31,6 +31,75 @@ function nbJoursOuvres(debut, fin) {
     d.setDate(d.getDate() + 1)
   }
   return count
+}
+
+function RechercheAfInline({ value, afProfiles, exclude, onSelect, onCreate }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [modeCreation, setModeCreation] = useState(false)
+  const [newPrenom, setNewPrenom] = useState('')
+  const [newNom, setNewNom] = useState('')
+  const [newVille, setNewVille] = useState('')
+
+  const selected = afProfiles.find(a => a.id === value)
+  const filtered = afProfiles
+    .filter(a => !exclude || a.id !== exclude)
+    .filter(a => query.trim().length === 0 ? true : `${a.prenom} ${a.nom}`.toLowerCase().includes(query.toLowerCase()))
+    .slice(0, 8)
+
+  if (modeCreation) return (
+    <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'8px 10px' }}>
+      <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
+        <input placeholder="Prénom" value={newPrenom} onChange={e => setNewPrenom(e.target.value)}
+          style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} autoFocus />
+        <input placeholder="NOM" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())}
+          style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }} />
+        <input placeholder="Ville" value={newVille} onChange={e => setNewVille(e.target.value)}
+          style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} />
+        <button onClick={async () => {
+            if (!newPrenom.trim() || !newNom.trim()) return
+            const created = await onCreate({ prenom: newPrenom, nom: newNom, ville: newVille })
+            if (created) { onSelect(created.id); setModeCreation(false); setNewPrenom(''); setNewNom(''); setNewVille('') }
+          }} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Créer</button>
+        <button onClick={() => setModeCreation(false)} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
+      </div>
+    </div>
+  )
+
+  if (selected) return (
+    <div style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 10px', border:'1.5px solid #dde3f0', borderRadius:8, background:'#f4f6fb' }}>
+      <span style={{ flex:1, fontSize:12 }}>{selected.prenom} {selected.nom}</span>
+      <button onClick={() => onSelect('')} style={{ background:'none', border:'none', color:'#c0392b', cursor:'pointer', fontSize:14, lineHeight:1 }}>✕</button>
+    </div>
+  )
+
+  return (
+    <div style={{ position:'relative' }}>
+      <input value={query}
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="🔍 Rechercher un AF..."
+        style={{ width:'100%', padding:'8px 10px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:12, fontFamily:'Sora,sans-serif', boxSizing:'border-box' }} />
+      {open && (
+        <div style={{ position:'absolute', zIndex:20, top:'100%', left:0, right:0, background:'#fff', border:'1px solid #dde3f0', borderRadius:8, marginTop:4, maxHeight:180, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,.1)' }}>
+          {filtered.map(a => (
+            <div key={a.id} onMouseDown={e => e.preventDefault()} onClick={() => { onSelect(a.id); setQuery(''); setOpen(false) }}
+              style={{ padding:'8px 10px', fontSize:12, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}>
+              {a.prenom} {a.nom}
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ padding:'8px 10px', fontSize:11, color:'#9aa3b8', fontStyle:'italic' }}>Aucun résultat</div>
+          )}
+          <div onMouseDown={e => e.preventDefault()} onClick={() => { setModeCreation(true); setOpen(false) }}
+            style={{ padding:'8px 10px', fontSize:12, cursor:'pointer', color:'#1a4b8f', fontWeight:700, background:'#f4f6fb' }}>
+            ➕ Nouvel AF...
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function FicheConges({ profile, onClose, dateDebutInit, dateFinInit, congeRelaisInit, pdfSeulement }) {
@@ -80,20 +149,17 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     setEnfants(prev => prev.map(e => e.id === id ? { ...e, inclus: !e.inclus } : e))
   }
 
-  const [creationRelaisPour, setCreationRelaisPour] = useState(null) // 'relais1' | 'relais2' | null
-  const [nouveauAf, setNouveauAf] = useState({ prenom: '', nom: '', ville: '' })
-
-  async function creerNouvelAf() {
-    if (!nouveauAf.prenom.trim() || !nouveauAf.nom.trim()) return
+  async function creerNouvelAf({ prenom, nom, ville }) {
+    if (!prenom.trim() || !nom.trim()) return null
     const { data, error } = await supabase.from('profiles').insert({
       id: crypto.randomUUID(),
-      prenom: nouveauAf.prenom.trim(),
-      nom: nouveauAf.nom.trim().toUpperCase(),
-      ville: nouveauAf.ville.trim() || null,
+      prenom: prenom.trim(),
+      nom: nom.trim().toUpperCase(),
+      ville: ville?.trim() || null,
       role: 'af',
       email: `temp.${Date.now()}@passerelle.local`,
     }).select().single()
-    if (error) { setToast('❌ ' + error.message); return }
+    if (error) { setToast('❌ ' + error.message); return null }
     setAfProfiles(prev => [...prev, data])
     return data
   }
@@ -338,7 +404,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     // Lignes enfants + colonne DECISION fusionnée
     const dROW = 17
     const dBase = yDH-hHdr1-hHdr2
-    const nbL = Math.max(enfants.length, 3)
+    const nbL = Math.max(enfantsInclus.length, 3)
     const decHeight = nbL*dROW
     // Case DECISION fusionnée (toute la hauteur)
     box(dCX[0], dBase-decHeight, dCX[1]-dCX[0], decHeight, null, BLACK, 0.5)
@@ -347,7 +413,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     dt('Accord', dCX[0]+16, dBase-decHeight+6, 7.5, font)
 
     for(let i=0; i<nbL; i++) {
-      const enf=enfants[i]
+      const enf=enfantsInclus[i]
       const ry=dBase-i*dROW
       if(enf?.id) dt(`${enf.prenom} ${enf.nom}`, dCX[1]+2, ry-9, 7.5, font)
       if(i>0) ln(dCX[1], ry, W-M, ry, BLACK, 0.3)
@@ -720,61 +786,22 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                     <div>
                       <label style={{ fontSize:10, fontWeight:600, color:'#9aa3b8', textTransform:'uppercase', display:'block', marginBottom:4 }}>Relais 1</label>
-                      <select value={relaisParEnfant[enf.id]||''} onChange={e => {
-                          if (e.target.value === '__nouveau__') { setCreationRelaisPour({ enfId: enf.id, champ: 'relais1' }); setNouveauAf({ prenom:'', nom:'', ville:'' }) }
-                          else setRelaisParEnfant(r => ({...r, [enf.id]:e.target.value}))
-                        }}
-                        style={{ width:'100%', padding:'8px 10px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:12, fontFamily:'Sora,sans-serif' }}>
-                        <option value="">— Aucun —</option>
-                        {afProfiles.map(a => <option key={a.id} value={a.id}>{a.prenom} {a.nom}</option>)}
-                        <option value="__nouveau__">➕ Nouvel AF...</option>
-                      </select>
-                      {creationRelaisPour?.enfId === enf.id && creationRelaisPour?.champ === 'relais1' && (
-                        <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'8px 10px', marginTop:6 }}>
-                          <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
-                            <input placeholder="Prénom" value={nouveauAf.prenom} onChange={e => setNouveauAf(n => ({...n, prenom:e.target.value}))}
-                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} autoFocus />
-                            <input placeholder="NOM" value={nouveauAf.nom} onChange={e => setNouveauAf(n => ({...n, nom:e.target.value.toUpperCase()}))}
-                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }} />
-                            <input placeholder="Ville" value={nouveauAf.ville} onChange={e => setNouveauAf(n => ({...n, ville:e.target.value}))}
-                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} />
-                            <button onClick={async () => {
-                                const created = await creerNouvelAf()
-                                if (created) { setRelaisParEnfant(r => ({...r, [enf.id]: created.id})); setCreationRelaisPour(null) }
-                              }} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Créer</button>
-                            <button onClick={() => setCreationRelaisPour(null)} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
-                          </div>
-                        </div>
-                      )}
+                      <RechercheAfInline
+                        value={relaisParEnfant[enf.id] || ''}
+                        afProfiles={afProfiles}
+                        onSelect={id => setRelaisParEnfant(r => ({...r, [enf.id]: id}))}
+                        onCreate={creerNouvelAf}
+                      />
                     </div>
                     <div>
                       <label style={{ fontSize:10, fontWeight:600, color:'#9aa3b8', textTransform:'uppercase', display:'block', marginBottom:4 }}>Relais 2 (optionnel)</label>
-                      <select value={relais2ParEnfant[enf.id]||''} onChange={e => {
-                          if (e.target.value === '__nouveau__') { setCreationRelaisPour({ enfId: enf.id, champ: 'relais2' }); setNouveauAf({ prenom:'', nom:'', ville:'' }) }
-                          else setRelais2ParEnfant(r => ({...r, [enf.id]:e.target.value}))
-                        }}
-                        style={{ width:'100%', padding:'8px 10px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:12, fontFamily:'Sora,sans-serif' }}>
-                        <option value="">— Aucun —</option>
-                        {afProfiles.filter(a => a.id !== relaisParEnfant[enf.id]).map(a => <option key={a.id} value={a.id}>{a.prenom} {a.nom}</option>)}
-                        <option value="__nouveau__">➕ Nouvel AF...</option>
-                      </select>
-                      {creationRelaisPour?.enfId === enf.id && creationRelaisPour?.champ === 'relais2' && (
-                        <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'8px 10px', marginTop:6 }}>
-                          <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
-                            <input placeholder="Prénom" value={nouveauAf.prenom} onChange={e => setNouveauAf(n => ({...n, prenom:e.target.value}))}
-                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} autoFocus />
-                            <input placeholder="NOM" value={nouveauAf.nom} onChange={e => setNouveauAf(n => ({...n, nom:e.target.value.toUpperCase()}))}
-                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }} />
-                            <input placeholder="Ville" value={nouveauAf.ville} onChange={e => setNouveauAf(n => ({...n, ville:e.target.value}))}
-                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} />
-                            <button onClick={async () => {
-                                const created = await creerNouvelAf()
-                                if (created) { setRelais2ParEnfant(r => ({...r, [enf.id]: created.id})); setCreationRelaisPour(null) }
-                              }} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Créer</button>
-                            <button onClick={() => setCreationRelaisPour(null)} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
-                          </div>
-                        </div>
-                      )}
+                      <RechercheAfInline
+                        value={relais2ParEnfant[enf.id] || ''}
+                        afProfiles={afProfiles}
+                        exclude={relaisParEnfant[enf.id]}
+                        onSelect={id => setRelais2ParEnfant(r => ({...r, [enf.id]: id}))}
+                        onCreate={creerNouvelAf}
+                      />
                     </div>
                   </div>
                   )}
