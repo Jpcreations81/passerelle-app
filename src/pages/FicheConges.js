@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-08-06e — libellés boutons harmonisés (Télécharger/Transmettre) ; destinataire encadrant confirmé correct tel quel (toujours l'encadrant propre de l'AF via profile.secteur, indépendamment du département des enfants)
+// FicheConges.js — v2026-08-06f — sélection des enfants concernés (cases à cocher, comme la fiche de présence) avec badge département ; blocage propre si un enfant du CD31 est sélectionné (pas de formulaire congés CD31 pour l'instant) ; possibilité de créer un nouvel AF directement depuis les listes Relais 1/2
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -59,13 +59,44 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   useEffect(() => {
     if (!profile?.id) return
     // Charger les enfants de l'AF
-    supabase.from('enfants').select('id,prenom,nom,territoire,af_principal_id,referent:referent_id(nom,prenom)')
+    supabase.from('enfants').select('id,prenom,nom,territoire,af_principal_id,md_id,referent:referent_id(nom,prenom)')
       .eq('af_principal_id', profile.id)
-      .then(({ data }) => { if (data) setEnfants(data) })
+      .then(async ({ data }) => {
+        if (!data) return
+        const mdIds = [...new Set(data.map(e => e.md_id).filter(Boolean))]
+        let departementParMd = {}
+        if (mdIds.length > 0) {
+          const { data: maisons } = await supabase.from('maisons_departement').select('id, departement').in('id', mdIds)
+          ;(maisons || []).forEach(m => { departementParMd[m.id] = m.departement })
+        }
+        setEnfants(data.map(e => ({ ...e, departement: e.md_id ? departementParMd[e.md_id] : '81', inclus: true })))
+      })
     // Charger les AF pour le relais
     supabase.from('profiles').select('id,nom,prenom').eq('role', 'af')
       .then(({ data }) => { if (data) setAfProfiles(data.filter(a => a.id !== profile.id)) })
   }, [profile])
+
+  function toggleEnfantInclus(id) {
+    setEnfants(prev => prev.map(e => e.id === id ? { ...e, inclus: !e.inclus } : e))
+  }
+
+  const [creationRelaisPour, setCreationRelaisPour] = useState(null) // 'relais1' | 'relais2' | null
+  const [nouveauAf, setNouveauAf] = useState({ prenom: '', nom: '', ville: '' })
+
+  async function creerNouvelAf() {
+    if (!nouveauAf.prenom.trim() || !nouveauAf.nom.trim()) return
+    const { data, error } = await supabase.from('profiles').insert({
+      id: crypto.randomUUID(),
+      prenom: nouveauAf.prenom.trim(),
+      nom: nouveauAf.nom.trim().toUpperCase(),
+      ville: nouveauAf.ville.trim() || null,
+      role: 'af',
+      email: `temp.${Date.now()}@passerelle.local`,
+    }).select().single()
+    if (error) { setToast('❌ ' + error.message); return }
+    setAfProfiles(prev => [...prev, data])
+    return data
+  }
 
   const nbJours = form.dateDebut && form.dateFin
     ? nbJoursOuvres(form.dateDebut, form.dateFin)
@@ -214,7 +245,8 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     ln(M, yTH-12, W-M, yTH-12, BLACK, 0.4)
 
     const ROW = 16
-    const lignes = enfants.length>0 ? [...enfants] : []
+    const enfantsInclus = enfants.filter(e => e.inclus)
+    const lignes = enfantsInclus.length>0 ? [...enfantsInclus] : []
     while(lignes.length<3) lignes.push(null)
     lignes.slice(0,4).forEach((enf,i) => {
       const ry = yTH-12-i*ROW
@@ -497,6 +529,15 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     if (!form.dateDebut || !form.dateFin) {
       setToast('⚠️ Veuillez saisir les dates de congés'); setTimeout(() => setToast(''), 3000); return
     }
+    const enfantsInclusCheck = enfants.filter(e => e.inclus)
+    if (enfantsInclusCheck.length === 0) {
+      setToast('⚠️ Sélectionnez au moins un enfant'); setTimeout(() => setToast(''), 3000); return
+    }
+    if (enfantsInclusCheck.some(e => e.departement && e.departement !== '81')) {
+      setToast('⚠️ Le formulaire de congés pour la Haute-Garonne (CD31) n\'existe pas encore — désélectionnez les enfants concernés')
+      setTimeout(() => setToast(''), 5000)
+      return
+    }
     setSaving(true)
     try {
       // 1. Créer l'événement congé dans l'agenda (en attente)
@@ -505,7 +546,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
 
       // Préparer les relais par enfant
       const congeRelais = {}
-      enfants.forEach(enf => {
+      enfants.filter(e => e.inclus).forEach(enf => {
         const r1 = relaisParEnfant[enf.id]
         if (r1) {
           const af = afProfiles.find(a => a.id === r1)
@@ -531,7 +572,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
       const debutRelais = new Date(dateDebutISO); debutRelais.setDate(debutRelais.getDate()-1); debutRelais.setHours(0,0,0,0)
       const finRelais = new Date(dateFinISO); finRelais.setDate(finRelais.getDate()+1); finRelais.setHours(23,59,0,0)
       const relaisRows = []
-      enfants.forEach(enf => {
+      enfants.filter(e => e.inclus).forEach(enf => {
         const afRelaisId = relaisParEnfant[enf.id]
         const af2RelaisId = relais2ParEnfant[enf.id]
         const afObj = afProfiles.find(a => a.id === afRelaisId)
@@ -582,7 +623,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
 
       // 3b. Créer notification pour chaque AF relais (1 et 2), avec la liste des enfants concernés
       const enfantsParRelais = {}
-      enfants.forEach(enf => {
+      enfants.filter(e => e.inclus).forEach(enf => {
         const r1 = relaisParEnfant[enf.id]
         const r2 = relais2ParEnfant[enf.id]
         if (r1) { if (!enfantsParRelais[r1]) enfantsParRelais[r1] = []; enfantsParRelais[r1].push(enf) }
@@ -659,31 +700,84 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
             </div>
           </div>
 
-          {/* Relais par enfant */}
+          {/* Sélection des enfants + relais */}
           {enfants.length > 0 && (
             <div style={{ marginBottom:20 }}>
-              <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', display:'block', marginBottom:10 }}>Relais par enfant</label>
+              <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', display:'block', marginBottom:10 }}>Enfants concernés par cette demande</label>
               {enfants.map(enf => (
-                <div key={enf.id} style={{ background:'#f9fafb', border:'1px solid #e8eef8', borderRadius:10, padding:'12px 16px', marginBottom:10 }}>
-                  <div style={{ fontWeight:600, fontSize:13, marginBottom:8 }}>👶 {enf.prenom} {enf.nom}</div>
+                <div key={enf.id} style={{ background: enf.inclus ? '#f9fafb' : '#f4f6fb', border: enf.inclus ? '1px solid #e8eef8' : '1px solid #eef1f8', borderRadius:10, padding:'12px 16px', marginBottom:10, opacity: enf.inclus ? 1 : 0.6 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: enf.inclus ? 8 : 0 }}>
+                    <input type="checkbox" checked={enf.inclus} onChange={() => toggleEnfantInclus(enf.id)}
+                      style={{ width:16, height:16, cursor:'pointer' }} />
+                    <div style={{ fontWeight:600, fontSize:13, flex:1 }}>👶 {enf.prenom} {enf.nom}</div>
+                    {enf.departement && enf.departement !== '81' && (
+                      <span style={{ fontSize:10, fontWeight:700, color:'#d97706', background:'#fffbeb', padding:'2px 8px', borderRadius:10 }}>
+                        CD{enf.departement}
+                      </span>
+                    )}
+                  </div>
+                  {enf.inclus && (
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                     <div>
                       <label style={{ fontSize:10, fontWeight:600, color:'#9aa3b8', textTransform:'uppercase', display:'block', marginBottom:4 }}>Relais 1</label>
-                      <select value={relaisParEnfant[enf.id]||''} onChange={e => setRelaisParEnfant(r => ({...r, [enf.id]:e.target.value}))}
+                      <select value={relaisParEnfant[enf.id]||''} onChange={e => {
+                          if (e.target.value === '__nouveau__') { setCreationRelaisPour({ enfId: enf.id, champ: 'relais1' }); setNouveauAf({ prenom:'', nom:'', ville:'' }) }
+                          else setRelaisParEnfant(r => ({...r, [enf.id]:e.target.value}))
+                        }}
                         style={{ width:'100%', padding:'8px 10px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:12, fontFamily:'Sora,sans-serif' }}>
                         <option value="">— Aucun —</option>
                         {afProfiles.map(a => <option key={a.id} value={a.id}>{a.prenom} {a.nom}</option>)}
+                        <option value="__nouveau__">➕ Nouvel AF...</option>
                       </select>
+                      {creationRelaisPour?.enfId === enf.id && creationRelaisPour?.champ === 'relais1' && (
+                        <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'8px 10px', marginTop:6 }}>
+                          <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
+                            <input placeholder="Prénom" value={nouveauAf.prenom} onChange={e => setNouveauAf(n => ({...n, prenom:e.target.value}))}
+                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} autoFocus />
+                            <input placeholder="NOM" value={nouveauAf.nom} onChange={e => setNouveauAf(n => ({...n, nom:e.target.value.toUpperCase()}))}
+                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }} />
+                            <input placeholder="Ville" value={nouveauAf.ville} onChange={e => setNouveauAf(n => ({...n, ville:e.target.value}))}
+                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} />
+                            <button onClick={async () => {
+                                const created = await creerNouvelAf()
+                                if (created) { setRelaisParEnfant(r => ({...r, [enf.id]: created.id})); setCreationRelaisPour(null) }
+                              }} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Créer</button>
+                            <button onClick={() => setCreationRelaisPour(null)} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label style={{ fontSize:10, fontWeight:600, color:'#9aa3b8', textTransform:'uppercase', display:'block', marginBottom:4 }}>Relais 2 (optionnel)</label>
-                      <select value={relais2ParEnfant[enf.id]||''} onChange={e => setRelais2ParEnfant(r => ({...r, [enf.id]:e.target.value}))}
+                      <select value={relais2ParEnfant[enf.id]||''} onChange={e => {
+                          if (e.target.value === '__nouveau__') { setCreationRelaisPour({ enfId: enf.id, champ: 'relais2' }); setNouveauAf({ prenom:'', nom:'', ville:'' }) }
+                          else setRelais2ParEnfant(r => ({...r, [enf.id]:e.target.value}))
+                        }}
                         style={{ width:'100%', padding:'8px 10px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:12, fontFamily:'Sora,sans-serif' }}>
                         <option value="">— Aucun —</option>
                         {afProfiles.filter(a => a.id !== relaisParEnfant[enf.id]).map(a => <option key={a.id} value={a.id}>{a.prenom} {a.nom}</option>)}
+                        <option value="__nouveau__">➕ Nouvel AF...</option>
                       </select>
+                      {creationRelaisPour?.enfId === enf.id && creationRelaisPour?.champ === 'relais2' && (
+                        <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'8px 10px', marginTop:6 }}>
+                          <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
+                            <input placeholder="Prénom" value={nouveauAf.prenom} onChange={e => setNouveauAf(n => ({...n, prenom:e.target.value}))}
+                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} autoFocus />
+                            <input placeholder="NOM" value={nouveauAf.nom} onChange={e => setNouveauAf(n => ({...n, nom:e.target.value.toUpperCase()}))}
+                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }} />
+                            <input placeholder="Ville" value={nouveauAf.ville} onChange={e => setNouveauAf(n => ({...n, ville:e.target.value}))}
+                              style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} />
+                            <button onClick={async () => {
+                                const created = await creerNouvelAf()
+                                if (created) { setRelais2ParEnfant(r => ({...r, [enf.id]: created.id})); setCreationRelaisPour(null) }
+                              }} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Créer</button>
+                            <button onClick={() => setCreationRelaisPour(null)} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
+                  )}
                 </div>
               ))}
             </div>
