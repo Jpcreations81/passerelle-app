@@ -1,4 +1,4 @@
-// Login.js — v2026-08-06 — ajout recherche + fusion des profils relais "en attente" (transferer_relais_vers_af), en plus des enfants (AF principal)
+// Login.js — v2026-08-06b — retrait de la mention "Département du Tarn (81)" sur la page de connexion
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -149,8 +149,7 @@ export default function Login() {
             <span style={{ fontSize: 40, display: 'none', color: '#fff' }}>🌉</span>
           </div>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginTop: 6 }}>
-            Un pont entre l'Assfam et l'ASE<br />
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Département du Tarn (81)</span>
+            Un pont entre l'Assfam et l'ASE
           </p>
         </div>
 
