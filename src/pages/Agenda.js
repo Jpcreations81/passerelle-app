@@ -1,4 +1,4 @@
-// Agenda.js — v2026-08-06j — vacances scolaires : ne griser qu'une bande en haut de la case (celle avec la date), plus la case entière — moins agressif visuellement
+// Agenda.js — v2026-08-06k — vacances scolaires : bande réduite à une fine barre de 4px au-dessus du numéro du jour, au lieu d'englober tout le bloc date
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1711,8 +1711,9 @@ export default function Agenda({ profile }) {
           onMouseOver={e => e.currentTarget.style.background = '#f0f4ff'}
           onMouseOut={e => e.currentTarget.style.background = bgNormal}
         >
-          <div style={{ padding:'3px 3px 2px', background: vac ? '#3f3f46' : 'transparent' }}>
-          <div style={{ width:22, height:22, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', margin:'1px auto 3px', background: (isToday && !isOther) ? '#1a4b8f' : 'none', color: (isToday && !isOther) ? '#fff' : vac ? '#fff' : isOther ? '#9aa3b8' : '#1c2333', fontSize:11, fontWeight:500 }}>
+          {vac && <div style={{ height:4, background:'#3f3f46' }} />}
+          <div style={{ padding:'3px 3px 2px' }}>
+          <div style={{ width:22, height:22, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', margin:'1px auto 3px', background: (isToday && !isOther) ? '#1a4b8f' : 'none', color: (isToday && !isOther) ? '#fff' : isOther ? '#9aa3b8' : '#1c2333', fontSize:11, fontWeight:500 }}>
             {d.getDate()}
           </div>
           </div>
