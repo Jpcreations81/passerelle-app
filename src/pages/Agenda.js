@@ -1,4 +1,4 @@
-// Agenda.js — v2026-08-06i — ajout affichage des vacances scolaires (Zone C, commune au 81 et au 31) dans la vue Mois, fond gris foncé sur les jours concernés
+// Agenda.js — v2026-08-06j — vacances scolaires : ne griser qu'une bande en haut de la case (celle avec la date), plus la case entière — moins agressif visuellement
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1703,17 +1703,20 @@ export default function Agenda({ profile }) {
       const isToday = !isOther && sameDay(d, today)
       const vac = infoVacances(d)
       const evts = evtsDuJour(d)
-      const bgNormal = (isToday && !isOther) ? '#f0f4ff' : vac ? '#3f3f46' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff'
+      const bgNormal = (isToday && !isOther) ? '#f0f4ff' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff'
       cells.push(
         <div key={`d-${i}`} onClick={() => { setCurrentDate(d); setVue('jour') }}
           title={vac ? `Vacances de ${vac.nom} (Zone C)` : undefined}
-          style={{ minHeight:90, padding:3, borderRight:'1px solid #dde3f0', borderBottom:'1px solid #dde3f0', cursor:'pointer', background: bgNormal, transition:'background .1s' }}
-          onMouseOver={e => e.currentTarget.style.background = vac ? '#52525b' : '#f0f4ff'}
+          style={{ minHeight:90, padding:0, borderRight:'1px solid #dde3f0', borderBottom:'1px solid #dde3f0', cursor:'pointer', background: bgNormal, transition:'background .1s', display:'flex', flexDirection:'column' }}
+          onMouseOver={e => e.currentTarget.style.background = '#f0f4ff'}
           onMouseOut={e => e.currentTarget.style.background = bgNormal}
         >
+          <div style={{ padding:'3px 3px 2px', background: vac ? '#3f3f46' : 'transparent' }}>
           <div style={{ width:22, height:22, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', margin:'1px auto 3px', background: (isToday && !isOther) ? '#1a4b8f' : 'none', color: (isToday && !isOther) ? '#fff' : vac ? '#fff' : isOther ? '#9aa3b8' : '#1c2333', fontSize:11, fontWeight:500 }}>
             {d.getDate()}
           </div>
+          </div>
+          <div style={{ padding:'0 3px 3px', flex:1 }}>
           {evts.slice(0, 3).map((ev, ei) => {
             const cat = CATEGORIES[ev.categorie] || CATEGORIES.autre
             const isRelaisInconnu = ev.categorie === 'relais' && ev.notes && ev.notes.toLowerCase().includes('inconnu')
@@ -1730,6 +1733,7 @@ export default function Agenda({ profile }) {
               +{evts.length - 3}
             </div>
           )}
+          </div>
         </div>
       )
     }
