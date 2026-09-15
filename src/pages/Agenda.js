@@ -1,4 +1,4 @@
-// Agenda.js — v2026-08-06f — bloque l'import si un événement relais sélectionné n'a pas d'AF identifié (même logique que le blocage existant pour enfant manquant)
+// Agenda.js — v2026-08-06h — vue Mois : cliquer sur une date affiche d'abord le détail du jour (vue Jour) au lieu d'ouvrir directement la modal d'ajout ; le bouton "+ Ajouter" reste disponible pour créer un événement
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1689,7 +1689,7 @@ export default function Agenda({ profile }) {
       const isToday = !isOther && sameDay(d, today)
       const evts = evtsDuJour(d)
       cells.push(
-        <div key={`d-${i}`} onClick={() => openAdd(d)}
+        <div key={`d-${i}`} onClick={() => { setCurrentDate(d); setVue('jour') }}
           style={{ minHeight:90, padding:3, borderRight:'1px solid #dde3f0', borderBottom:'1px solid #dde3f0', cursor:'pointer', background: (isToday && !isOther) ? '#f0f4ff' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff', transition:'background .1s' }}
           onMouseOver={e => e.currentTarget.style.background = '#f0f4ff'}
           onMouseOut={e => e.currentTarget.style.background = (isToday && !isOther) ? '#f0f4ff' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff'}
@@ -1707,7 +1707,12 @@ export default function Agenda({ profile }) {
               </div>
             )
           })}
-          {evts.length > 3 && <div style={{ fontSize:9, color:'#1a4b8f', padding:'1px 3px', cursor:'pointer', fontWeight:600 }}>+{evts.length - 3}</div>}
+          {evts.length > 3 && (
+            <div onClick={e => { e.stopPropagation(); setCurrentDate(d); setVue('jour') }}
+              style={{ fontSize:9, color:'#1a4b8f', padding:'1px 3px', cursor:'pointer', fontWeight:700, textDecoration:'underline' }}>
+              +{evts.length - 3}
+            </div>
+          )}
         </div>
       )
     }
