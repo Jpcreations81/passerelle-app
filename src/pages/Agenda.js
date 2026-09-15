@@ -1,4 +1,4 @@
-// Agenda.js — v2026-08-06h — vue Mois : cliquer sur une date affiche d'abord le détail du jour (vue Jour) au lieu d'ouvrir directement la modal d'ajout ; le bouton "+ Ajouter" reste disponible pour créer un événement
+// Agenda.js — v2026-08-06i — ajout affichage des vacances scolaires (Zone C, commune au 81 et au 31) dans la vue Mois, fond gris foncé sur les jours concernés
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -34,6 +34,20 @@ function addDays(d, n) {
 function sameDay(a, b) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
+// Vacances scolaires Zone C (académie de Toulouse — couvre le Tarn 81 et la Haute-Garonne 31)
+// Source : calendrier officiel 2026-2027 (arrêté du 22 octobre 2025). À compléter chaque année.
+const VACANCES_ZONE_C = [
+  { nom: 'Toussaint',  debut: '2026-10-17', fin: '2026-11-02' },
+  { nom: 'Noël',       debut: '2026-12-19', fin: '2027-01-04' },
+  { nom: 'Hiver',      debut: '2027-02-06', fin: '2027-02-22' },
+  { nom: 'Printemps',  debut: '2027-04-03', fin: '2027-04-19' },
+  { nom: 'Été',        debut: '2027-07-03', fin: '2027-08-31' },
+]
+function infoVacances(d) {
+  const key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0')
+  return VACANCES_ZONE_C.find(v => key >= v.debut && key <= v.fin) || null
+}
+
 function weekNumber(d) {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
   const dn = date.getUTCDay() || 7
@@ -1687,14 +1701,17 @@ export default function Agenda({ profile }) {
       }
       const isOther = d.getMonth() !== month, isWE = d.getDay() === 0 || d.getDay() === 6
       const isToday = !isOther && sameDay(d, today)
+      const vac = infoVacances(d)
       const evts = evtsDuJour(d)
+      const bgNormal = (isToday && !isOther) ? '#f0f4ff' : vac ? '#3f3f46' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff'
       cells.push(
         <div key={`d-${i}`} onClick={() => { setCurrentDate(d); setVue('jour') }}
-          style={{ minHeight:90, padding:3, borderRight:'1px solid #dde3f0', borderBottom:'1px solid #dde3f0', cursor:'pointer', background: (isToday && !isOther) ? '#f0f4ff' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff', transition:'background .1s' }}
-          onMouseOver={e => e.currentTarget.style.background = '#f0f4ff'}
-          onMouseOut={e => e.currentTarget.style.background = (isToday && !isOther) ? '#f0f4ff' : isWE ? '#fafafe' : isOther ? '#f8f9fb' : '#fff'}
+          title={vac ? `Vacances de ${vac.nom} (Zone C)` : undefined}
+          style={{ minHeight:90, padding:3, borderRight:'1px solid #dde3f0', borderBottom:'1px solid #dde3f0', cursor:'pointer', background: bgNormal, transition:'background .1s' }}
+          onMouseOver={e => e.currentTarget.style.background = vac ? '#52525b' : '#f0f4ff'}
+          onMouseOut={e => e.currentTarget.style.background = bgNormal}
         >
-          <div style={{ width:22, height:22, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', margin:'1px auto 3px', background: (isToday && !isOther) ? '#1a4b8f' : 'none', color: (isToday && !isOther) ? '#fff' : isOther ? '#9aa3b8' : '#1c2333', fontSize:11, fontWeight:500 }}>
+          <div style={{ width:22, height:22, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center', margin:'1px auto 3px', background: (isToday && !isOther) ? '#1a4b8f' : 'none', color: (isToday && !isOther) ? '#fff' : vac ? '#fff' : isOther ? '#9aa3b8' : '#1c2333', fontSize:11, fontWeight:500 }}>
             {d.getDate()}
           </div>
           {evts.slice(0, 3).map((ev, ei) => {
