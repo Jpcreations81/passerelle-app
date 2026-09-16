@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-07-22c — genre sauvegardé dans cols
+// DossierAssfam.js — v2026-07-22d — fix accord de genre "Assistant(e) familial(e) agréé(e)" selon af.genre (était toujours au féminin, quel que soit le sexe de l'AF)
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import SortieDepartement from './SortieDepartement'
@@ -363,7 +363,7 @@ export default function DossierAssfam({ profile }) {
             <div>
               <div className="page-title">{af.nom} {af.prenom}</div>
               <div className="page-subtitle">
-                Assistante familiale agréée · {af.secteur||af.territoire||''}
+                {af.genre === 'M' ? 'Assistant familial agréé' : 'Assistante familiale agréée'} · {af.secteur||af.territoire||''}
                 {af.numero_agrement&&` · Agrément N° ${af.numero_agrement}`}
                 {agrAlerte&&<span style={{marginLeft:8,background:agrExpire?'#fdf0ee':'#fef3e2',color:agrExpire?'#c0392b':'#d97706',padding:'1px 8px',borderRadius:10,fontSize:10,fontWeight:700}}>{agrExpire?'🔴 Agrément EXPIRÉ':`⚠️ Renouvellement dans ${joursAgrExp}j`}</span>}
               </div>
