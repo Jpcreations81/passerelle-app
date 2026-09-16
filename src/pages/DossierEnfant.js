@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-08-06i — fix bug critique : champ 'type' manquant à la création des dossiers enfant par défaut (défaut base = 'af'), faisait apparaître les dossiers Médical/Scolaire/Visites dans l'espace personnel de l'AF au lieu de la fiche enfant
+// DossierEnfant.js — v2026-08-06k — correction : seul l'onglet "Judiciaire" devait être retiré, "Placement" est remis (les 2 mentions texte pointant vers Judiciaire restent retirées, ce tab-là est bien parti)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1022,7 +1022,6 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
     { id:'identite',  icon:'🪪',  label:'Identité',         hidden: nonPlace },
     { id:'famille',   icon:'👨‍👩‍👧', label:'Famille',          hidden: nonPlace || isAfRelaisActif },
     { id:'placement', icon:'🏠',  label:'Placement',         hidden: nonPlace && enfant?.statut_profil !== 'temporaire' },
-    { id:'judiciaire',icon:'⚖️',  label:'Judiciaire',        restricted: isAF, hidden: nonPlace || isAfRelaisActif },
     { id:'quotidien', icon:'🌱',  label:'Vie quotidienne',   hidden: nonPlace },
     { id:'docs',      icon:'📂',  label:'Docs',              hidden: nonPlace || isAfRelaisActif },
     { id:'journal',   icon:'📝',  label:'Journal',           hidden: nonPlace, badge: journalNotes.length > 0 ? journalNotes.filter(n => {
@@ -1556,9 +1555,6 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                       })() : '—'
                     } />
                   </FormGrid>
-                  <div style={{ fontSize:11, color:'#9aa3b8', fontStyle:'italic', marginTop:8 }}>
-                    📌 Les dates sont modifiables dans l'onglet ⚖️ Judiciaire
-                  </div>
                 </SectionCard>
 
                 {/* ── MAISON DU DÉPARTEMENT ── */}
@@ -2505,11 +2501,6 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                 <label className="form-label">Ville</label>
                 <input className="form-control" value={editParent.ville || ''}
                   onChange={e => setEditParent(p => ({...p, ville: e.target.value}))} />
-              </div>
-              <div className="form-group col-span-2">
-                <div style={{ padding:'10px 14px', background:'#f0f9ff', border:'1px solid #c4d4f5', borderRadius:8, fontSize:12, color:'#1a4b8f' }}>
-                  📌 Les droits parentaux et droits de visite sont à renseigner dans l'onglet ⚖️ Judiciaire
-                </div>
               </div>
               <div className="form-group col-span-2">
                 <label className="form-label">Notes</label>
