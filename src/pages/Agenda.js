@@ -1,4 +1,4 @@
-// Agenda.js — v2026-08-06k — vacances scolaires : bande réduite à une fine barre de 4px au-dessus du numéro du jour, au lieu d'englober tout le bloc date
+// Agenda.js — v2026-08-06l — retrait du bouton "Modifier calendrier" (fonctionnalité d'import PDF de modification reste dans le code, juste plus de point d'entrée dans l'UI)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1872,10 +1872,6 @@ export default function Agenda({ profile }) {
                 🎨 Couleurs
               </button>
             )}
-            <button className="btn" style={{ background:'#f0f9ff', color:'#0891b2', border:'1px solid #bae6fd', fontFamily:'Sora,sans-serif', fontSize:11, padding:'7px 12px', borderRadius:7, cursor:'pointer', fontWeight:600 }}
-              onClick={() => setShowModifModal(true)}>
-              📝 Modifier calendrier
-            </button>
             <button className="btn btn-primary" onClick={() => openAdd(null)}>+ Ajouter</button>
           </div>
         </PageHeader>
