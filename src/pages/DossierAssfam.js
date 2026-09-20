@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-07-22g — Gestionnaire Paie devient un vrai champ assignable (recherche + création, comme Encadrant Technique), lié à la table dédiée gestionnaires_paie (4 gestionnaires déjà en base) au lieu de champs texte libres ; ajout de gestionnaire_paie_id à la liste des colonnes sauvegardées
+// DossierAssfam.js — v2026-07-22h — fix critique : page blanche (ReferenceError TDZ) — fetchGestionnairesPaie était utilisée dans le useEffect avant sa propre déclaration plus bas dans le fichier, déplacée avant
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import SortieDepartement from './SortieDepartement'
@@ -361,6 +361,11 @@ export default function DossierAssfam({ profile }) {
     }
   }, [id])
 
+  const fetchGestionnairesPaie = useCallback(async () => {
+    const { data } = await supabase.from('gestionnaires_paie').select('id,nom,prenom,telephone,email').order('nom')
+    if (data) setGestionnairesPaie(data)
+  }, [])
+
   useEffect(() => {
     fetchAf(); fetchEnfants(); fetchConges(); fetchFormations()
     fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto(); fetchGestionnairesPaie()
@@ -389,11 +394,6 @@ export default function DossierAssfam({ profile }) {
     if (error) { console.log('Erreur mise à jour téléphone encadrant:', error.message); return }
     setCollegues(prev => prev.map(c => c.id === encadrantId ? { ...c, ...data } : c))
   }
-
-  const fetchGestionnairesPaie = useCallback(async () => {
-    const { data } = await supabase.from('gestionnaires_paie').select('id,nom,prenom,telephone,email').order('nom')
-    if (data) setGestionnairesPaie(data)
-  }, [])
 
   async function creerNouveauGestionnairePaie({ prenom, nom, telephone, email }) {
     if (!prenom.trim() || !nom.trim()) return null
