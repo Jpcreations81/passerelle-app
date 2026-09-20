@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-07-22e — Encadrant Technique devient un vrai champ assignable (recherche + création, comme les référents enfant) au lieu d'afficher tous les encadrants existants sans distinction ; ajout de encadrant_id à la liste des colonnes sauvegardées (absent jusqu'ici, rien n'était jamais persisté)
+// DossierAssfam.js — v2026-07-22f — 2e numéro de téléphone à la création d'un encadrant + possibilité de modifier le(s) numéro(s) d'un encadrant déjà assigné (icône 📞✏️)
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import SortieDepartement from './SortieDepartement'
@@ -69,14 +69,18 @@ function calcTauxKm(cv, km) {
   return t ? t.taux : 0.23
 }
 
-function RechercheEncadrantInline({ value, encadrants, onSelect, onCreate }) {
+function RechercheEncadrantInline({ value, encadrants, onSelect, onCreate, onUpdate }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [modeCreation, setModeCreation] = useState(false)
+  const [modeEditTel, setModeEditTel] = useState(false)
   const [newPrenom, setNewPrenom] = useState('')
   const [newNom, setNewNom] = useState('')
   const [newTel, setNewTel] = useState('')
+  const [newTel2, setNewTel2] = useState('')
   const [newEmail, setNewEmail] = useState('')
+  const [editTel, setEditTel] = useState('')
+  const [editTel2, setEditTel2] = useState('')
 
   const selected = encadrants.find(c => c.id === value)
   const filtered = encadrants
@@ -92,16 +96,37 @@ function RechercheEncadrantInline({ value, encadrants, onSelect, onCreate }) {
           style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:110 }} />
         <input placeholder="Téléphone" value={newTel} onChange={e => setNewTel(e.target.value)}
           style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:110 }} />
+        <input placeholder="Téléphone 2 (optionnel)" value={newTel2} onChange={e => setNewTel2(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:130 }} />
         <input placeholder="Email" value={newEmail} onChange={e => setNewEmail(e.target.value)}
           style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:160 }} />
       </div>
       <div style={{ display:'flex', gap:6, marginTop:6 }}>
         <button onClick={async () => {
             if (!newPrenom.trim() || !newNom.trim()) return
-            const created = await onCreate({ prenom: newPrenom, nom: newNom, telephone: newTel, email: newEmail })
-            if (created) { onSelect(created.id); setModeCreation(false); setNewPrenom(''); setNewNom(''); setNewTel(''); setNewEmail('') }
+            const created = await onCreate({ prenom: newPrenom, nom: newNom, telephone: newTel, telephone2: newTel2, email: newEmail })
+            if (created) { onSelect(created.id); setModeCreation(false); setNewPrenom(''); setNewNom(''); setNewTel(''); setNewTel2(''); setNewEmail('') }
           }} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Créer</button>
         <button onClick={() => setModeCreation(false)} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
+      </div>
+    </div>
+  )
+
+  if (selected && modeEditTel) return (
+    <div style={{ background:'#f0f9ff', border:'1px solid #c4d4f5', borderRadius:8, padding:'10px 12px' }}>
+      <div style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>{selected.prenom} {selected.nom}</div>
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+        <input placeholder="Téléphone" value={editTel} onChange={e => setEditTel(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #c4d4f5', borderRadius:6, padding:'5px 8px', width:120 }} autoFocus />
+        <input placeholder="Téléphone 2" value={editTel2} onChange={e => setEditTel2(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #c4d4f5', borderRadius:6, padding:'5px 8px', width:120 }} />
+      </div>
+      <div style={{ display:'flex', gap:6, marginTop:6 }}>
+        <button onClick={async () => {
+            await onUpdate(selected.id, { telephone: editTel, telephone2: editTel2 })
+            setModeEditTel(false)
+          }} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Enregistrer</button>
+        <button onClick={() => setModeEditTel(false)} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
       </div>
     </div>
   )
@@ -109,6 +134,9 @@ function RechercheEncadrantInline({ value, encadrants, onSelect, onCreate }) {
   if (selected) return (
     <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, background:'#f4f6fb' }}>
       <span style={{ flex:1, fontSize:13 }}>{selected.prenom} {selected.nom}</span>
+      <button onClick={() => { setEditTel(selected.telephone || ''); setEditTel2(selected.telephone2 || ''); setModeEditTel(true) }}
+        title="Modifier le(s) numéro(s) de téléphone"
+        style={{ background:'none', border:'none', color:'#1a4b8f', cursor:'pointer', fontSize:14, lineHeight:1 }}>📞✏️</button>
       <button onClick={() => onSelect('')} style={{ background:'none', border:'none', color:'#c0392b', cursor:'pointer', fontSize:15, lineHeight:1 }}>✕</button>
     </div>
   )
@@ -230,7 +258,7 @@ export default function DossierAssfam({ profile }) {
   }, [id])
 
   const fetchCollegues = useCallback(async () => {
-    const { data } = await supabase.from('profiles').select('id,nom,prenom,role,telephone,email').in('role',['encadrant','admin'])
+    const { data } = await supabase.from('profiles').select('id,nom,prenom,role,telephone,telephone2,email').in('role',['encadrant','admin'])
     if (data) setCollegues(data)
   }, [])
 
@@ -247,19 +275,28 @@ export default function DossierAssfam({ profile }) {
     fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto()
   }, [fetchAf,fetchEnfants,fetchConges,fetchFormations,fetchFoyerEnfants,fetchDocuments,fetchCollegues,fetchPhoto])
 
-  async function creerNouvelEncadrant({ prenom, nom, telephone, email }) {
+  async function creerNouvelEncadrant({ prenom, nom, telephone, telephone2, email }) {
     if (!prenom.trim() || !nom.trim()) return null
     const { data, error } = await supabase.from('profiles').insert({
       id: crypto.randomUUID(),
       prenom: prenom.trim(),
       nom: nom.trim().toUpperCase(),
       telephone: telephone?.trim() || null,
+      telephone2: telephone2?.trim() || null,
       email: email?.trim() || `temp.${Date.now()}@passerelle.local`,
       role: 'encadrant',
     }).select().single()
     if (error) { console.log('Erreur création encadrant:', error.message); return null }
     setCollegues(prev => [...prev, data])
     return data
+  }
+
+  async function updateEncadrantTel(encadrantId, { telephone, telephone2 }) {
+    const { data, error } = await supabase.from('profiles')
+      .update({ telephone: telephone?.trim() || null, telephone2: telephone2?.trim() || null })
+      .eq('id', encadrantId).select().single()
+    if (error) { console.log('Erreur mise à jour téléphone encadrant:', error.message); return }
+    setCollegues(prev => prev.map(c => c.id === encadrantId ? { ...c, ...data } : c))
   }
 
   async function saveForm() {
@@ -953,6 +990,7 @@ export default function DossierAssfam({ profile }) {
                         encadrants={collegues.filter(c=>c.role==='encadrant')}
                         onSelect={id => F('encadrant_id')(id)}
                         onCreate={creerNouvelEncadrant}
+                        onUpdate={updateEncadrantTel}
                       />
                     ) : (() => {
                       const enc = collegues.find(c => c.id === af?.encadrant_id)
@@ -961,6 +999,7 @@ export default function DossierAssfam({ profile }) {
                           <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{enc.prenom} {enc.nom}</div>
                           <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
                             {enc.telephone&&<a href={`tel:${enc.telephone}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {enc.telephone}</a>}
+                            {enc.telephone2&&<a href={`tel:${enc.telephone2}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {enc.telephone2}</a>}
                             {enc.email&&<a href={`mailto:${enc.email}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e6f5eb',color:'#2e8b4a',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>✉️ {enc.email}</a>}
                           </div>
                         </div>
