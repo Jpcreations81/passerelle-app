@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-07-22f — 2e numéro de téléphone à la création d'un encadrant + possibilité de modifier le(s) numéro(s) d'un encadrant déjà assigné (icône 📞✏️)
+// DossierAssfam.js — v2026-07-22g — Gestionnaire Paie devient un vrai champ assignable (recherche + création, comme Encadrant Technique), lié à la table dédiée gestionnaires_paie (4 gestionnaires déjà en base) au lieu de champs texte libres ; ajout de gestionnaire_paie_id à la liste des colonnes sauvegardées
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import SortieDepartement from './SortieDepartement'
@@ -170,6 +170,96 @@ function RechercheEncadrantInline({ value, encadrants, onSelect, onCreate, onUpd
   )
 }
 
+function RechercheGestionnairePaieInline({ value, gestionnaires, onSelect, onCreate, onUpdate }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [modeCreation, setModeCreation] = useState(false)
+  const [modeEditTel, setModeEditTel] = useState(false)
+  const [newPrenom, setNewPrenom] = useState('')
+  const [newNom, setNewNom] = useState('')
+  const [newTel, setNewTel] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [editTel, setEditTel] = useState('')
+
+  const selected = gestionnaires.find(g => g.id === value)
+  const filtered = gestionnaires
+    .filter(g => query.trim().length === 0 ? true : `${g.prenom} ${g.nom}`.toLowerCase().includes(query.toLowerCase()))
+    .slice(0, 8)
+
+  if (modeCreation) return (
+    <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'10px 12px' }}>
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+        <input placeholder="Prénom" value={newPrenom} onChange={e => setNewPrenom(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:100 }} autoFocus />
+        <input placeholder="NOM" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())}
+          style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:110 }} />
+        <input placeholder="Téléphone" value={newTel} onChange={e => setNewTel(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:110 }} />
+        <input placeholder="Email" value={newEmail} onChange={e => setNewEmail(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:160 }} />
+      </div>
+      <div style={{ display:'flex', gap:6, marginTop:6 }}>
+        <button onClick={async () => {
+            if (!newPrenom.trim() || !newNom.trim()) return
+            const created = await onCreate({ prenom: newPrenom, nom: newNom, telephone: newTel, email: newEmail })
+            if (created) { onSelect(created.id); setModeCreation(false); setNewPrenom(''); setNewNom(''); setNewTel(''); setNewEmail('') }
+          }} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Créer</button>
+        <button onClick={() => setModeCreation(false)} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
+      </div>
+    </div>
+  )
+
+  if (selected && modeEditTel) return (
+    <div style={{ background:'#f0f9ff', border:'1px solid #c4d4f5', borderRadius:8, padding:'10px 12px' }}>
+      <div style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>{selected.prenom} {selected.nom}</div>
+      <input placeholder="Téléphone" value={editTel} onChange={e => setEditTel(e.target.value)}
+        style={{ fontSize:12, border:'1px solid #c4d4f5', borderRadius:6, padding:'5px 8px', width:120 }} autoFocus />
+      <div style={{ display:'flex', gap:6, marginTop:6 }}>
+        <button onClick={async () => { await onUpdate(selected.id, { telephone: editTel }); setModeEditTel(false) }}
+          style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Enregistrer</button>
+        <button onClick={() => setModeEditTel(false)} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
+      </div>
+    </div>
+  )
+
+  if (selected) return (
+    <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, background:'#f4f6fb' }}>
+      <span style={{ flex:1, fontSize:13 }}>{selected.prenom} {selected.nom}</span>
+      <button onClick={() => { setEditTel(selected.telephone || ''); setModeEditTel(true) }}
+        title="Modifier le téléphone" style={{ background:'none', border:'none', color:'#1a4b8f', cursor:'pointer', fontSize:14, lineHeight:1 }}>📞✏️</button>
+      <button onClick={() => onSelect('')} style={{ background:'none', border:'none', color:'#c0392b', cursor:'pointer', fontSize:15, lineHeight:1 }}>✕</button>
+    </div>
+  )
+
+  return (
+    <div style={{ position:'relative' }}>
+      <input value={query}
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="🔍 Rechercher un gestionnaire paie..."
+        style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:13, fontFamily:'Sora,sans-serif', boxSizing:'border-box' }} />
+      {open && (
+        <div style={{ position:'absolute', zIndex:20, top:'100%', left:0, right:0, background:'#fff', border:'1px solid #dde3f0', borderRadius:8, marginTop:4, maxHeight:180, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,.1)' }}>
+          {filtered.map(g => (
+            <div key={g.id} onMouseDown={e => e.preventDefault()} onClick={() => { onSelect(g.id); setQuery(''); setOpen(false) }}
+              style={{ padding:'8px 10px', fontSize:12, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}>
+              {g.prenom} {g.nom}
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ padding:'8px 10px', fontSize:11, color:'#9aa3b8', fontStyle:'italic' }}>Aucun résultat</div>
+          )}
+          <div onMouseDown={e => e.preventDefault()} onClick={() => { setModeCreation(true); setOpen(false) }}
+            style={{ padding:'8px 10px', fontSize:12, cursor:'pointer', color:'#1a4b8f', fontWeight:700, background:'#f4f6fb' }}>
+            ➕ Nouveau gestionnaire paie...
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function DossierAssfam({ profile }) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -190,6 +280,7 @@ export default function DossierAssfam({ profile }) {
   const [documents, setDocuments] = useState([])
   const [uploadingDoc, setUploadingDoc] = useState(null)
   const [collegues, setCollegues] = useState([])
+  const [gestionnairesPaie, setGestionnairesPaie] = useState([])
   const [photoUrl, setPhotoUrl] = useState(null)
   const [readingPdf, setReadingPdf] = useState(false)
   const [frDep, setFrDep] = useState('')
@@ -272,8 +363,8 @@ export default function DossierAssfam({ profile }) {
 
   useEffect(() => {
     fetchAf(); fetchEnfants(); fetchConges(); fetchFormations()
-    fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto()
-  }, [fetchAf,fetchEnfants,fetchConges,fetchFormations,fetchFoyerEnfants,fetchDocuments,fetchCollegues,fetchPhoto])
+    fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto(); fetchGestionnairesPaie()
+  }, [fetchAf,fetchEnfants,fetchConges,fetchFormations,fetchFoyerEnfants,fetchDocuments,fetchCollegues,fetchPhoto,fetchGestionnairesPaie])
 
   async function creerNouvelEncadrant({ prenom, nom, telephone, telephone2, email }) {
     if (!prenom.trim() || !nom.trim()) return null
@@ -299,6 +390,32 @@ export default function DossierAssfam({ profile }) {
     setCollegues(prev => prev.map(c => c.id === encadrantId ? { ...c, ...data } : c))
   }
 
+  const fetchGestionnairesPaie = useCallback(async () => {
+    const { data } = await supabase.from('gestionnaires_paie').select('id,nom,prenom,telephone,email').order('nom')
+    if (data) setGestionnairesPaie(data)
+  }, [])
+
+  async function creerNouveauGestionnairePaie({ prenom, nom, telephone, email }) {
+    if (!prenom.trim() || !nom.trim()) return null
+    const { data, error } = await supabase.from('gestionnaires_paie').insert({
+      prenom: prenom.trim(),
+      nom: nom.trim().toUpperCase(),
+      telephone: telephone?.trim() || null,
+      email: email?.trim() || null,
+    }).select().single()
+    if (error) { console.log('Erreur création gestionnaire paie:', error.message); return null }
+    setGestionnairesPaie(prev => [...prev, data])
+    return data
+  }
+
+  async function updateGestionnairePaieTel(gestionnaireId, { telephone }) {
+    const { data, error } = await supabase.from('gestionnaires_paie')
+      .update({ telephone: telephone?.trim() || null })
+      .eq('id', gestionnaireId).select().single()
+    if (error) { console.log('Erreur mise à jour téléphone gestionnaire paie:', error.message); return }
+    setGestionnairesPaie(prev => prev.map(g => g.id === gestionnaireId ? { ...g, ...data } : g))
+  }
+
   async function saveForm() {
     setSaving(true)
     const cols = [
@@ -313,7 +430,7 @@ export default function DossierAssfam({ profile }) {
       'cap_troubles_comportement_legers','cap_troubles_comportement','cap_handicap',
       'cap_fratrie','cap_urgence','cap_bas_age','cap_relais',
       'date_debut_contrat','secteur','ville_rattachement',
-      'gestionnaire_paie_nom','gestionnaire_paie_tel','gestionnaire_paie_email',
+      'gestionnaire_paie_nom','gestionnaire_paie_tel','gestionnaire_paie_email','gestionnaire_paie_id',
       'genre','encadrant_id',
     ]
     const fd = Object.fromEntries(cols.filter(k=>form[k]!==undefined).map(k=>[k,form[k]]))
@@ -1009,20 +1126,25 @@ export default function DossierAssfam({ profile }) {
                   <div style={{background:'#f4f6fb',borderRadius:10,padding:16,border:'1px solid #dde3f0'}}>
                     <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:12}}>💰 Gestionnaire Paie</div>
                     {editMode ? (
-                      <FG cols={1}>
-                        <Field label="Nom Prénom" value={v('gestionnaire_paie_nom')} onChange={F('gestionnaire_paie_nom')} />
-                        <Field label="Téléphone" type="tel" value={v('gestionnaire_paie_tel')} onChange={F('gestionnaire_paie_tel')} />
-                        <Field label="Email" type="email" value={v('gestionnaire_paie_email')} onChange={F('gestionnaire_paie_email')} />
-                      </FG>
-                    ) : v('gestionnaire_paie_nom') ? (
-                      <div>
-                        <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{v('gestionnaire_paie_nom')}</div>
-                        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                          {v('gestionnaire_paie_tel')&&<a href={`tel:${v('gestionnaire_paie_tel')}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {v('gestionnaire_paie_tel')}</a>}
-                          {v('gestionnaire_paie_email')&&<a href={`mailto:${v('gestionnaire_paie_email')}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e6f5eb',color:'#2e8b4a',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>✉️ {v('gestionnaire_paie_email')}</a>}
+                      <RechercheGestionnairePaieInline
+                        value={v('gestionnaire_paie_id')}
+                        gestionnaires={gestionnairesPaie}
+                        onSelect={id => F('gestionnaire_paie_id')(id)}
+                        onCreate={creerNouveauGestionnairePaie}
+                        onUpdate={updateGestionnairePaieTel}
+                      />
+                    ) : (() => {
+                      const gp = gestionnairesPaie.find(g => g.id === af?.gestionnaire_paie_id)
+                      return gp ? (
+                        <div>
+                          <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{gp.prenom} {gp.nom}</div>
+                          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                            {gp.telephone&&<a href={`tel:${gp.telephone}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {gp.telephone}</a>}
+                            {gp.email&&<a href={`mailto:${gp.email}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e6f5eb',color:'#2e8b4a',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>✉️ {gp.email}</a>}
+                          </div>
                         </div>
-                      </div>
-                    ) : <div style={{fontSize:12,color:'#9aa3b8',fontStyle:'italic'}}>Non renseigné — cliquez sur Modifier</div>}
+                      ) : <div style={{fontSize:12,color:'#9aa3b8',fontStyle:'italic'}}>Non renseigné — cliquez sur Modifier</div>
+                    })()}
                   </div>
                 </div>
               </SectionCard>
