@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-07-22d — fix accord de genre "Assistant(e) familial(e) agréé(e)" selon af.genre (était toujours au féminin, quel que soit le sexe de l'AF)
+// DossierAssfam.js — v2026-07-22e — Encadrant Technique devient un vrai champ assignable (recherche + création, comme les référents enfant) au lieu d'afficher tous les encadrants existants sans distinction ; ajout de encadrant_id à la liste des colonnes sauvegardées (absent jusqu'ici, rien n'était jamais persisté)
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import SortieDepartement from './SortieDepartement'
@@ -67,6 +67,79 @@ function calcTauxKm(cv, km) {
   }
   const t = BAREME_KM[cvKey].find(t => km <= t.max)
   return t ? t.taux : 0.23
+}
+
+function RechercheEncadrantInline({ value, encadrants, onSelect, onCreate }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [modeCreation, setModeCreation] = useState(false)
+  const [newPrenom, setNewPrenom] = useState('')
+  const [newNom, setNewNom] = useState('')
+  const [newTel, setNewTel] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+
+  const selected = encadrants.find(c => c.id === value)
+  const filtered = encadrants
+    .filter(c => query.trim().length === 0 ? true : `${c.prenom} ${c.nom}`.toLowerCase().includes(query.toLowerCase()))
+    .slice(0, 8)
+
+  if (modeCreation) return (
+    <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'10px 12px' }}>
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+        <input placeholder="Prénom" value={newPrenom} onChange={e => setNewPrenom(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:100 }} autoFocus />
+        <input placeholder="NOM" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())}
+          style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:110 }} />
+        <input placeholder="Téléphone" value={newTel} onChange={e => setNewTel(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:110 }} />
+        <input placeholder="Email" value={newEmail} onChange={e => setNewEmail(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #fcd34d', borderRadius:6, padding:'5px 8px', width:160 }} />
+      </div>
+      <div style={{ display:'flex', gap:6, marginTop:6 }}>
+        <button onClick={async () => {
+            if (!newPrenom.trim() || !newNom.trim()) return
+            const created = await onCreate({ prenom: newPrenom, nom: newNom, telephone: newTel, email: newEmail })
+            if (created) { onSelect(created.id); setModeCreation(false); setNewPrenom(''); setNewNom(''); setNewTel(''); setNewEmail('') }
+          }} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Créer</button>
+        <button onClick={() => setModeCreation(false)} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
+      </div>
+    </div>
+  )
+
+  if (selected) return (
+    <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, background:'#f4f6fb' }}>
+      <span style={{ flex:1, fontSize:13 }}>{selected.prenom} {selected.nom}</span>
+      <button onClick={() => onSelect('')} style={{ background:'none', border:'none', color:'#c0392b', cursor:'pointer', fontSize:15, lineHeight:1 }}>✕</button>
+    </div>
+  )
+
+  return (
+    <div style={{ position:'relative' }}>
+      <input value={query}
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="🔍 Rechercher un encadrant..."
+        style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:13, fontFamily:'Sora,sans-serif', boxSizing:'border-box' }} />
+      {open && (
+        <div style={{ position:'absolute', zIndex:20, top:'100%', left:0, right:0, background:'#fff', border:'1px solid #dde3f0', borderRadius:8, marginTop:4, maxHeight:180, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,.1)' }}>
+          {filtered.map(c => (
+            <div key={c.id} onMouseDown={e => e.preventDefault()} onClick={() => { onSelect(c.id); setQuery(''); setOpen(false) }}
+              style={{ padding:'8px 10px', fontSize:12, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}>
+              {c.prenom} {c.nom}
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ padding:'8px 10px', fontSize:11, color:'#9aa3b8', fontStyle:'italic' }}>Aucun résultat</div>
+          )}
+          <div onMouseDown={e => e.preventDefault()} onClick={() => { setModeCreation(true); setOpen(false) }}
+            style={{ padding:'8px 10px', fontSize:12, cursor:'pointer', color:'#1a4b8f', fontWeight:700, background:'#f4f6fb' }}>
+            ➕ Nouvel encadrant...
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function DossierAssfam({ profile }) {
@@ -174,6 +247,21 @@ export default function DossierAssfam({ profile }) {
     fetchFoyerEnfants(); fetchDocuments(); fetchCollegues(); fetchPhoto()
   }, [fetchAf,fetchEnfants,fetchConges,fetchFormations,fetchFoyerEnfants,fetchDocuments,fetchCollegues,fetchPhoto])
 
+  async function creerNouvelEncadrant({ prenom, nom, telephone, email }) {
+    if (!prenom.trim() || !nom.trim()) return null
+    const { data, error } = await supabase.from('profiles').insert({
+      id: crypto.randomUUID(),
+      prenom: prenom.trim(),
+      nom: nom.trim().toUpperCase(),
+      telephone: telephone?.trim() || null,
+      email: email?.trim() || `temp.${Date.now()}@passerelle.local`,
+      role: 'encadrant',
+    }).select().single()
+    if (error) { console.log('Erreur création encadrant:', error.message); return null }
+    setCollegues(prev => [...prev, data])
+    return data
+  }
+
   async function saveForm() {
     setSaving(true)
     const cols = [
@@ -189,7 +277,7 @@ export default function DossierAssfam({ profile }) {
       'cap_fratrie','cap_urgence','cap_bas_age','cap_relais',
       'date_debut_contrat','secteur','ville_rattachement',
       'gestionnaire_paie_nom','gestionnaire_paie_tel','gestionnaire_paie_email',
-      'genre',
+      'genre','encadrant_id',
     ]
     const fd = Object.fromEntries(cols.filter(k=>form[k]!==undefined).map(k=>[k,form[k]]))
     const { error } = await supabase.from('profiles').update(fd).eq('id', id)
@@ -857,16 +945,28 @@ export default function DossierAssfam({ profile }) {
             <>
               <SectionCard icon="👥" title="Équipe SAFA référente">
                 <div style={{display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:12}}>
-                  {collegues.filter(c=>c.role==='encadrant').map(c=>(
-                    <div key={c.id} style={{background:'#f4f6fb',borderRadius:10,padding:16,border:'1px solid #dde3f0'}}>
-                      <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:8}}>👨‍💼 Encadrant Technique</div>
-                      <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{c.nom} {c.prenom}</div>
-                      <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                        {c.telephone&&<a href={`tel:${c.telephone}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {c.telephone}</a>}
-                        {c.email&&<a href={`mailto:${c.email}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e6f5eb',color:'#2e8b4a',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>✉️ {c.email}</a>}
-                      </div>
-                    </div>
-                  ))}
+                  <div style={{background:'#f4f6fb',borderRadius:10,padding:16,border:'1px solid #dde3f0'}}>
+                    <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:12}}>👨‍💼 Encadrant Technique</div>
+                    {editMode ? (
+                      <RechercheEncadrantInline
+                        value={v('encadrant_id')}
+                        encadrants={collegues.filter(c=>c.role==='encadrant')}
+                        onSelect={id => F('encadrant_id')(id)}
+                        onCreate={creerNouvelEncadrant}
+                      />
+                    ) : (() => {
+                      const enc = collegues.find(c => c.id === af?.encadrant_id)
+                      return enc ? (
+                        <div>
+                          <div style={{fontSize:14,fontWeight:700,marginBottom:8}}>{enc.prenom} {enc.nom}</div>
+                          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                            {enc.telephone&&<a href={`tel:${enc.telephone}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e8eef8',color:'#1a4b8f',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>📞 {enc.telephone}</a>}
+                            {enc.email&&<a href={`mailto:${enc.email}`} style={{display:'flex',alignItems:'center',gap:4,padding:'5px 10px',borderRadius:7,background:'#e6f5eb',color:'#2e8b4a',fontSize:12,textDecoration:'none',fontFamily:'Sora,sans-serif'}}>✉️ {enc.email}</a>}
+                          </div>
+                        </div>
+                      ) : <div style={{fontSize:12,color:'#9aa3b8',fontStyle:'italic'}}>Non renseigné — cliquez sur Modifier</div>
+                    })()}
+                  </div>
                   <div style={{background:'#f4f6fb',borderRadius:10,padding:16,border:'1px solid #dde3f0'}}>
                     <div style={{fontSize:11,fontWeight:600,color:'#5a6478',textTransform:'uppercase',marginBottom:12}}>💰 Gestionnaire Paie</div>
                     {editMode ? (
