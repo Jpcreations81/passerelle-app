@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-07-22h — fix critique : page blanche (ReferenceError TDZ) — fetchGestionnairesPaie était utilisée dans le useEffect avant sa propre déclaration plus bas dans le fichier, déplacée avant
+// DossierAssfam.js — v2026-07-22i — Gestionnaire Paie : recherche remplacée par une simple liste déroulante (peu d'entrées, 4 actuellement), possibilité de créer un nouveau gestionnaire conservée via l'option "➕ Nouveau..."
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import SortieDepartement from './SortieDepartement'
@@ -171,8 +171,6 @@ function RechercheEncadrantInline({ value, encadrants, onSelect, onCreate, onUpd
 }
 
 function RechercheGestionnairePaieInline({ value, gestionnaires, onSelect, onCreate, onUpdate }) {
-  const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
   const [modeCreation, setModeCreation] = useState(false)
   const [modeEditTel, setModeEditTel] = useState(false)
   const [newPrenom, setNewPrenom] = useState('')
@@ -182,9 +180,6 @@ function RechercheGestionnairePaieInline({ value, gestionnaires, onSelect, onCre
   const [editTel, setEditTel] = useState('')
 
   const selected = gestionnaires.find(g => g.id === value)
-  const filtered = gestionnaires
-    .filter(g => query.trim().length === 0 ? true : `${g.prenom} ${g.nom}`.toLowerCase().includes(query.toLowerCase()))
-    .slice(0, 8)
 
   if (modeCreation) return (
     <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:'10px 12px' }}>
@@ -232,31 +227,18 @@ function RechercheGestionnairePaieInline({ value, gestionnaires, onSelect, onCre
   )
 
   return (
-    <div style={{ position:'relative' }}>
-      <input value={query}
-        onChange={e => { setQuery(e.target.value); setOpen(true) }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 150)}
-        placeholder="🔍 Rechercher un gestionnaire paie..."
-        style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:13, fontFamily:'Sora,sans-serif', boxSizing:'border-box' }} />
-      {open && (
-        <div style={{ position:'absolute', zIndex:20, top:'100%', left:0, right:0, background:'#fff', border:'1px solid #dde3f0', borderRadius:8, marginTop:4, maxHeight:180, overflowY:'auto', boxShadow:'0 4px 12px rgba(0,0,0,.1)' }}>
-          {filtered.map(g => (
-            <div key={g.id} onMouseDown={e => e.preventDefault()} onClick={() => { onSelect(g.id); setQuery(''); setOpen(false) }}
-              style={{ padding:'8px 10px', fontSize:12, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}>
-              {g.prenom} {g.nom}
-            </div>
-          ))}
-          {filtered.length === 0 && (
-            <div style={{ padding:'8px 10px', fontSize:11, color:'#9aa3b8', fontStyle:'italic' }}>Aucun résultat</div>
-          )}
-          <div onMouseDown={e => e.preventDefault()} onClick={() => { setModeCreation(true); setOpen(false) }}
-            style={{ padding:'8px 10px', fontSize:12, cursor:'pointer', color:'#1a4b8f', fontWeight:700, background:'#f4f6fb' }}>
-            ➕ Nouveau gestionnaire paie...
-          </div>
-        </div>
-      )}
-    </div>
+    <select className="form-control" value=""
+      onChange={e => {
+        if (e.target.value === '__nouveau__') setModeCreation(true)
+        else if (e.target.value) onSelect(e.target.value)
+      }}
+      style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:13, fontFamily:'Sora,sans-serif', boxSizing:'border-box' }}>
+      <option value="">— Sélectionner un gestionnaire paie —</option>
+      {gestionnaires.map(g => (
+        <option key={g.id} value={g.id}>{g.prenom} {g.nom}</option>
+      ))}
+      <option value="__nouveau__">➕ Nouveau gestionnaire paie...</option>
+    </select>
   )
 }
 
