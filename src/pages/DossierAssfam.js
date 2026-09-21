@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-07-22j — Encadrant Technique : même simplification que Gestionnaire Paie, recherche remplacée par une simple liste déroulante (problème d'utilisation tactile/mobile), création conservée via "➕ Nouvel encadrant..."
+// DossierAssfam.js — v2026-07-22j — Encadrant  Technique : même simplification que Gestionnaire Paie, recherche remplacée par une simple liste déroulante (problème d'utilisation tactile/mobile), création conservée via "➕ Nouvel encadrant..."
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import SortieDepartement from './SortieDepartement'
