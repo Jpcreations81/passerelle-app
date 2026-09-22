@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-07-22j — Encadrant Technique : même simplification que Gestionnaire Paie, recherche remplacée par une simple liste déroulante (problème d'utilisation tactile/mobile), création conservée via "➕ Nouvel encadrant..."
+// DossierAssfam.js — v2026-07-22k — ajout de l'édition de l'email (en plus du/des téléphone(s)) sur l'Encadrant Technique et le Gestionnaire Paie déjà assignés, via le même bouton 📞✏️
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import SortieDepartement from './SortieDepartement'
@@ -79,6 +79,7 @@ function RechercheEncadrantInline({ value, encadrants, onSelect, onCreate, onUpd
   const [newEmail, setNewEmail] = useState('')
   const [editTel, setEditTel] = useState('')
   const [editTel2, setEditTel2] = useState('')
+  const [editEmail, setEditEmail] = useState('')
 
   const selected = encadrants.find(c => c.id === value)
 
@@ -115,10 +116,12 @@ function RechercheEncadrantInline({ value, encadrants, onSelect, onCreate, onUpd
           style={{ fontSize:12, border:'1px solid #c4d4f5', borderRadius:6, padding:'5px 8px', width:120 }} autoFocus />
         <input placeholder="Téléphone 2" value={editTel2} onChange={e => setEditTel2(e.target.value)}
           style={{ fontSize:12, border:'1px solid #c4d4f5', borderRadius:6, padding:'5px 8px', width:120 }} />
+        <input placeholder="Email" value={editEmail} onChange={e => setEditEmail(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #c4d4f5', borderRadius:6, padding:'5px 8px', width:180 }} />
       </div>
       <div style={{ display:'flex', gap:6, marginTop:6 }}>
         <button onClick={async () => {
-            await onUpdate(selected.id, { telephone: editTel, telephone2: editTel2 })
+            await onUpdate(selected.id, { telephone: editTel, telephone2: editTel2, email: editEmail })
             setModeEditTel(false)
           }} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Enregistrer</button>
         <button onClick={() => setModeEditTel(false)} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
@@ -129,8 +132,8 @@ function RechercheEncadrantInline({ value, encadrants, onSelect, onCreate, onUpd
   if (selected) return (
     <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, background:'#f4f6fb' }}>
       <span style={{ flex:1, fontSize:13 }}>{selected.prenom} {selected.nom}</span>
-      <button onClick={() => { setEditTel(selected.telephone || ''); setEditTel2(selected.telephone2 || ''); setModeEditTel(true) }}
-        title="Modifier le(s) numéro(s) de téléphone"
+      <button onClick={() => { setEditTel(selected.telephone || ''); setEditTel2(selected.telephone2 || ''); setEditEmail(selected.email || ''); setModeEditTel(true) }}
+        title="Modifier le(s) numéro(s) de téléphone et l'email"
         style={{ background:'none', border:'none', color:'#1a4b8f', cursor:'pointer', fontSize:14, lineHeight:1 }}>📞✏️</button>
       <button onClick={() => onSelect('')} style={{ background:'none', border:'none', color:'#c0392b', cursor:'pointer', fontSize:15, lineHeight:1 }}>✕</button>
     </div>
@@ -160,6 +163,7 @@ function RechercheGestionnairePaieInline({ value, gestionnaires, onSelect, onCre
   const [newTel, setNewTel] = useState('')
   const [newEmail, setNewEmail] = useState('')
   const [editTel, setEditTel] = useState('')
+  const [editEmail, setEditEmail] = useState('')
 
   const selected = gestionnaires.find(g => g.id === value)
 
@@ -189,10 +193,14 @@ function RechercheGestionnairePaieInline({ value, gestionnaires, onSelect, onCre
   if (selected && modeEditTel) return (
     <div style={{ background:'#f0f9ff', border:'1px solid #c4d4f5', borderRadius:8, padding:'10px 12px' }}>
       <div style={{ fontSize:12, fontWeight:600, marginBottom:6 }}>{selected.prenom} {selected.nom}</div>
-      <input placeholder="Téléphone" value={editTel} onChange={e => setEditTel(e.target.value)}
-        style={{ fontSize:12, border:'1px solid #c4d4f5', borderRadius:6, padding:'5px 8px', width:120 }} autoFocus />
+      <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+        <input placeholder="Téléphone" value={editTel} onChange={e => setEditTel(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #c4d4f5', borderRadius:6, padding:'5px 8px', width:120 }} autoFocus />
+        <input placeholder="Email" value={editEmail} onChange={e => setEditEmail(e.target.value)}
+          style={{ fontSize:12, border:'1px solid #c4d4f5', borderRadius:6, padding:'5px 8px', width:180 }} />
+      </div>
       <div style={{ display:'flex', gap:6, marginTop:6 }}>
-        <button onClick={async () => { await onUpdate(selected.id, { telephone: editTel }); setModeEditTel(false) }}
+        <button onClick={async () => { await onUpdate(selected.id, { telephone: editTel, email: editEmail }); setModeEditTel(false) }}
           style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Enregistrer</button>
         <button onClick={() => setModeEditTel(false)} style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
       </div>
@@ -202,8 +210,8 @@ function RechercheGestionnairePaieInline({ value, gestionnaires, onSelect, onCre
   if (selected) return (
     <div style={{ display:'flex', alignItems:'center', gap:8, padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, background:'#f4f6fb' }}>
       <span style={{ flex:1, fontSize:13 }}>{selected.prenom} {selected.nom}</span>
-      <button onClick={() => { setEditTel(selected.telephone || ''); setModeEditTel(true) }}
-        title="Modifier le téléphone" style={{ background:'none', border:'none', color:'#1a4b8f', cursor:'pointer', fontSize:14, lineHeight:1 }}>📞✏️</button>
+      <button onClick={() => { setEditTel(selected.telephone || ''); setEditEmail(selected.email || ''); setModeEditTel(true) }}
+        title="Modifier le téléphone et l'email" style={{ background:'none', border:'none', color:'#1a4b8f', cursor:'pointer', fontSize:14, lineHeight:1 }}>📞✏️</button>
       <button onClick={() => onSelect('')} style={{ background:'none', border:'none', color:'#c0392b', cursor:'pointer', fontSize:15, lineHeight:1 }}>✕</button>
     </div>
   )
@@ -351,11 +359,15 @@ export default function DossierAssfam({ profile }) {
     return data
   }
 
-  async function updateEncadrantTel(encadrantId, { telephone, telephone2 }) {
+  async function updateEncadrantTel(encadrantId, { telephone, telephone2, email }) {
+    // email jamais mis à null (colonne profiles contrainte NOT NULL/unique, cf. placeholder temp.*@passerelle.local à la création) —
+    // on ne met à jour l'email que si une valeur a été saisie.
+    const patch = { telephone: telephone?.trim() || null, telephone2: telephone2?.trim() || null }
+    if (email?.trim()) patch.email = email.trim()
     const { data, error } = await supabase.from('profiles')
-      .update({ telephone: telephone?.trim() || null, telephone2: telephone2?.trim() || null })
+      .update(patch)
       .eq('id', encadrantId).select().single()
-    if (error) { console.log('Erreur mise à jour téléphone encadrant:', error.message); return }
+    if (error) { console.log('Erreur mise à jour contact encadrant:', error.message); return }
     setCollegues(prev => prev.map(c => c.id === encadrantId ? { ...c, ...data } : c))
   }
 
@@ -372,11 +384,11 @@ export default function DossierAssfam({ profile }) {
     return data
   }
 
-  async function updateGestionnairePaieTel(gestionnaireId, { telephone }) {
+  async function updateGestionnairePaieTel(gestionnaireId, { telephone, email }) {
     const { data, error } = await supabase.from('gestionnaires_paie')
-      .update({ telephone: telephone?.trim() || null })
+      .update({ telephone: telephone?.trim() || null, email: email?.trim() || null })
       .eq('id', gestionnaireId).select().single()
-    if (error) { console.log('Erreur mise à jour téléphone gestionnaire paie:', error.message); return }
+    if (error) { console.log('Erreur mise à jour contact gestionnaire paie:', error.message); return }
     setGestionnairesPaie(prev => prev.map(g => g.id === gestionnaireId ? { ...g, ...data } : g))
   }
 
