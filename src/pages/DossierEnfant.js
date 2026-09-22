@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-08-06k — correction : seul l'onglet "Judiciaire" devait être retiré, "Placement" est remis (les 2 mentions texte pointant vers Judiciaire restent retirées, ce tab-là est bien parti)
+// DossierEnfant.js — v2026-08-06l — onglet Placement : ajout de l'édition inline (📞✏️) du téléphone et de l'email pour les professionnels ASE déjà assignés (Référent 1/2, Gestionnaire Enfant, Référent Santé, RTASE), même principe que l'Encadrant Technique dans DossierAssfam.js
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -295,6 +295,18 @@ export default function DossierEnfant({ profile }) {
     F(`${idKey}_email_new`)('')
     F(`${idKey}_ville_new`)('')
     showToast(`✅ ${prenomSaisi} ${nomSaisi} créé(e) et assigné(e)`)
+  }
+
+  // Modifier le téléphone et/ou l'email d'un professionnel ASE déjà assigné (référent, gestionnaire, référent santé, RTASE...)
+  // — même principe que l'édition inline de l'Encadrant Technique / Gestionnaire Paie côté DossierAssfam.js
+  async function updateContactInfo(profileId, { telephone, email }) {
+    const patch = { telephone: telephone?.trim() || null }
+    // email jamais mis à null (colonne profiles contrainte, placeholder temp.*@passerelle.local à la création) — on ne met à jour que si saisi
+    if (email?.trim()) patch.email = email.trim()
+    const { data, error } = await supabase.from('profiles').update(patch).eq('id', profileId).select().single()
+    if (error) { showToast('❌ ' + error.message); return }
+    setCollegues(prev => prev.map(c => c.id === profileId ? { ...c, ...data } : c))
+    showToast('✅ Coordonnées mises à jour')
   }
 
   // ── Chargement ──────────────────────────────────────────────────────────────
@@ -1656,15 +1668,38 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                                   onSelect={(id) => F(idKey)(id)}
                                 />
                               ) : (
-                                <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
-                                  <option value="">— Sélectionner —</option>
-                                  {collegues
-                                    .filter(c => ['referent','encadrant','rtase','admin','gestionnaire'].includes(c.role))
-                                    .filter(c => roleDb !== 'referent' || !v('md_id') || c.md_id === v('md_id'))
-                                    .map(c => (
-                                    <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
-                                  ))}
-                                </select>
+                                <>
+                                  <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
+                                    <option value="">— Sélectionner —</option>
+                                    {collegues
+                                      .filter(c => ['referent','encadrant','rtase','admin','gestionnaire'].includes(c.role))
+                                      .filter(c => roleDb !== 'referent' || !v('md_id') || c.md_id === v('md_id'))
+                                      .map(c => (
+                                      <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
+                                    ))}
+                                  </select>
+                                  {profil && (
+                                    !v(`_${idKey}ContactEdit`) ? (
+                                      <button type="button"
+                                        onClick={() => { F(`${idKey}_tel_edit`)(profil.telephone || ''); F(`${idKey}_email_edit`)(profil.email || ''); F(`_${idKey}ContactEdit`)(true) }}
+                                        style={{ marginTop:6, fontSize:11, padding:'4px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#fff', color:'#1a4b8f', cursor:'pointer' }}>
+                                        📞✏️ Modifier tél/email
+                                      </button>
+                                    ) : (
+                                      <div style={{ display:'flex', flexDirection:'column', gap:6, marginTop:6, background:'#fff', border:'1px solid #c4d4f5', borderRadius:8, padding:8 }}>
+                                        <input className="form-control" style={{ fontSize:12 }} placeholder="Téléphone" value={v(`${idKey}_tel_edit`) || ''} onChange={e => F(`${idKey}_tel_edit`)(e.target.value)} autoFocus />
+                                        <input className="form-control" style={{ fontSize:12 }} placeholder="Email" value={v(`${idKey}_email_edit`) || ''} onChange={e => F(`${idKey}_email_edit`)(e.target.value)} />
+                                        <div style={{ display:'flex', gap:6 }}>
+                                          <button type="button"
+                                            onClick={async () => { await updateContactInfo(profil.id, { telephone: v(`${idKey}_tel_edit`), email: v(`${idKey}_email_edit`) }); F(`_${idKey}ContactEdit`)(false) }}
+                                            style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Enregistrer</button>
+                                          <button type="button" onClick={() => F(`_${idKey}ContactEdit`)(false)}
+                                            style={{ fontSize:11, padding:'4px 10px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}>✕</button>
+                                        </div>
+                                      </div>
+                                    )
+                                  )}
+                                </>
                               )}
                             </div>
                           ) : profil ? (
