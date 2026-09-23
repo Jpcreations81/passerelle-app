@@ -1,4 +1,4 @@
-// Agenda.js — v2026-08-06l — retrait du bouton "Modifier calendrier" (fonctionnalité d'import PDF de modification reste dans le code, juste plus de point d'entrée dans l'UI)
+// Agenda.js — v2026-08-06m — nouvelle catégorie "Réunion service" : événement professionnel (ex. réunion de service) ne nécessitant pas de sélectionner un enfant, même principe que Formation (pas d'enfant requis, visible côté encadrant, nom de l'AF affiché en complément de titre)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -14,6 +14,7 @@ const CATEGORIES = {
   ase:       { label: 'ASE', color: '#1a4b8f', bg: '#e8eef8' },
   scolaire:  { label: 'Scolaire', color: '#d97706', bg: '#fef3e2' },
   formation: { label: 'Formation', color: '#555', bg: '#eee' },
+  reunion:   { label: 'Réunion service', color: '#7c3aed', bg: '#ede9fe' },
   personnel: { label: 'Personnel', color: '#9aa3b8', bg: '#eef1f8' },
   autre:     { label: 'Autre', color: '#5a6478', bg: '#eef1f8' },
 }
@@ -758,7 +759,7 @@ export default function Agenda({ profile }) {
   function evtsFiltres() {
     let base = evenements
     // Encadrant : uniquement congés et relais des AF de son périmètre
-    if (isEncadrant) base = evenements.filter(e => ['relais', 'conge', 'formation'].includes(e.categorie))
+    if (isEncadrant) base = evenements.filter(e => ['relais', 'conge', 'formation', 'reunion'].includes(e.categorie))
     if (filtres.includes('tous')) return base
     return base.filter(e => filtres.includes(e.categorie))
   }
@@ -886,7 +887,7 @@ export default function Agenda({ profile }) {
     if (!newEvt.titre || !newEvt.date_debut) { showToast('⚠️ Titre et date requis'); return }
 
     // Catégories qui ne nécessitent pas d'enfant
-    const catsShansEnfant = ['conge', 'formation', 'personnel', 'autre']
+    const catsShansEnfant = ['conge', 'formation', 'reunion', 'personnel', 'autre']
     if (!catsShansEnfant.includes(newEvt.categorie) && !isEncadrant && newEvt.enfantsSelectionnes.length === 0) {
       showToast('⚠️ Sélectionnez au moins un enfant'); return
     }
@@ -1347,7 +1348,7 @@ export default function Agenda({ profile }) {
   function buildTitreAuto(evt, enfantsList, couleursMap, profileData) {
     const LABELS_CAT = {
       vm: 'VM', ase: 'ASE', medical: 'Méd.', scolaire: 'Scol.',
-      relais: 'Relais', conge: 'Congé', formation: 'Formation',
+      relais: 'Relais', conge: 'Congé', formation: 'Formation', reunion: 'Réunion service',
       personnel: 'Personnel', autre: ''
     }
     const catLabel = LABELS_CAT[evt.categorie] || evt.categorie
@@ -1370,7 +1371,7 @@ export default function Agenda({ profile }) {
       complement = typeLabel ? `${typeLabel} ${evt.relais_nom_libre}` : evt.relais_nom_libre
     } else if (['ase','medical','scolaire'].includes(evt.categorie) && evt.complement_titre) {
       complement = evt.complement_titre
-    } else if (['conge','formation'].includes(evt.categorie) && evt.enfantsSelectionnes?.length === 0) {
+    } else if (['conge','formation','reunion'].includes(evt.categorie) && evt.enfantsSelectionnes?.length === 0) {
       // Pas d'enfant → ajouter nom AF pour identification par l'encadrant
       const p = profileData || profile
       if (p?.nom) complement = `${p.prenom || ''} ${p.nom}`.trim()
@@ -1902,7 +1903,7 @@ export default function Agenda({ profile }) {
           <div style={{ display:'flex', gap:6, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
             <span style={{ fontSize:10, fontWeight:700, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px' }}>Filtres :</span>
             {[['tous','Tous','#1a4b8f','#e8eef8'], ...Object.entries(CATEGORIES)
-              .filter(([k]) => isEncadrant ? ['relais','conge','ase','formation','personnel','autre'].includes(k) : true)
+              .filter(([k]) => isEncadrant ? ['relais','conge','ase','formation','reunion','personnel','autre'].includes(k) : true)
               .map(([k,v]) => [k, v.label, v.color, v.bg])
             ].map(([k, l, c, bg]) => (
               <button key={k} onClick={() => toggleFiltre(k)}
@@ -2161,7 +2162,7 @@ export default function Agenda({ profile }) {
                 <label className="form-label">📋 Catégorie</label>
                 <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
                   {Object.entries(CATEGORIES)
-                    .filter(([k]) => isEncadrant ? ['conge','formation','relais','ase','personnel','autre'].includes(k) : true)
+                    .filter(([k]) => isEncadrant ? ['conge','formation','relais','ase','reunion','personnel','autre'].includes(k) : true)
                     .map(([k, v]) => (
                     <button key={k} type="button"
                       onClick={() => {
@@ -2250,8 +2251,8 @@ export default function Agenda({ profile }) {
                 </div>
               )}
 
-              {/* ── LIEU (formation, ase, medical, scolaire, autre) ── */}
-              {['formation', 'ase', 'medical', 'scolaire', 'autre'].includes(newEvt.categorie) && (
+              {/* ── LIEU (formation, ase, medical, scolaire, reunion, autre) ── */}
+              {['formation', 'ase', 'medical', 'scolaire', 'reunion', 'autre'].includes(newEvt.categorie) && (
                 <div className="form-group col-span-2">
                   <label className="form-label">📍 Lieu</label>
                   <input className="form-control" value={newEvt.lieu || ''}
