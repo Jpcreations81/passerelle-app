@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-09-24a — ajout du formulaire congés Haute-Garonne (CD31), génération PDF dédiée (genererPDFCD31, mise en page du formulaire officiel CD31) + routage auto par département (genererPDFAuto) ; notification/destinataires CD31 via Encadrant Technique assigné + email des Maisons Départementales des enfants concernés (plus de blocage "formulaire CD31 n'existe pas encore")
+// FicheConges.js — v2026-09-24b — formulaire CD31 : la colonne "Solution retenue" affiche désormais le nom du/des AF relais sélectionné(s) pour chaque enfant (comme dans le tableau du formulaire CD81), au lieu de rester vide
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -657,8 +657,16 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     ln(M+colW, rHdrY-14, W-M, rHdrY-14)
     ln(M+colW+colW*0.55, rHdrY, M+colW+colW*0.55, rHdrY-14-150)
     let ry = rHdrY - 14 - 20
+    const solRetenueColX = M+colW+colW*0.55+6
+    const solRetenueColW = colW*0.45 - 10
     enfantsInclusCD31.forEach(enf => {
       dt(`${enf.prenom} ${enf.nom}`, M+colW+8, ry, 11, fontB)
+      const r1 = relaisParEnfant[enf.id], r2 = relais2ParEnfant[enf.id]
+      const af1 = afProfiles.find(a => a.id === r1), af2 = afProfiles.find(a => a.id === r2)
+      const n1 = af1 ? `${af1.prenom} ${af1.nom}` : '', n2 = af2 ? `${af2.prenom} ${af2.nom}` : ''
+      let relaisTxt = [n1, n2].filter(Boolean).join(' / ')
+      while (relaisTxt.length > 0 && font.widthOfTextAtSize(relaisTxt, 9) > solRetenueColW) relaisTxt = relaisTxt.slice(0, -1)
+      if (relaisTxt) dt(relaisTxt, solRetenueColX, ry, 9, font)
       ry -= 26
     })
     ln(M+colW, rHdrY-14-150, W-M, rHdrY-14-150)
