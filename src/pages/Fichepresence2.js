@@ -1,4 +1,4 @@
-// FichePresence2.js — v2026-08-06e — destinataire recherché dynamiquement via le territoire de l'enfant (maisons_departement), plus d'email en dur ; message d'avertissement si aucune adresse trouvée
+// FichePresence2.js — v2026-08-06f — fix destinataire vide : priorité à enfant.md_id (correspondance exacte et fiable) au lieu du seul matching texte sur enfant.territoire, qui échouait dès que ce champ ne correspondait pas exactement à un nom/territoire de maisons_departement (même correctif déjà appliqué à AllocationRentreeScolaire.js le 04/09)
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -371,13 +371,21 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
           transmise: true, date_transmission: new Date().toISOString(),
         }, { onConflict: 'enfant_id,af_id,mois,annee,type_fiche' })
 
-        // Destinataire trouvé dynamiquement via le territoire de l'enfant (pas en dur)
+        // Destinataire trouvé dynamiquement — priorité au md_id précis (source unique fiable),
+        // repli sur le matching texte via le territoire seulement si md_id absent
         let emailDestinataire = null
         try {
-          const { data: md } = await supabase.from('maisons_departement')
-            .select('email').or(`nom.eq.${enfant.territoire},territoire.eq.${enfant.territoire}`).limit(1).single()
-          emailDestinataire = md?.email || null
-        } catch(e) { console.log('MD introuvable pour territoire:', enfant.territoire) }
+          if (enfant.md_id) {
+            const { data: md } = await supabase.from('maisons_departement')
+              .select('email').eq('id', enfant.md_id).single()
+            emailDestinataire = md?.email || null
+          }
+          if (!emailDestinataire && enfant.territoire) {
+            const { data: md } = await supabase.from('maisons_departement')
+              .select('email').or(`nom.eq.${enfant.territoire},territoire.eq.${enfant.territoire}`).limit(1).single()
+            emailDestinataire = md?.email || null
+          }
+        } catch(e) { console.log('MD introuvable pour enfant:', enfant.id, '| md_id:', enfant.md_id, '| territoire:', enfant.territoire) }
 
         const sujet = `Fiche de présence ${moisLabel} ${annee} - ${enfant.prenom} ${enfant.nom} - ${profile.nom} ${profile.prenom}`
         const texte = `Bonjour,\n\nVeuillez trouver ci-joint la fiche de présence de ${enfant.prenom} ${enfant.nom} pour ${moisLabel} ${annee}.\n\nCordialement,\n${profile.prenom} ${profile.nom}`
