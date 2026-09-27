@@ -1,4 +1,4 @@
-// Fichepresenceintermittent.js — v2026-06-02b — même correctif que Fichepresencepermanent.js : remplacement du bouton "Transmettre ASE" factice par Télécharger (aucune sauvegarde) / Transmettre (sauvegarde + modal d'envoi, via FichePresence2 avecEnvoi) ; pas de routage CD31 ici (confirmé par JP : pas de fiche intermittente pour le 31, tous les enfants sur la même fiche)
+// Fichepresenceintermittent.js — v2026-06-02c — fix destinataire vide dans la modal Transmettre : md_id ajouté à la requête enfants (manquait, empêchait FichePresence2 de retrouver l'email de la MD par correspondance exacte)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -80,7 +80,7 @@ export default function FichePresenceIntermittent({ profile }) {
     if (relais) {
       for (const r of relais) {
         for (const enfantId of (r.enfant_ids || [])) {
-          const { data: enf } = await supabase.from('enfants').select('id, nom, prenom, numero_dossier, af_principal_id, territoire').eq('id', enfantId).single()
+          const { data: enf } = await supabase.from('enfants').select('id, nom, prenom, numero_dossier, af_principal_id, territoire, md_id').eq('id', enfantId).single()
           if (enf && !liste.find(e => e.id === enf.id)) liste.push(enf)
         }
       }
