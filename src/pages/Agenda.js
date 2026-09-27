@@ -1,4 +1,4 @@
-// Agenda.js — v2026-08-06m — nouvelle catégorie "Réunion service" : événement professionnel (ex. réunion de service) ne nécessitant pas de sélectionner un enfant, même principe que Formation (pas d'enfant requis, visible côté encadrant, nom de l'AF affiché en complément de titre)
+// Agenda.js — v2026-08-06n — fix bug Lou/PEREIRA : (1) alerte ⚠️ visible dans le titre + dans la modal de détail quand un événement relais a été importé sans enfant lié (enfant_ids vide), au lieu d'un titre silencieusement incomplet ; (2) ajout d'un composant de recherche/liaison d'enfant directement sur un événement déjà enregistré (RechercheEnfantImport réutilisé), sans avoir besoin de repasser par l'écran d'import ni par du SQL
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -830,6 +830,8 @@ export default function Agenda({ profile }) {
               const afPrincipal = afProfiles[evt.af_id]
               if (afPrincipal) titrePOV = 'Relais fam. ' + afPrincipal.nom
             }
+            // Enfant non lié à l'import : le signaler plutôt que d'afficher un titre incomplet en silence
+            titrePOV = '⚠️ ' + titrePOV + ' (enfant non lié)'
           }
           // Encadrant : pour un congé, afficher les enfants en relais pendant cette période
           if (isEncadrant && ['conge', 'formation'].includes(evt.categorie)) {
@@ -3014,6 +3016,26 @@ export default function Agenda({ profile }) {
                       {selectedEvt.categorie === 'relais' && !selectedEvt.relais_structure_id && selectedEvt.relais_nom_libre && selectedEvt.relais_type !== 'af' && (
                         <div style={{ marginTop:10, padding:'8px 12px', background:'#fef3e2', borderRadius:8, border:'1px solid #f5dca4' }}>
                           <div style={{ fontSize:11, color:'#d97706' }}>⚠️ Structure relais : <strong>{selectedEvt.relais_nom_libre}</strong> — non encore référencée</div>
+                        </div>
+                      )}
+
+                      {/* ── Enfant non lié (bloque le titre + la fiche de présence intermittente) ── */}
+                      {selectedEvt.categorie === 'relais' && (!selectedEvt.enfant_ids || selectedEvt.enfant_ids.length === 0) && (
+                        <div style={{ marginTop:10, padding:'8px 12px', background:'#fdecec', borderRadius:8, border:'1px solid #f3b8b8' }}>
+                          <div style={{ fontSize:11, color:'#c0392b', fontWeight:600, marginBottom:6 }}>
+                            ⚠️ Aucun enfant lié à cet événement — il n'apparaîtra pas dans la fiche de présence intermittente
+                          </div>
+                          <RechercheEnfantImport
+                            nomDetecte={selectedEvt.titre?.replace(/^(Relais|VM|Visite)[\s—-]*/i,'') || ''}
+                            onSelect={async (enf) => {
+                              const { error } = await supabase.from('evenements').update({ enfant_ids: [enf.id] }).eq('id', selectedEvt.id)
+                              if (error) { showToast('❌ Erreur : ' + error.message); return }
+                              setEnfants(prev => prev.find(e => e.id === enf.id) ? prev : [...prev, enf])
+                              setSelectedEvt(ev => ({ ...ev, enfant_ids: [enf.id], _enfantNom: `${enf.prenom} ${enf.nom}` }))
+                              showToast(`✅ ${enf.prenom} ${enf.nom} lié(e) à l'événement`)
+                              fetchEvenements()
+                            }}
+                          />
                         </div>
                       )}
 
