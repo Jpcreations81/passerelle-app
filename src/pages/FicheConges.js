@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-09-24b — formulaire CD31 : la colonne "Solution retenue" affiche désormais le nom du/des AF relais sélectionné(s) pour chaque enfant (comme dans le tableau du formulaire CD81), au lieu de rester vide
+// FicheConges.js — v2026-09-24c — le champ "Notes" du formulaire (CD81) apparaît désormais dans le PDF, juste sous "Nombre total de jours demandes :" (jusqu'ici saisi mais jamais reporté sur le document) ; texte replié automatiquement sur plusieurs lignes si besoin, en évitant la zone signature/date à droite
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -361,6 +361,32 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     const yD2 = yD-14
     dt('Nombre total de jours demandes :', M, yD2, 9, font)
     dt(`${nbJours} jours`, M+184, yD2, 9.5, fontB)
+
+    // ── Note (optionnelle, saisie dans le formulaire) ───────────────
+    if (form.notes && form.notes.trim()) {
+      const noteLabel = 'Note :'
+      const noteFontSize = 8
+      const noteLabelW = fontB.widthOfTextAtSize(noteLabel, noteFontSize)
+      dt(noteLabel, M, yD2-14, noteFontSize, fontB)
+      const noteMaxWidth = (W-M-180) - (M+noteLabelW+4) // s'arrête avant la zone signature/date à droite
+      const mots = form.notes.trim().split(/\s+/)
+      const noteLignes = []
+      let ligneCour = ''
+      mots.forEach(mot => {
+        const essai = ligneCour ? `${ligneCour} ${mot}` : mot
+        if (font.widthOfTextAtSize(essai, noteFontSize) <= noteMaxWidth) {
+          ligneCour = essai
+        } else {
+          if (ligneCour) noteLignes.push(ligneCour)
+          ligneCour = mot
+        }
+      })
+      if (ligneCour) noteLignes.push(ligneCour)
+      noteLignes.slice(0, 4).forEach((ligne, i) => {
+        dt(ligne, i === 0 ? M+noteLabelW+4 : M, yD2-14-(i*10), noteFontSize, font)
+      })
+    }
+
     ln(M, yD2-62, W-M, yD2-62, BLACK, 0.5)
 
     // ── BANDEAU DECISION ──────────────────────────────────────────
