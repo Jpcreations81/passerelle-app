@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-09-24b — formulaire CD31 : la colonne "Solution retenue" affiche désormais le nom du/des AF relais sélectionné(s) pour chaque enfant (comme dans le tableau du formulaire CD81), au lieu de rester vide
+// FicheConges.js — v2026-09-24d — note trop petite pour être vue sur le PDF : taille passée de 8 à 10.5 et texte en gras (comme le reste de la fiche), max 3 lignes au lieu de 4 pour garder la même zone disponible
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -361,6 +361,33 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     const yD2 = yD-14
     dt('Nombre total de jours demandes :', M, yD2, 9, font)
     dt(`${nbJours} jours`, M+184, yD2, 9.5, fontB)
+
+    // ── Note (optionnelle, saisie dans le formulaire) ───────────────
+    if (form.notes && form.notes.trim()) {
+      const noteLabel = 'Note : '
+      const noteFontSize = 10.5
+      const noteLineH = 13
+      const noteLabelW = fontB.widthOfTextAtSize(noteLabel, noteFontSize)
+      dt(noteLabel, M, yD2-16, noteFontSize, fontB)
+      const noteMaxWidth = (W-M-180) - (M+noteLabelW+4) // s'arrête avant la zone signature/date à droite
+      const mots = form.notes.trim().split(/\s+/)
+      const noteLignes = []
+      let ligneCour = ''
+      mots.forEach(mot => {
+        const essai = ligneCour ? `${ligneCour} ${mot}` : mot
+        if (font.widthOfTextAtSize(essai, noteFontSize) <= noteMaxWidth) {
+          ligneCour = essai
+        } else {
+          if (ligneCour) noteLignes.push(ligneCour)
+          ligneCour = mot
+        }
+      })
+      if (ligneCour) noteLignes.push(ligneCour)
+      noteLignes.slice(0, 3).forEach((ligne, i) => {
+        dt(ligne, i === 0 ? M+noteLabelW+4 : M, yD2-16-(i*noteLineH), noteFontSize, fontB)
+      })
+    }
+
     ln(M, yD2-62, W-M, yD2-62, BLACK, 0.5)
 
     // ── BANDEAU DECISION ──────────────────────────────────────────
