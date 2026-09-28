@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-06-21g — fix source unique MD : maisons_departementales (mauvaise table) → maisons_departement (vraie table, 12 MD réelles) ; g inclut aussi le contenu de f (modal simplifié + cascade département)
+// ListeEnfants.js — v2026-06-21h — fix territoire vide/faux sur les fiches de présence : à la création d'un enfant, le territoire était copié depuis le profil du créateur du dossier (ex: un encadrant sans territoire renseigné) au lieu d'être dérivé de la MD choisie dans le formulaire ; utilise désormais maisons.territoire (via md_id), repli sur profile.territoire si aucune MD sélectionnée
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -290,6 +290,10 @@ export default function ListeEnfants({ profile }) {
       setAfTempId(newAf.id)
     }
 
+    // Territoire dérivé de la MD sélectionnée (source fiable) — avant, on prenait le territoire
+    // du profil du créateur du dossier, ce qui laissait le champ vide/faux dès que ce dernier
+    // n'avait pas de territoire renseigné (ex: un encadrant) ou un territoire différent de l'enfant
+    const mdChoisie = maisons.find(m => m.id === newEnfant.md_id)
     const { data, error } = await supabase.from('enfants').insert({
       prenom: newEnfant.prenom,
       nom: newEnfant.nom,
@@ -302,7 +306,7 @@ export default function ListeEnfants({ profile }) {
       fratrie: newEnfant.fratrie?.length > 0 ? newEnfant.fratrie : null,
       referent_id: newEnfant.referent_id || null,
       md_id: newEnfant.md_id || null,
-      territoire: profile.territoire,
+      territoire: mdChoisie?.territoire || profile.territoire,
     }).select().single()
 
     if (!error && data) {
