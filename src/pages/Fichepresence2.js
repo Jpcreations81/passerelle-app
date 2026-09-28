@@ -1,4 +1,4 @@
-// FichePresence2.js — v2026-08-06f — fix destinataire vide : priorité à enfant.md_id (correspondance exacte et fiable) au lieu du seul matching texte sur enfant.territoire, qui échouait dès que ce champ ne correspondait pas exactement à un nom/territoire de maisons_departement (même correctif déjà appliqué à AllocationRentreeScolaire.js le 04/09)
+// FichePresence2.js — v2026-08-06g — fix "Territoire :" vide sur le PDF : repli sur maisons_departement.territoire via enfant.md_id quand enfant.territoire n'est pas renseigné directement (cause racine trouvée dans ListeEnfants.js : le territoire de l'enfant était copié depuis celui du créateur du dossier au lieu d'être dérivé de la MD choisie)
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
@@ -88,6 +88,17 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         page.drawLine({ start:{x:x1,y:y1}, end:{x:x2,y:y2}, thickness: width, color })
       }
 
+      // Territoire affiché : celui de l'enfant si renseigné, sinon dérivé de sa MD (md_id) —
+      // certains dossiers ont un md_id mais pas de territoire renseigné directement sur l'enfant
+      let territoireAffiche = enfant?.territoire || ''
+      if (!territoireAffiche && enfant?.md_id) {
+        try {
+          const { data: mdTerr } = await supabase.from('maisons_departement')
+            .select('territoire').eq('id', enfant.md_id).single()
+          territoireAffiche = mdTerr?.territoire || ''
+        } catch(e) { console.log('Territoire MD introuvable pour enfant:', enfant.id) }
+      }
+
       const moisLabel = MOIS_FR[mois]
       const titre = `FICHE DE PRESENCE ${annee}`
       const tw = fontB.widthOfTextAtSize(titre, 15)
@@ -157,13 +168,13 @@ export default function FichePresence2({ enfant, profile, mois, annee, presences
         ligneFiche("Nom et Prénom de l'AF qui fait le Relais : ", `${profile.prenom} ${profile.nom}`, y-15)
         ligneFiche("Nom et Prénom de l'AF Principal(e) : ", `${afPrincipal?.prenom||''} ${afPrincipal?.nom||''}`, y-30)
         drawText('Territoire : ', M, y-45, 9, font)
-        drawText(enfant?.territoire||'', M+font.widthOfTextAtSize('Territoire : ',9), y-45, 9, fontB)
+        drawText(territoireAffiche, M+font.widthOfTextAtSize('Territoire : ',9), y-45, 9, fontB)
         y = y-45
       } else {
         ligneFiche("Nom et prénom de l'enfant (obligatoire) : ", `${enfant.prenom} ${enfant.nom}`, y)
         ligneFiche("Nom et Prénom de l'Assistant(e) familial(e) : ", `${profile.prenom} ${profile.nom}`, y-15)
         drawText('Territoire : ', M, y-30, 9, font)
-        drawText(enfant?.territoire||'', M+font.widthOfTextAtSize('Territoire : ',9), y-30, 9, fontB)
+        drawText(territoireAffiche, M+font.widthOfTextAtSize('Territoire : ',9), y-30, 9, fontB)
         y = y-30
       }
 
