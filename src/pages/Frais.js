@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-21b — afficher adresse résolue sous le label (Domicile PEREIRA → vraie adresse)
+// Frais.js — v2026-05-21d — c : fix lignes en double et km aberrants (ex: 1322 km) sur les relais où l'AF est participant (le bloc "relais AF principal" ne traite plus que les relais dont af_id = l'AF connecté) ; d : relais sans "lieu" (ex: chez Lilia KRIZOU) désormais pris en compte, et pour les relais dont l'AF est le principal l'adresse de la famille relais est lue dans son profil au lieu du texte "Domicile X"
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -297,8 +297,12 @@ export default function Frais({ profile }) {
       e.transport_debut_af_principal === false || e.transport_fin_af_principal === false
     )
 
-    // Charger les adresses des AF principaux pour les relais participant
-    const afIds = [...new Set(relaisAvecTransport.map(e => e.af_id).filter(Boolean))]
+    // Charger les adresses : AF principaux des relais où l'AF est participant,
+    // ET familles relais (participants) des relais dont l'AF est le principal
+    const afIds = [...new Set([
+      ...relaisAvecTransport.map(e => e.af_id),
+      ...(evtsPrincipaux || []).filter(e => e.categorie === 'relais').flatMap(e => e.participants_ids || []),
+    ].filter(Boolean))]
     const afAdresses = {}
     if (afIds.length > 0) {
       const { data: afProfiles } = await supabase
@@ -338,7 +342,10 @@ export default function Frais({ profile }) {
     // Construire les lignes de frais
     const nouvLignes = []
     for (const [jour, evtsDuJour] of Object.entries(parJour)) {
-      const evtsAvecLieu = evtsDuJour.filter(e => e.lieu)
+      // Un relais sans "lieu" reste pris en compte si on peut retrouver l'adresse de l'autre AF
+      // (ou un lieu de remise) — avant, il était ignoré (cas du relais chez Lilia KRIZOU)
+      const adresseAutreAf = (e) => e.af_id === profile.id ? afAdresses[e.participants_ids?.[0]] : afAdresses[e.af_id]
+      const evtsAvecLieu = evtsDuJour.filter(e => e.lieu || (e.categorie === 'relais' && (e.lieu_remise_debut || e.lieu_remise_fin || adresseAutreAf(e)?.adresse)))
       if (evtsAvecLieu.length === 0) continue
 
       // Séparer formations et déplacements pro
@@ -354,19 +361,24 @@ export default function Frais({ profile }) {
 
       // Pour les relais de l'AF principal : filtrer selon transport_debut/fin
       // Un relais AF principal peut générer 0, 1 ou 2 lignes de frais
-      const evtsRelaisPrincipalJour = evtsPro.filter(e => e.categorie === 'relais')
+      // IMPORTANT : uniquement les relais dont l'AF est le principal (af_id). Les relais où l'AF est
+      // simplement participant sont traités plus bas (evtsRelaisParticipantJour) ; sans ce filtre ils
+      // étaient traités deux fois, d'où une ligne parasite (texte "Domicile X" géocodé → km aberrants)
+      const evtsRelaisPrincipalJour = evtsPro.filter(e => e.categorie === 'relais' && e.af_id === profile.id)
       const evtsRelaisPrincipalLignes = []
       evtsRelaisPrincipalJour.forEach(e => {
         const debutParJP = e.transport_debut_af_principal !== false
         const finParJP = e.transport_fin_af_principal !== false
+        // Famille relais : on privilégie sa vraie adresse (profil) plutôt que le texte "Domicile X" du lieu
+        const hote = afAdresses[e.participants_ids?.[0]]
         if (debutParJP) {
-          const dest = e.lieu_remise_debut || e.lieu || ''
-          const destLabel = e.lieu_remise_debut ? `📍 ${e.lieu_remise_debut}` : e.titre
+          const dest = e.lieu_remise_debut || hote?.adresse || e.lieu || ''
+          const destLabel = e.lieu_remise_debut ? `📍 ${e.lieu_remise_debut}` : (hote?.label || e.titre)
           evtsRelaisPrincipalLignes.push({ evt: e, dest, destLabel, typeLabel: '🔄 Relais (début)', jourOverride: null })
         }
         if (finParJP) {
-          const dest = e.lieu_remise_fin || e.lieu || ''
-          const destLabel = e.lieu_remise_fin ? `📍 ${e.lieu_remise_fin}` : e.titre
+          const dest = e.lieu_remise_fin || hote?.adresse || e.lieu || ''
+          const destLabel = e.lieu_remise_fin ? `📍 ${e.lieu_remise_fin}` : (hote?.label || e.titre)
           const jourFinLocal = new Date(e.date_fin || e.date_debut).toLocaleDateString('fr-FR', { timeZone:'Europe/Paris', year:'numeric', month:'2-digit', day:'2-digit' })
           const [df, mf, yf] = jourFinLocal.split('/')
           const jourFin = `${yf}-${mf}-${df}`
