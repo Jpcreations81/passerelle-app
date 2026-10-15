@@ -1,7 +1,8 @@
-// ListeEnfants.js — v2026-06-21h — fix territoire vide/faux sur les fiches de présence : à la création d'un enfant, le territoire était copié depuis le profil du créateur du dossier (ex: un encadrant sans territoire renseigné) au lieu d'être dérivé de la MD choisie dans le formulaire ; utilise désormais maisons.territoire (via md_id), repli sur profile.territoire si aucune MD sélectionnée
+// ListeEnfants.js — v2026-10-14b — détection des doublons étendue aux enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) ; (v2026-10-14a : fin du statut temporaire, AF en attente via creerAfEnAttente)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { creerAfEnAttente, estEnAttente } from '../lib/afEnAttente'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
 
@@ -21,9 +22,8 @@ function RechercheAfSelectLocal({ value, onSelect }) {
     setQuery(q)
     if (q.trim().length < 2) { setResultats([]); return }
     const { data } = await supabase.from('profiles')
-      .select('id, nom, prenom, ville')
+      .select('id, nom, prenom, ville, email')
       .eq('role', 'af')
-      .neq('statut_profil', 'temporaire')
       .or(`nom.ilike.%${q.trim()}%,prenom.ilike.%${q.trim()}%`)
       .limit(8)
     setResultats(data || [])
@@ -46,7 +46,7 @@ function RechercheAfSelectLocal({ value, onSelect }) {
           {resultats.map(af => (
             <div key={af.id} style={{ padding:'6px 10px', fontSize:13, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}
               onClick={() => { onSelect(af.id); setSelectedLabel(`${af.prenom} ${af.nom}`); setQuery(''); setResultats([]) }}>
-              {af.prenom} {af.nom}{af.ville ? ` — ${af.ville}` : ''}
+              {af.prenom} {af.nom}{af.ville ? ` — ${af.ville}` : ''}{estEnAttente(af) ? ' ⏳ en attente d\'inscription' : ''}
             </div>
           ))}
         </div>
@@ -61,9 +61,9 @@ export default function ListeEnfants({ profile }) {
 
   const [evenementEnAttente, setEvenementEnAttente] = useState(null)
   const [etapeModal, setEtapeModal] = useState(1) // 1=choix AF, 2=fiche enfant
-  const [afChoix, setAfChoix] = useState('existant') // 'existant' ou 'temporaire'
+  const [afChoix, setAfChoix] = useState('existant') // 'existant' ou 'nouvelle' (AF non inscrite)
   const [afTemp, setAfTemp] = useState({ prenom:'', nom:'', ville:'' })
-  const [afTempId, setAfTempId] = useState(null) // UUID de l'AF temporaire créé
+  const [afTempId, setAfTempId] = useState(null) // UUID de l'AF en attente créée
   const [afListe, setAfListe] = useState([]) // liste des AF existants
   const [enfants, setEnfants] = useState([])
 
@@ -78,7 +78,7 @@ export default function ListeEnfants({ profile }) {
         const parts = nomDetecte.trim().split(' ')
         const prenom = parts[0] || ''
         const nom = parts.slice(1).join(' ') || ''
-        setNewEnfant(n => ({ ...n, prenom, nom: nom.toUpperCase(), statut_profil: 'temporaire' }))
+        setNewEnfant(n => ({ ...n, prenom, nom: nom.toUpperCase() }))
       }
       // Charger la liste des AF existants
       supabase.from('profiles').select('id, prenom, nom, ville').eq('role', 'af').order('nom')
@@ -138,7 +138,7 @@ export default function ListeEnfants({ profile }) {
         .gte('date_fin', jMoins2.toISOString())
         .lte('date_debut', jPlus2.toISOString())
 
-      // 2b. Tous les relais (toute date) — utilisés seulement pour les enfants temporaires
+      // 2b. Tous les relais (toute date)
       const { data: evtsRelaisTous } = await supabase.from('evenements')
         .select('enfant_ids, participants_ids')
         .eq('categorie', 'relais')
@@ -169,7 +169,6 @@ export default function ListeEnfants({ profile }) {
       // 3. Charger les enfants en relais non déjà dans la liste principale
       // On charge l'union des deux listes de candidats (proches + tous), puis on filtre :
       // - enfant normal : seulement s'il est dans la liste "proches" (J-2/J+2)
-      // - enfant temporaire : visible peu importe la date (déjà dans "tous")
       let enfantsRelais = []
       const idsCandidats = [...new Set([...enfantIdsRelaisProches, ...enfantIdsRelaisTous])]
       if (idsCandidats.length > 0) {
@@ -183,7 +182,7 @@ export default function ListeEnfants({ profile }) {
           `).in('id', idsACharger)
           if (data) {
             enfantsRelais = data.filter(e =>
-              e.statut_profil === 'temporaire' || enfantIdsRelaisProches.includes(e.id)
+              enfantIdsRelaisProches.includes(e.id)
             )
           }
         }
@@ -262,9 +261,16 @@ export default function ListeEnfants({ profile }) {
       .select('id, prenom, nom, af_principal:af_principal_id(id, nom, prenom)')
       .ilike('nom', newEnfant.nom.trim())
       .ilike('prenom', newEnfant.prenom.trim())
+    // + enfants d'AF non inscrites (invisibles via la RLS) : même nom + prénom = doublon probable
+    const { data: enAttente } = await supabase.rpc('rechercher_enfants_af_en_attente', { p_q: newEnfant.nom.trim() })
+    const doublonsAttente = (enAttente || [])
+      .filter(r => r.nom.toLowerCase() === newEnfant.nom.trim().toLowerCase() && r.prenom.toLowerCase() === newEnfant.prenom.trim().toLowerCase())
+      .filter(r => !(existants || []).some(x => x.id === r.id))
+      .map(r => ({ id: r.id, prenom: r.prenom, nom: r.nom, af_principal: { id: r.af_principal_id, nom: r.af_nom, prenom: r.af_prenom } }))
     setVerifEnCours(false)
-    if (existants && existants.length > 0) {
-      setDoublonsDetectes(existants)
+    const tousDoublons = [...(existants || []), ...doublonsAttente]
+    if (tousDoublons.length > 0) {
+      setDoublonsDetectes(tousDoublons)
       return
     }
     await createEnfant()
@@ -274,20 +280,14 @@ export default function ListeEnfants({ profile }) {
     if (!newEnfant.prenom || !newEnfant.nom) { showToast('⚠️ Prénom et nom requis'); return }
     setSaving(true)
 
-    // Étape 0 : créer l'AF temporaire si nécessaire
+    // Étape 0 : créer l'AF non inscrite (fiche en attente) si nécessaire — prénom, nom et ville obligatoires
     let afPrincipalId = newEnfant.af_principal_id || null
-    if (evenementEnAttente && afChoix === 'temporaire') {
-      if (!afTemp.prenom || !afTemp.nom) { showToast("⚠️ Prénom et nom de l'AF requis"); setSaving(false); return }
-      const { data: newAf, error: errAf } = await supabase.from('profiles').insert({
-        prenom: afTemp.prenom.trim(),
-        nom: afTemp.nom.trim().toUpperCase(),
-        ville: afTemp.ville.trim() || null,
-        role: 'af',
-        email: `temp.${Date.now()}@passerelle.local`
-      }).select().single()
-      if (errAf) { showToast('❌ Erreur AF : ' + errAf.message); setSaving(false); return }
+    if (evenementEnAttente && afChoix === 'nouvelle') {
+      const { data: newAf, existante, error: errAf } = await creerAfEnAttente(afTemp)
+      if (errAf) { showToast('⚠️ ' + errAf.message); setSaving(false); return }
       afPrincipalId = newAf.id
       setAfTempId(newAf.id)
+      if (existante) showToast(`ℹ️ ${newAf.prenom} ${newAf.nom} existait déjà — fiche réutilisée`)
     }
 
     // Territoire dérivé de la MD sélectionnée (source fiable) — avant, on prenait le territoire
@@ -429,7 +429,6 @@ export default function ListeEnfants({ profile }) {
                       <div style={{ flex:1 }}>
                         <div style={{ fontSize:15, fontWeight:700, display:'flex', alignItems:'center', gap:6 }}>
                           {e.nom} {e.prenom}
-                          {e.statut_profil === 'temporaire' && <span style={{ fontSize:10, background:'#fef3c7', color:'#b45309', borderRadius:5, padding:'1px 6px', fontWeight:700 }}>⏳ TEMP</span>}
                         </div>
                         <div style={{ fontSize:12, color:'#9aa3b8' }}>
                           {age}{e.date_naissance && (() => { const [y,m,d] = e.date_naissance.split('-'); return ` · ${d}/${m}/${y}` })()}
@@ -465,8 +464,7 @@ export default function ListeEnfants({ profile }) {
             <div className="modal-box" style={{ maxWidth:560 }} onClick={e => e.stopPropagation()}>
               <div className="modal-title">
                 {evenementEnAttente && etapeModal === 1 ? "👨‍👧 AF principal de l'enfant" : '👶 Nouveau dossier enfant'}
-                {evenementEnAttente && <span style={{ fontSize:11, background:'#fef3c7', color:'#b45309', borderRadius:6, padding:'2px 8px', marginLeft:10, fontWeight:600 }}>⏳ Profil temporaire</span>}
-              </div>
+                              </div>
 
               {/* ÉTAPE 1 — Choix AF principal (uniquement si import PDF) */}
               {evenementEnAttente && etapeModal === 1 && (
@@ -481,9 +479,9 @@ export default function ListeEnfants({ profile }) {
                       ✅ Oui — je le sélectionne
                     </button>
                     <button
-                      style={{ flex:1, padding:'10px', borderRadius:8, border:`2px solid ${afChoix==='temporaire' ? '#f59e0b' : '#dde3f0'}`, background: afChoix==='temporaire' ? '#fef3c7' : '#fff', color: afChoix==='temporaire' ? '#b45309' : '#5a6478', fontWeight:700, cursor:'pointer', fontSize:13 }}
-                      onClick={() => setAfChoix('temporaire')}>
-                      ⏳ Non — créer un AF temporaire
+                      style={{ flex:1, padding:'10px', borderRadius:8, border:`2px solid ${afChoix==='nouvelle' ? '#f59e0b' : '#dde3f0'}`, background: afChoix==='nouvelle' ? '#fef3c7' : '#fff', color: afChoix==='nouvelle' ? '#b45309' : '#5a6478', fontWeight:700, cursor:'pointer', fontSize:13 }}
+                      onClick={() => setAfChoix('nouvelle')}>
+                      ⏳ Non — créer sa fiche (en attente d'inscription)
                     </button>
                   </div>
 
@@ -497,9 +495,9 @@ export default function ListeEnfants({ profile }) {
                     </div>
                   )}
 
-                  {afChoix === 'temporaire' && (
+                  {afChoix === 'nouvelle' && (
                     <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8, padding:14, marginBottom:16 }}>
-                      <div style={{ fontSize:11, fontWeight:700, color:'#b45309', marginBottom:10 }}>⏳ Créer un AF temporaire</div>
+                      <div style={{ fontSize:11, fontWeight:700, color:'#b45309', marginBottom:10 }}>⏳ Nouvelle AF — elle retrouvera ses données à son inscription</div>
                       <div className="form-grid-2">
                         <div className="form-group">
                           <label className="form-label">Prénom *</label>
@@ -512,7 +510,7 @@ export default function ListeEnfants({ profile }) {
                             onChange={e => setAfTemp(a => ({...a, nom: e.target.value.toUpperCase()}))} />
                         </div>
                         <div className="form-group">
-                          <label className="form-label">Ville</label>
+                          <label className="form-label">Ville *</label>
                           <input className="form-control" value={afTemp.ville}
                             onChange={e => setAfTemp(a => ({...a, ville: e.target.value}))} />
                         </div>
@@ -523,7 +521,7 @@ export default function ListeEnfants({ profile }) {
                   <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:8 }}>
                     <button className="btn btn-secondary" onClick={() => { setShowModal(false); setEvenementEnAttente(null) }}>Annuler</button>
                     <button className="btn btn-primary"
-                      disabled={afChoix === 'existant' && !newEnfant.af_principal_id}
+                      disabled={(afChoix === 'existant' && !newEnfant.af_principal_id) || (afChoix === 'nouvelle' && (!afTemp.prenom.trim() || !afTemp.nom.trim() || !afTemp.ville.trim()))}
                       onClick={() => setEtapeModal(2)}>
                       Continuer → Fiche enfant
                     </button>
