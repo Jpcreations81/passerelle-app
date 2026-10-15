@@ -1,10 +1,11 @@
-// Agenda.js — v2026-08-06n — fix bug Lou/PEREIRA : (1) alerte ⚠️ visible dans le titre + dans la modal de détail quand un événement relais a été importé sans enfant lié (enfant_ids vide), au lieu d'un titre silencieusement incomplet ; (2) ajout d'un composant de recherche/liaison d'enfant directement sur un événement déjà enregistré (RechercheEnfantImport réutilisé), sans avoir besoin de repasser par l'écran d'import ni par du SQL
+// Agenda.js — v2026-10-14c — accueil relais manuel : lieux de remise pré-remplis (domicile de l'AF principal : adresse si inscrite, ville sinon ; lieu = mon domicile) ; la recherche d'enfant retrouve aussi les enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) pour éviter les doublons ; (v2026-10-14b : bascule J'accueille un enfant en relais)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
 import FicheConges from './FicheConges'
+import { creerAfEnAttente, estEnAttente } from '../lib/afEnAttente'
 
 const CATEGORIES = {
   vm:        { label: 'VM', color: '#e05c5c', bg: '#fde8e8' },
@@ -87,10 +88,16 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
     if (!query.trim()) return
     setCherche(true)
     const { data } = await supabase.from('enfants')
-      .select('id, prenom, nom, statut_profil')
+      .select('id, prenom, nom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)')
       .or(`nom.ilike.%${query.trim()}%,prenom.ilike.%${query.trim()}%`)
       .limit(6)
-    setResultats(data || [])
+    // + enfants dont l'AF principal n'est pas inscrite (invisibles via la RLS) → évite de les recréer en double
+    const { data: enAttente } = await supabase.rpc('rechercher_enfants_af_en_attente', { p_q: query.trim() })
+    const supp = (enAttente || [])
+      .filter(r => !(data || []).some(d => d.id === r.id))
+      .map(r => ({ id: r.id, prenom: r.prenom, nom: r.nom, af_principal_id: r.af_principal_id,
+                   af_principal: { id: r.af_principal_id, prenom: r.af_prenom, nom: r.af_nom }, _enAttente: true }))
+    setResultats([...(data || []), ...supp])
     setCherche(false)
   }
 
@@ -98,7 +105,7 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
     setAfQuery(q)
     if (q.trim().length < 2) { setAfResultats([]); return }
     const { data } = await supabase.from('profiles')
-      .select('id, nom, prenom, ville')
+      .select('id, nom, prenom, ville, email')
       .eq('role', 'af')
       .or(`nom.ilike.%${q.trim()}%,prenom.ilike.%${q.trim()}%`)
       .limit(6)
@@ -106,32 +113,25 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
   }
 
   const creerAf = async () => {
-    if (!afNewPrenom.trim() || !afNewNom.trim()) return
-    const { data, error } = await supabase.from('profiles').insert({
-      id: crypto.randomUUID(),
-      prenom: afNewPrenom.trim(),
-      nom: afNewNom.trim().toUpperCase(),
-      ville: afNewVille.trim() || null,
-      role: 'af',
-      email: `temp.${Date.now()}@passerelle.local`
-    }).select().single()
-    if (error) { alert('Erreur AF : ' + error.message); return }
+    const { data, existante, error } = await creerAfEnAttente({ prenom: afNewPrenom, nom: afNewNom, ville: afNewVille })
+    if (error) { alert('⚠️ ' + error.message); return }
+    if (existante) alert(`ℹ️ ${data.prenom} ${data.nom} existait déjà — fiche réutilisée`)
     setAfSelectionne(data)
     setAfModeCreation(false)
   }
 
   const creerEnfant = async () => {
     if (!newPrenom.trim() || !newNom.trim()) return
+    if (!afSelectionne) { alert("⚠️ Choisissez ou créez l'AF principal de l'enfant"); return }
     setSaving(true)
     const { data, error } = await supabase.from('enfants').insert({
       prenom: newPrenom.trim(),
       nom: newNom.trim().toUpperCase(),
       type_placement: 'judiciaire',
-      ...(afSelectionne ? { af_principal_id: afSelectionne.id } : {})
+      af_principal_id: afSelectionne.id
     }).select().single()
     setSaving(false)
     if (error) { alert('Erreur : ' + error.message); return }
-    if (!afSelectionne) { alert("⚠️ Enfant créé ! Pensez à renseigner l'AF principal dans la fiche de l'enfant.") }
     onSelect(data)
     setModeCreation(false)
   }
@@ -146,7 +146,49 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
           placeholder="NOM *" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())} />
       </div>
 
-      <div style={{ fontSize:10, color:'#b45309', fontStyle:'italic', marginBottom:8 }}>⚠️ Pensez à renseigner l'AF principal dans la fiche de l'enfant après création.</div>
+      {/* AF principal — obligatoire : recherche d'une AF existante (inscrite ou en attente) ou création d'une fiche en attente */}
+      <div style={{ fontSize:10, fontWeight:700, color:'#b45309', marginBottom:4 }}>👨‍👩‍👧 AF principal *</div>
+      {afSelectionne ? (
+        <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8, fontSize:11 }}>
+          <span style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:6, padding:'3px 8px', flex:1 }}>
+            {afSelectionne.prenom} {afSelectionne.nom}{afSelectionne.ville ? ` — ${afSelectionne.ville}` : ''}{estEnAttente(afSelectionne) ? ' ⏳ en attente d\'inscription' : ''}
+          </span>
+          <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
+            onClick={() => setAfSelectionne(null)}>✕</button>
+        </div>
+      ) : afModeCreation ? (
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center', marginBottom:8 }}>
+          <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }}
+            placeholder="Prénom *" value={afNewPrenom} onChange={e => setAfNewPrenom(e.target.value)} />
+          <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }}
+            placeholder="NOM *" value={afNewNom} onChange={e => setAfNewNom(e.target.value.toUpperCase())} />
+          <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }}
+            placeholder="Ville *" value={afNewVille} onChange={e => setAfNewVille(e.target.value)} />
+          <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
+            onClick={creerAf}>✅ Créer l'AF</button>
+          <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
+            onClick={() => setAfModeCreation(false)}>✕</button>
+        </div>
+      ) : (
+        <div style={{ marginBottom:8 }}>
+          <div style={{ display:'flex', gap:4, alignItems:'center', flexWrap:'wrap' }}>
+            <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:140 }}
+              placeholder="🔍 Rechercher une AF…" value={afQuery} onChange={e => rechercherAf(e.target.value)} />
+            <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #f59e0b', background:'#fffbeb', color:'#b45309', cursor:'pointer', fontWeight:600 }}
+              onClick={() => setAfModeCreation(true)}>➕ Nouvelle AF</button>
+          </div>
+          {afResultats.length > 0 && (
+            <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:6, maxHeight:110, overflowY:'auto', marginTop:4 }}>
+              {afResultats.map(af => (
+                <div key={af.id} style={{ padding:'4px 8px', fontSize:11, cursor:'pointer', borderBottom:'1px solid #f0f0f0' }}
+                  onClick={() => { setAfSelectionne(af); setAfResultats([]); setAfQuery('') }}>
+                  {af.prenom} {af.nom}{af.ville ? ` — ${af.ville}` : ''}{estEnAttente(af) ? ' ⏳' : ''}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div style={{ display:'flex', gap:4, flexWrap:'wrap', alignItems:'center' }}>
         <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
@@ -189,7 +231,7 @@ function RechercheEnfantImport({ nomDetecte, onSelect }) {
             <div key={enf.id}
               style={{ padding:'4px 8px', fontSize:11, cursor:'pointer', borderBottom:'1px solid #f0f0f0', display:'flex', justifyContent:'space-between', alignItems:'center' }}
               onClick={() => { onSelect(enf); setResultats([]) }}>
-              <span>{enf.prenom} {enf.nom}</span>
+              <span>{enf.prenom} {enf.nom}{enf.af_principal ? ` — AF : ${enf.af_principal.prenom} ${enf.af_principal.nom}` : ''}{enf._enAttente ? ' ⏳' : ''}</span>
             </div>
           ))}
         </div>
@@ -210,18 +252,12 @@ function RechercheAfImport({ nomDetecte, afTousListe, onSelect }) {
   const [saving, setSaving] = React.useState(false)
 
   const creerAf = async () => {
-    if (!newPrenom.trim() || !newNom.trim()) return
+    if (!newPrenom.trim() || !newNom.trim() || !newVille.trim()) { alert('⚠️ Prénom, nom et ville de l\'AF sont obligatoires'); return }
     setSaving(true)
-    const { data, error } = await supabase.from('profiles').insert({
-      id: crypto.randomUUID(),
-      prenom: newPrenom.trim(),
-      nom: newNom.trim().toUpperCase(),
-      ville: newVille.trim() || null,
-      role: 'af',
-      email: `temp.${Date.now()}@passerelle.local`
-    }).select().single()
+    const { data, existante, error } = await creerAfEnAttente({ prenom: newPrenom, nom: newNom, ville: newVille })
     setSaving(false)
-    if (error) { alert('Erreur : ' + error.message); return }
+    if (error) { alert('⚠️ ' + error.message); return }
+    if (existante) alert(`ℹ️ ${data.prenom} ${data.nom} existait déjà — fiche réutilisée`)
     onSelect(data)
     setModeCreation(false)
   }
@@ -235,7 +271,7 @@ function RechercheAfImport({ nomDetecte, afTousListe, onSelect }) {
         <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:100 }}
           placeholder="NOM *" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())} />
         <input style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }}
-          placeholder="Ville" value={newVille} onChange={e => setNewVille(e.target.value)} />
+          placeholder="Ville *" value={newVille} onChange={e => setNewVille(e.target.value)} />
         <button style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}
           onClick={creerAf} disabled={saving}>
           {saving ? '⏳' : '✅ Créer'}
@@ -913,11 +949,32 @@ export default function Agenda({ profile }) {
 
     // Si type AF → ajouter l'AF dans participants_ids (on utilise relais_af_id, pas relais_structure_id)
     const afRelaisId = newEvt.relais_type === 'af' ? (newEvt.relais_af_id || newEvt.relais_structure_id) : null
-    const participantsRelais = (newEvt.categorie === 'relais' && newEvt.relais_type === 'af' && afRelaisId)
-      ? [afRelaisId]
-      : []
+    // Accueil relais manuel : c'est MOI (AF) qui reçois l'enfant d'un autre AF (inscrit ou non) → je suis l'AF relais (participant)
+    const accueilRelais = newEvt.categorie === 'relais' && !!newEvt.relais_accueil && !isEncadrant
+    if (accueilRelais) {
+      const sansAf = newEvt.enfantsSelectionnes.some(id => !enfants.find(e => e.id === id)?.af_principal_id)
+      const monEnfant = newEvt.enfantsSelectionnes.some(id => enfants.find(e => e.id === id)?.af_principal_id === profile.id)
+      if (newEvt.enfantsSelectionnes.length === 0) { showToast("⚠️ Cherchez ou créez l'enfant que vous accueillez"); return }
+      if (monEnfant) { showToast("⚠️ Cet enfant est le vôtre : choisissez « Mon enfant part en relais »"); return }
+      if (sansAf) { showToast("⚠️ L'AF principal de cet enfant est inconnu : renseignez-le dans la fiche enfant"); return }
+    }
+    const participantsRelais = accueilRelais
+      ? [profile.id]
+      : (newEvt.categorie === 'relais' && newEvt.relais_type === 'af' && afRelaisId)
+        ? [afRelaisId]
+        : []
 
     const isASE = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
+
+    // Accueil relais : lieu de remise = domicile de l'AF principale (adresse complète si inscrite, sinon ville seule) ; lieu = mon domicile
+    const domicilesPrincipaux = {}
+    if (accueilRelais) {
+      const idsPrincipaux = [...new Set(newEvt.enfantsSelectionnes.map(id => enfants.find(e => e.id === id)?.af_principal_id).filter(Boolean))]
+      if (idsPrincipaux.length > 0) {
+        const { data: profs } = await supabase.from('profiles').select('id, adresse, code_postal, ville').in('id', idsPrincipaux)
+        ;(profs || []).forEach(p => { domicilesPrincipaux[p.id] = [p.adresse, p.code_postal, p.ville].filter(Boolean).join(' ') })
+      }
+    }
 
     const rows = enfantsACree.map(enfantId => {
       // Si ASE/référent → af_id = AF principal de l'enfant
@@ -925,6 +982,7 @@ export default function Agenda({ profile }) {
       // Sinon soi-même
       const enfantObj = enfantId ? enfants.find(e => e.id === enfantId) : null
       const afId = isEncadrant && newEvt.afEncadrantId ? newEvt.afEncadrantId
+        : accueilRelais && enfantObj?.af_principal_id ? enfantObj.af_principal_id
         : isASE && enfantObj?.af_principal_id ? enfantObj.af_principal_id
         : profile.id
       return {
@@ -940,6 +998,9 @@ export default function Agenda({ profile }) {
         source: 'passerelle',
         ...relaisInfo,
         ...(participantsRelais.length > 0 ? { participants_ids: participantsRelais } : {}),
+        ...(accueilRelais && enfantObj?.af_principal_id && domicilesPrincipaux[enfantObj.af_principal_id]
+          ? { lieu_remise_debut: domicilesPrincipaux[enfantObj.af_principal_id], lieu_remise_fin: domicilesPrincipaux[enfantObj.af_principal_id] }
+          : {}),
         ...(enfantId ? { enfant_ids: [enfantId] } : {})
       }
     })
@@ -2469,6 +2530,64 @@ export default function Agenda({ profile }) {
               {/* ── Bloc relais — affiché uniquement si catégorie relais ── */}
               {newEvt.categorie === 'relais' && (
                 <div className="form-group col-span-2" style={{ background:'#e0f2fe', borderRadius:9, padding:12, border:'1px solid #bae6fd' }}>
+                  {!isEncadrant && (
+                    <div style={{ marginBottom:12 }}>
+                      <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
+                        {[
+                          { v:false, l:'➡️ Mon enfant part en relais' },
+                          { v:true,  l:"🏠 J'accueille un enfant en relais" },
+                        ].map(({ v, l }) => (
+                          <button key={String(v)} type="button"
+                            onClick={() => setNewEvt(n => {
+                              const base = { ...n, relais_accueil: v, relais_type: 'af', relais_structure_id: null, relais_af_id: null }
+                              if (v) {
+                                const domicile = [profile?.adresse, profile?.code_postal, profile?.ville].filter(Boolean).join(' ')
+                                return { ...base, enfantsSelectionnes: [], lieu: n.lieu || domicile }
+                              }
+                              return base
+                            })}
+                            style={{ padding:'6px 12px', borderRadius:20, border:`2px solid ${!!newEvt.relais_accueil === v ? '#0891b2' : '#dde3f0'}`, background: !!newEvt.relais_accueil === v ? '#0891b2' : '#fff', color: !!newEvt.relais_accueil === v ? '#fff' : '#5a6478', fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                      {newEvt.relais_accueil && (
+                        <div style={{ background:'#fff', border:'1px solid #bae6fd', borderRadius:8, padding:10 }}>
+                          <div style={{ fontSize:11, fontWeight:700, color:'#0891b2', marginBottom:4 }}>👶 Enfant que j'accueille</div>
+                          {newEvt.enfantsSelectionnes.length > 0 ? (
+                            <div style={{ fontSize:12 }}>
+                              {enfants.filter(e => newEvt.enfantsSelectionnes.includes(e.id)).map(e => (
+                                <span key={e.id} style={{ marginRight:8 }}>
+                                  <strong>{e.prenom} {e.nom}</strong>
+                                  {e.af_principal ? ` — AF principal : ${e.af_principal.prenom} ${e.af_principal.nom}` : ''}
+                                </span>
+                              ))}
+                              <button type="button" style={{ fontSize:10, padding:'2px 8px', borderRadius:6, border:'1px solid #dde3f0', background:'#f8f9fb', color:'#888', cursor:'pointer' }}
+                                onClick={() => setNewEvt(n => ({ ...n, enfantsSelectionnes: [] }))}>✕</button>
+                            </div>
+                          ) : (
+                            <RechercheEnfantImport
+                              nomDetecte=""
+                              onSelect={async (enf) => {
+                                // Recharger la fiche complète (AF principal) — la recherche ne renvoie que le strict minimum
+                                const { data: complet } = await supabase.from('enfants')
+                                  .select('id, nom, prenom, af_principal_id, af_principal:af_principal_id(id, nom, prenom)')
+                                  .eq('id', enf.id).single()
+                                const e = complet || enf   // enfant d'une AF non inscrite : fiche non lisible → on garde le minimum fourni par la recherche
+                                setEnfants(prev => prev.find(x => x.id === e.id) ? prev : [...prev, e])
+                                setNewEvt(n => {
+                                  const updated = { ...n, enfantsSelectionnes: [e.id] }
+                                  return { ...updated, titre: buildTitreAuto(updated, [...enfants.filter(x => x.id !== e.id), e], couleursEnfants) }
+                                })
+                              }}
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!newEvt.relais_accueil && (<>
                   <label className="form-label" style={{ color:'#0891b2' }}>🔄 Type de relais</label>
                   <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:10 }}>
                     {[
@@ -2646,6 +2765,7 @@ export default function Agenda({ profile }) {
                       })()}
                     </div>
                   )}
+                  </>)}
                 </div>
               )}
 
