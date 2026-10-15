@@ -1,7 +1,8 @@
-// DossierEnfant.js — v2026-08-06l — onglet Placement : ajout de l'édition inline (📞✏️) du téléphone et de l'email pour les professionnels ASE déjà assignés (Référent 1/2, Gestionnaire Enfant, Référent Santé, RTASE), même principe que l'Encadrant Technique dans DossierAssfam.js
+// DossierEnfant.js — v2026-10-14a — fin du statut "temporaire" : l'AF principal non inscrite est créée comme une vraie fiche en attente (creerAfEnAttente, ville obligatoire) et liée par af_principal_id ; un AF relais peut modifier la fiche d'un enfant dont l'AF principal est en attente d'inscription ; (v2026-08-06l : édition inline tél/email des professionnels ASE)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { creerAfEnAttente, estEnAttente } from '../lib/afEnAttente'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
 
@@ -197,12 +198,13 @@ export default function DossierEnfant({ profile }) {
   const [newProf, setNewProf] = useState({ nom:'', specialite:'', adresse:'', telephone:'', email:'', notes:'' })
   const [editProfIdx, setEditProfIdx] = useState(null)
 
-  const nonPlace = enfant?.statut_profil !== 'temporaire' && (enfant?.type_placement === 'non_place' || !enfant?.type_placement)
+  const nonPlace = enfant?.type_placement === 'non_place' || !enfant?.type_placement
   const isReferent = ['referent','gestionnaire','encadrant','rtase','admin'].includes(profile?.role)
   const isAF = profile?.role === 'af'
   const isAfPrincipalEnfant = isAF && enfant?.af_principal_id === profile?.id
-  const isAfRelaisTemporaire = isAF && isAfRelaisPlanifie && enfant?.statut_profil === 'temporaire'
-  const canEdit = isReferent || isAfPrincipalEnfant || isAfRelaisTemporaire
+  // AF relais : peut modifier la fiche tant que l'AF principal n'est pas inscrite (fiche en attente, email temp.*)
+  const isAfRelaisSurAfEnAttente = isAF && isAfRelaisPlanifie && estEnAttente(enfant?.af_principal)
+  const canEdit = isReferent || isAfPrincipalEnfant || isAfRelaisSurAfEnAttente
 
   // ── Vérifier si l'AF connecté est AF relais actif pour cet enfant (fenêtre J-2/J+2) ──
   const fetchRelaisActif = useCallback(async () => {
@@ -252,22 +254,21 @@ export default function DossierEnfant({ profile }) {
     if (!nomSaisi || !prenomSaisi) { showToast('⚠️ Nom et prénom requis'); return }
 
     if (roleDb === 'af') {
-      // Pour un AF : stocker nom+prénom directement sur l'enfant (pas de profil temporaire)
-      // L'AF retrouvera l'enfant à son inscription via la fonction rechercher_af_similaires
-      const { error } = await supabase.from('enfants').update({
-        af_principal_nom: nomSaisi.toUpperCase(),
-        af_principal_prenom: prenomSaisi,
-        af_principal_ville: ville || null,
-        af_principal_id: null
-      }).eq('id', id)
+      // AF non inscrite : on crée une VRAIE fiche en attente (prénom, nom, ville obligatoires) et on la lie à l'enfant.
+      // À son inscription, elle sera rattachée automatiquement à son compte (trigger SQL).
+      const { data: af, existante, error: errAf } = await creerAfEnAttente({ prenom: prenomSaisi, nom: nomSaisi, ville })
+      if (errAf) { showToast('⚠️ ' + errAf.message); return }
+      const { error } = await supabase.from('enfants').update({ af_principal_id: af.id }).eq('id', id)
       if (error) { showToast('❌ ' + error.message); return }
-      setForm(f => ({ ...f, af_principal_nom: nomSaisi.toUpperCase(), af_principal_prenom: prenomSaisi, af_principal_ville: ville || null, af_principal_id: null }))
-      setEnfant(prev => ({ ...prev, af_principal_nom: nomSaisi.toUpperCase(), af_principal_prenom: prenomSaisi, af_principal_ville: ville || null, af_principal_id: null }))
+      setForm(f => ({ ...f, af_principal_id: af.id, af_principal: af }))
+      setEnfant(prev => ({ ...prev, af_principal_id: af.id, af_principal: af }))
       F(`_${idKey}Manuel`)(false)
       F(`${idKey}_nom_new`)('')
       F(`${idKey}_prenom_new`)('')
       F(`${idKey}_ville_new`)('')
-      showToast(`✅ ${prenomSaisi} ${nomSaisi} enregistré(e) — sera lié(e) à l'inscription`)
+      showToast(existante
+        ? `✅ ${af.prenom} ${af.nom} existait déjà — assigné(e)`
+        : `✅ ${af.prenom} ${af.nom} créé(e) — sera lié(e) à l'inscription`)
       return
     }
 
@@ -323,7 +324,7 @@ export default function DossierEnfant({ profile }) {
     const { data, error } = await supabase
       .from('enfants')
       .select(`*, 
-        af_principal:af_principal_id(id, nom, prenom, telephone, email, territoire), 
+        af_principal:af_principal_id(id, nom, prenom, ville, telephone, email, territoire),
         referent:referent_id(id, nom, prenom, telephone, email),
         referent2:referent2_id(id, nom, prenom, telephone, email),
         pere:pere_id(*),
@@ -825,20 +826,9 @@ export default function DossierEnfant({ profile }) {
         return [k, v]
       })
     )
-    // Transition automatique : un enfant temporaire dont l'AF principal devient un AF réel
-    // (vrai compte, non temporaire) n'a plus besoin d'être temporaire.
-    if (enfant?.statut_profil === 'temporaire' && formData.af_principal_id) {
-      const { data: afPrincipalChoisi } = await supabase.from('profiles')
-        .select('id, statut_profil').eq('id', formData.af_principal_id).single()
-      if (afPrincipalChoisi && afPrincipalChoisi.statut_profil !== 'temporaire') {
-        formData.statut_profil = null
-      }
-    }
     const { error } = await supabase.from('enfants').update(formData).eq('id', id)
     if (!error) {
-      showToast(formData.statut_profil === null && enfant?.statut_profil === 'temporaire'
-        ? '✅ Dossier enregistré ! Enfant passé en statut réel (AF principal confirmé)'
-        : '✅ Dossier enregistré !')
+      showToast('✅ Dossier enregistré !')
       setEnfant(form)
       setEditMode(false)
     } else showToast('❌ Erreur : ' + error.message)
@@ -1033,7 +1023,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
   const ONGLETS = [
     { id:'identite',  icon:'🪪',  label:'Identité',         hidden: nonPlace },
     { id:'famille',   icon:'👨‍👩‍👧', label:'Famille',          hidden: nonPlace || isAfRelaisActif },
-    { id:'placement', icon:'🏠',  label:'Placement',         hidden: nonPlace && enfant?.statut_profil !== 'temporaire' },
+    { id:'placement', icon:'🏠',  label:'Placement',         hidden: nonPlace },
     { id:'quotidien', icon:'🌱',  label:'Vie quotidienne',   hidden: nonPlace },
     { id:'docs',      icon:'📂',  label:'Docs',              hidden: nonPlace || isAfRelaisActif },
     { id:'journal',   icon:'📝',  label:'Journal',           hidden: nonPlace, badge: journalNotes.length > 0 ? journalNotes.filter(n => {
@@ -1643,7 +1633,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                                   <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_nom_new`)||''} onChange={e=>F(`${idKey}_nom_new`)(e.target.value.toUpperCase())} placeholder="NOM" />
                                   <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_prenom_new`)||''} onChange={e=>F(`${idKey}_prenom_new`)(e.target.value)} placeholder="Prénom" />
                                   {role === 'af' && (
-                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_ville_new`)||''} onChange={e=>F(`${idKey}_ville_new`)(e.target.value)} placeholder="Ville" />
+                                    <input className="form-control" style={{ fontSize:12 }} value={v(`${idKey}_ville_new`)||''} onChange={e=>F(`${idKey}_ville_new`)(e.target.value)} placeholder="Ville *" />
                                   )}
                                   {role !== 'af' && (
                                     <>
@@ -1653,7 +1643,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                                   )}
                                   {role === 'af' && (
                                     <div style={{ fontSize:11, color:'#b45309', background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:6, padding:'6px 10px' }}>
-                                      ⏳ Profil temporaire — Lorsque cet(te) AF s'inscrira, il/elle retrouvera automatiquement cet enfant.
+                                      ⏳ Cette AF n'est pas encore inscrite — à son inscription, elle retrouvera automatiquement cet enfant.
                                     </div>
                                   )}
                                   <button type="button"
@@ -1705,8 +1695,14 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                           ) : profil ? (
                             <div>
                               <div style={{ fontSize:13, fontWeight:600 }}>{profil.nom} {profil.prenom}</div>
-                              {profil.telephone && !(profil.role === 'af' && profil.statut_profil === 'temporaire') && <div style={{ fontSize:11, color:'#5a6478', marginTop:3 }}>📞 <a href={`tel:${profil.telephone}`} style={{ color:'#1a4b8f' }}>{profil.telephone}</a></div>}
-                              {profil.email && !(profil.role === 'af' && profil.statut_profil === 'temporaire') && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
+                              {profil.telephone && <div style={{ fontSize:11, color:'#5a6478', marginTop:3 }}>📞 <a href={`tel:${profil.telephone}`} style={{ color:'#1a4b8f' }}>{profil.telephone}</a></div>}
+                              {profil.email && !estEnAttente(profil) && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
+                              {profil.ville && estEnAttente(profil) && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>📍 {profil.ville}</div>}
+                              {estEnAttente(profil) && (
+                                <div style={{ fontSize:11, color:'#b45309', background:'#fffbeb', borderRadius:6, padding:'3px 8px', marginTop:4, display:'inline-block', border:'1px solid #fcd34d' }}>
+                                  ⏳ En attente d'inscription
+                                </div>
+                              )}
                             </div>
                           ) : idKey === 'af_principal_id' && (v('af_principal_nom') || v('af_principal_prenom')) ? (
                             <div>
