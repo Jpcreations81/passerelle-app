@@ -1,4 +1,4 @@
-// Frais.js — v2026-05-21d — c : fix lignes en double et km aberrants (ex: 1322 km) sur les relais où l'AF est participant (le bloc "relais AF principal" ne traite plus que les relais dont af_id = l'AF connecté) ; d : relais sans "lieu" (ex: chez Lilia KRIZOU) désormais pris en compte, et pour les relais dont l'AF est le principal l'adresse de la famille relais est lue dans son profil au lieu du texte "Domicile X"
+// Frais.js — v2026-10-14a — AF non inscrite : si seule la ville est connue, le trajet est calculé sur la ville et le libellé indique "approx." ; adresse manquante signalée par ⚠️ dans le libellé ; (v2026-05-21d : fix lignes en double/km aberrants sur relais, relais sans lieu pris en compte, adresse de la famille relais lue dans son profil)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -311,9 +311,13 @@ export default function Frais({ profile }) {
         .in('id', afIds)
       if (afProfiles) {
         afProfiles.forEach(af => {
+          // AF non inscrite (fiche en attente) : souvent seule la ville est connue → trajet calculé sur la ville (approximatif)
+          const adresseComplete = [af.adresse, af.code_postal, af.ville].filter(Boolean).join(' ')
+          const villeSeule = !af.adresse && !!af.ville
           afAdresses[af.id] = {
-            adresse: [af.adresse, af.code_postal, af.ville].filter(Boolean).join(' '),
-            label: `Domicile ${af.nom} ${af.prenom}`
+            adresse: adresseComplete,
+            approx: villeSeule,
+            label: `Domicile ${af.nom} ${af.prenom}${villeSeule ? ` (${af.ville} — approx.)` : (!adresseComplete ? ' (⚠️ adresse manquante)' : '')}`
           }
         })
       }
