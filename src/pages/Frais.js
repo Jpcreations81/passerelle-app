@@ -1,4 +1,4 @@
-// Frais.js — v2026-10-14a — AF non inscrite : si seule la ville est connue, le trajet est calculé sur la ville et le libellé indique "approx." ; adresse manquante signalée par ⚠️ dans le libellé ; (v2026-05-21d : fix lignes en double/km aberrants sur relais, relais sans lieu pris en compte, adresse de la famille relais lue dans son profil)
+// Frais.js — v2026-10-15a — frais MENSUELS : un trajet est rattaché au mois où il a lieu (fin de relais le 01/10 d'un relais commencé le 28/09 → octobre) ; (v2026-10-14a) — AF non inscrite : si seule la ville est connue, le trajet est calculé sur la ville et le libellé indique "approx." ; adresse manquante signalée par ⚠️ dans le libellé ; (v2026-05-21d : fix lignes en double/km aberrants sur relais, relais sans lieu pris en compte, adresse de la famille relais lue dans son profil)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -271,6 +271,9 @@ export default function Frais({ profile }) {
 
     const debut = new Date(annee, mois, 1)
     const fin = new Date(annee, mois + 1, 0, 23, 59, 59)
+    // Fenêtre élargie au mois précédent : un relais commencé fin du mois précédent peut se terminer dans ce mois
+    // (son trajet de fin appartient à CE mois). Les lignes hors du mois sont retirées plus bas.
+    const debutElargi = new Date(annee, mois - 1, 1)
 
     // 1. Événements de l'AF principal
     const { data: evtsPrincipaux } = await supabase
@@ -278,7 +281,7 @@ export default function Frais({ profile }) {
       .select('*')
       .eq('af_id', profile.id)
       .in('categorie', CATS_AVEC_DEPLACEMENT)
-      .gte('date_debut', debut.toISOString())
+      .gte('date_debut', debutElargi.toISOString())
       .lte('date_debut', fin.toISOString())
       .order('date_debut', { ascending: true })
 
@@ -288,7 +291,7 @@ export default function Frais({ profile }) {
       .select('*')
       .eq('categorie', 'relais')
       .contains('participants_ids', [profile.id])
-      .gte('date_debut', debut.toISOString())
+      .gte('date_debut', debutElargi.toISOString())
       .lte('date_debut', fin.toISOString())
       .order('date_debut', { ascending: true })
 
@@ -536,6 +539,13 @@ export default function Frais({ profile }) {
         })
       }
     }
+
+    // Les frais sont MENSUELS : on ne garde que les lignes dont la date (jour du trajet) tombe dans le mois choisi.
+    // (ex. fin d'un relais commencé le 28/09 et terminé le 01/10 → fiche d'octobre)
+    const moisPrefixe = `${annee}-${String(mois + 1).padStart(2, '0')}-`
+    const lignesDuMois = nouvLignes.filter(l => String(l.date || '').startsWith(moisPrefixe))
+    nouvLignes.length = 0
+    nouvLignes.push(...lignesDuMois)
 
     setLignes(nouvLignes)
     setLoading(false)
