@@ -1,6 +1,7 @@
-// FicheConges.js — v2026-09-24d — note trop petite pour être vue sur le PDF : taille passée de 8 à 10.5 et texte en gras (comme le reste de la fiche), max 3 lignes au lieu de 4 pour garder la même zone disponible
+// FicheConges.js — v2026-10-14a — création d'une AF relais non inscrite via creerAfEnAttente (prénom+nom+ville obligatoires, réutilise une fiche existante) ; (v2026-09-24d : note du formulaire plus grande/en gras sur le PDF)
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
+import { creerAfEnAttente } from '../lib/afEnAttente'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import { supabase } from '../lib/supabase'
 import { LOGO_HG_B64 } from './logoHauteGaronne'
@@ -55,10 +56,10 @@ function RechercheAfInline({ value, afProfiles, exclude, onSelect, onCreate }) {
           style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} autoFocus />
         <input placeholder="NOM" value={newNom} onChange={e => setNewNom(e.target.value.toUpperCase())}
           style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:90 }} />
-        <input placeholder="Ville" value={newVille} onChange={e => setNewVille(e.target.value)}
+        <input placeholder="Ville *" value={newVille} onChange={e => setNewVille(e.target.value)}
           style={{ fontSize:11, border:'1px solid #fcd34d', borderRadius:6, padding:'3px 8px', width:80 }} />
         <button onClick={async () => {
-            if (!newPrenom.trim() || !newNom.trim()) return
+            if (!newPrenom.trim() || !newNom.trim() || !newVille.trim()) return
             const created = await onCreate({ prenom: newPrenom, nom: newNom, ville: newVille })
             if (created) { onSelect(created.id); setModeCreation(false); setNewPrenom(''); setNewNom(''); setNewVille('') }
           }} style={{ fontSize:10, padding:'3px 8px', borderRadius:6, border:'1px solid #16a34a', background:'#f0fdf4', color:'#15803d', cursor:'pointer', fontWeight:700 }}>✅ Créer</button>
@@ -151,17 +152,9 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   }
 
   async function creerNouvelAf({ prenom, nom, ville }) {
-    if (!prenom.trim() || !nom.trim()) return null
-    const { data, error } = await supabase.from('profiles').insert({
-      id: crypto.randomUUID(),
-      prenom: prenom.trim(),
-      nom: nom.trim().toUpperCase(),
-      ville: ville?.trim() || null,
-      role: 'af',
-      email: `temp.${Date.now()}@passerelle.local`,
-    }).select().single()
-    if (error) { setToast('❌ ' + error.message); return null }
-    setAfProfiles(prev => [...prev, data])
+    const { data, error } = await creerAfEnAttente({ prenom, nom, ville })
+    if (error) { setToast('⚠️ ' + error.message); return null }
+    setAfProfiles(prev => prev.some(a => a.id === data.id) ? prev : [...prev, data])
     return data
   }
 
