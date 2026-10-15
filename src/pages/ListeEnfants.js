@@ -1,4 +1,4 @@
-// ListeEnfants.js — v2026-10-14b — détection des doublons étendue aux enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) ; (v2026-10-14a : fin du statut temporaire, AF en attente via creerAfEnAttente)
+// ListeEnfants.js — v2026-10-15a — MNA (mineurs non accompagnés) = une MD à part, toujours en premier de la liste des MD ; (v2026-10-14b) — détection des doublons étendue aux enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) ; (v2026-10-14a : fin du statut temporaire, AF en attente via creerAfEnAttente)
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -220,7 +220,10 @@ export default function ListeEnfants({ profile }) {
   useEffect(() => { fetchEnfants(); fetchCollegues(); fetchMaisons() }, [fetchEnfants, fetchCollegues, fetchMaisons])
 
   const departements = [...new Set(maisons.map(m => m.departement).filter(Boolean))].sort()
+  // MNA (Mineurs non accompagnés) : traité comme une MD, toujours EN PREMIER de la liste, puis ordre alphabétique
+  const estMna = (m) => m?.territoire === 'MNA' || /^MNA\b/i.test(m?.nom || '')
   const maisonsFiltrees = maisons.filter(m => m.departement === newEnfant.departement)
+    .sort((a, b) => (estMna(b) ? 1 : 0) - (estMna(a) ? 1 : 0) || String(a.nom || '').localeCompare(String(b.nom || ''), 'fr'))
   const referentsFiltres = collegues.filter(c => c.role === 'referent' && c.md_id === newEnfant.md_id)
 
   function calcAge(ddn) {
