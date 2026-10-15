@@ -1,4 +1,4 @@
-// Login.js — v2026-08-06b — retrait de la mention "Département du Tarn (81)" sur la page de connexion
+// Login.js — v2026-10-14a — rattachement automatique à l'inscription : la ville devient obligatoire, la fiche d'AF "en attente" (nom+prénom+ville) est fusionnée par un trigger SQL (migration_af_en_attente.sql), plus de bouton de validation ; l'écran n'est qu'une information ("un profil existe déjà pour vous") avant de continuer ; (v2026-08-06b : retrait de la mention Département du Tarn)
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -14,9 +14,9 @@ export default function Login() {
   const [success, setSuccess] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showPasswordInscription, setShowPasswordInscription] = useState(false)
-  // Détection profil temporaire
-  const [profilTemp, setProfilTemp] = useState(null) // profil temporaire trouvé
-  const [showConfirmTemp, setShowConfirmTemp] = useState(false) // modal confirmation
+  // Fiche "en attente" détectée (information avant création du compte)
+  const [profilTemp, setProfilTemp] = useState(null)
+  const [showConfirmTemp, setShowConfirmTemp] = useState(false)
 
   async function handleLogin(e) {
     e.preventDefault()
@@ -33,8 +33,8 @@ export default function Login() {
     setError('')
     setSuccess('')
 
-    if (!nom.trim() || !prenom.trim() || !email.trim() || !password) {
-      setError('Tous les champs sont requis (sauf ville)')
+    if (!nom.trim() || !prenom.trim() || !ville.trim() || !email.trim() || !password) {
+      setError('Tous les champs sont requis (nom, prénom, ville, email, mot de passe)')
       setLoading(false)
       return
     }
@@ -44,39 +44,32 @@ export default function Login() {
       return
     }
 
-    // Chercher un enfant dont af_principal_nom/prenom correspond (via pg_trgm)
-    const { data: enfantsTrouves } = await supabase.rpc('rechercher_enfants_par_af', {
+    // Une fiche "en attente" existe-t-elle déjà pour cette personne (créée par une collègue AF) ?
+    // Le rattachement est AUTOMATIQUE (trigger SQL) : ici on informe seulement l'AF de ce qu'elle va retrouver.
+    const { data: apercu } = await supabase.rpc('apercu_af_en_attente', {
       p_nom: nom.trim().toUpperCase(),
       p_prenom: prenom.trim(),
-      p_seuil: 0.4
+      p_ville: ville.trim(),
     })
-
-    // Chercher un profil AF relais "en attente" (créé à l'import PDF, faux email temp.*)
-    const { data: relaisTrouve } = await supabase.rpc('rechercher_af_relais_en_attente', {
-      p_nom: nom.trim().toUpperCase(),
-      p_prenom: prenom.trim(),
-      p_seuil: 0.4
-    })
-
-    if ((enfantsTrouves && enfantsTrouves.length > 0) || (relaisTrouve && relaisTrouve.length > 0)) {
-      // Profil(s) trouvé(s) — demander confirmation
+    const ligne = Array.isArray(apercu) ? apercu[0] : apercu
+    if (ligne && ((ligne.enfants && ligne.enfants.length > 0) || Number(ligne.nb_evenements) > 0)) {
       setProfilTemp({
         nom: nom.trim().toUpperCase(),
         prenom: prenom.trim(),
-        enfants: enfantsTrouves || [],
-        relaisId: relaisTrouve && relaisTrouve.length > 0 ? relaisTrouve[0].id : null,
-        relaisNbEvenements: relaisTrouve && relaisTrouve.length > 0 ? relaisTrouve[0].nb_evenements : 0,
+        ville: ville.trim(),
+        enfants: ligne.enfants || [],
+        relaisNbEvenements: Number(ligne.nb_evenements) || 0,
       })
       setShowConfirmTemp(true)
       setLoading(false)
       return
     }
 
-    // Pas de profil temporaire → inscription normale
+    // Aucune fiche en attente (ou vide) → inscription normale (le trigger rattachera quand même une fiche vide éventuelle)
     await creerCompte()
   }
 
-  async function creerCompte(estProfilTemp = false) {
+  async function creerCompte() {
     setLoading(true)
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim(),
@@ -85,7 +78,7 @@ export default function Login() {
         data: {
           nom: nom.trim().toUpperCase(),
           prenom: prenom.trim(),
-          ville: ville.trim() || null,
+          ville: ville.trim(),
           role: 'af',
         }
       }
@@ -100,21 +93,6 @@ export default function Login() {
     }
 
     if (data?.user) {
-      if (estProfilTemp) {
-        // Lier les enfants dont af_principal_nom/prenom correspond
-        await supabase.from('enfants')
-          .update({ af_principal_id: data.user.id, af_principal_nom: null, af_principal_prenom: null, af_principal_ville: null, statut_profil: null })
-          .eq('af_principal_nom', nom.trim().toUpperCase())
-
-        // Transférer les événements relais du profil "en attente" vers le nouveau compte réel
-        if (profilTemp?.relaisId) {
-          await supabase.rpc('transferer_relais_vers_af', {
-            p_ancien_id: profilTemp.relaisId,
-            p_nouveau_id: data.user.id,
-          })
-        }
-      }
-
       setSuccess('✅ Compte créé ! Vérifiez votre email pour confirmer votre inscription, puis connectez-vous.')
       setMode('connexion')
       setNom(''); setPrenom(''); setVille(''); setPassword('')
@@ -160,7 +138,7 @@ export default function Login() {
           WebkitBackdropFilter: 'blur(10px)', backdropFilter: 'blur(10px)'
         }}>
 
-          {/* ── Modal confirmation profil temporaire ── */}
+          {/* ── Information : une fiche en attente existe déjà pour cette AF (rattachement automatique) ── */}
           {showConfirmTemp && profilTemp && (
             <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:12, padding:20, marginBottom:20 }}>
               <div style={{ fontSize:22, textAlign:'center', marginBottom:12 }}>👋</div>
@@ -171,27 +149,25 @@ export default function Login() {
                 Un profil a été créé pour <strong>{profilTemp.prenom} {profilTemp.nom}</strong>
                 {profilTemp.ville && ` (${profilTemp.ville})`}.
                 {profilTemp.enfants && profilTemp.enfants.length > 0 && (
-                  <> Vous avez en accueil <strong>{profilTemp.enfants.map(e => `${e.prenom} ${e.nom.charAt(0)}.`).join(', ')}</strong>.</>
+                  <> Vous avez en accueil <strong>{profilTemp.enfants.join(', ')}</strong>.</>
                 )}
                 {profilTemp.relaisNbEvenements > 0 && (
-                  <> Vous avez <strong>{profilTemp.relaisNbEvenements} événement{profilTemp.relaisNbEvenements > 1 ? 's' : ''} de relais</strong> en attente.</>
+                  <> Vous avez <strong>{profilTemp.relaisNbEvenements} événement{profilTemp.relaisNbEvenements > 1 ? 's' : ''}</strong> dans l'agenda.</>
                 )}
-                <br />Est-ce bien vous ?
+                <br />Vous les retrouverez automatiquement dès la création de votre compte.
               </div>
-              {/* Enfants liés */}
-              <EnfantsLies profilId={profilTemp.id} />
               <div style={{ display:'flex', gap:10, marginTop:16 }}>
                 <button
-                  onClick={() => creerCompte(true)}
+                  onClick={() => creerCompte()}
                   disabled={loading}
                   style={{ flex:1, padding:'11px', background:'linear-gradient(135deg,#1a4b8f,#2d7a1f)', color:'#fff', border:'none', borderRadius:10, fontFamily:'Sora,sans-serif', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                  ✅ Oui, c'est moi !
+                  ✅ Continuer et créer mon compte
                 </button>
                 <button
-                  onClick={() => { setShowConfirmTemp(false); setProfilTemp(null); creerCompte() }}
+                  onClick={() => { setShowConfirmTemp(false); setProfilTemp(null) }}
                   disabled={loading}
                   style={{ flex:1, padding:'11px', background:'#f4f6fb', color:'#5a6478', border:'1px solid #dde3f0', borderRadius:10, fontFamily:'Sora,sans-serif', fontSize:13, fontWeight:600, cursor:'pointer' }}>
-                  Non, créer un nouveau compte
+                  ← Modifier mes informations
                 </button>
               </div>
             </div>
@@ -260,7 +236,7 @@ export default function Login() {
                   </div>
                   <div style={{ marginBottom:14 }}>
                     <label style={{ fontSize:10, fontWeight:600, color:'#5a6478', textTransform:'uppercase', letterSpacing:'.4px', display:'block', marginBottom:5 }}>Ville</label>
-                    <input type="text" value={ville} onChange={e => setVille(e.target.value)} placeholder="Votre ville (optionnel)"
+                    <input type="text" value={ville} onChange={e => setVille(e.target.value)} placeholder="Votre ville" required
                       style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontFamily:'Sora, sans-serif', fontSize:13, background:'#f4f6fb', outline:'none' }} />
                   </div>
                   <div style={{ marginBottom:14 }}>
@@ -289,23 +265,6 @@ export default function Login() {
           )}
         </div>
       </div>
-    </div>
-  )
-}
-
-// Composant qui affiche les enfants liés au profil temporaire
-function EnfantsLies({ profilId }) {
-  const [enfants, setEnfants] = React.useState([])
-  React.useEffect(() => {
-    // profilId contient { nom, prenom, enfants } depuis la nouvelle logique
-    if (profilId?.enfants) {
-      setEnfants(profilId.enfants)
-    }
-  }, [profilId])
-  if (enfants.length === 0) return null
-  return (
-    <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'8px 12px', fontSize:12, color:'#15803d' }}>
-      👶 Enfant{enfants.length > 1 ? 's' : ''} en accueil : <strong>{enfants.map(e => `${e.prenom} ${e.nom}`).join(', ')}</strong>
     </div>
   )
 }
