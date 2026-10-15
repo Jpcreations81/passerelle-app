@@ -1,4 +1,4 @@
-// Agenda.js — v2026-10-14c — accueil relais manuel : lieux de remise pré-remplis (domicile de l'AF principal : adresse si inscrite, ville sinon ; lieu = mon domicile) ; la recherche d'enfant retrouve aussi les enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) pour éviter les doublons ; (v2026-10-14b : bascule J'accueille un enfant en relais)
+// Agenda.js — v2026-10-15a — l'AF relais créateur d'un événement (accueil relais, AF principal non inscrite) modifie transport/événement directement, sans demande de validation à une AF sans compte ; (v2026-10-14c) — accueil relais manuel : lieux de remise pré-remplis (domicile de l'AF principal : adresse si inscrite, ville sinon ; lieu = mon domicile) ; la recherche d'enfant retrouve aussi les enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) pour éviter les doublons ; (v2026-10-14b : bascule J'accueille un enfant en relais)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -728,7 +728,7 @@ export default function Agenda({ profile }) {
     const debut = new Date(`${editEvt.date_debut}T${hDeb}:00`)
     const fin = new Date(`${editEvt.date_fin}T${hFin}:00`)
 
-    if (selectedEvt.af_id !== profile?.id && selectedEvt.participants_ids?.includes(profile?.id)) {
+    if (selectedEvt.af_id !== profile?.id && selectedEvt.cree_par !== profile?.id && selectedEvt.participants_ids?.includes(profile?.id)) {
       const { error } = await supabase.from('evenements_modifications').insert({
         evenement_id: selectedEvt.id,
         demandeur_id: profile.id,
@@ -3178,7 +3178,7 @@ export default function Agenda({ profile }) {
                                     onChange={async () => {
                                       if (valeur) return // déjà coché
                                       // Si participant (AF relais) → demande de modification
-                                      if (selectedEvt.af_id !== profile?.id && selectedEvt.participants_ids?.includes(profile?.id)) {
+                                      if (selectedEvt.af_id !== profile?.id && selectedEvt.cree_par !== profile?.id && selectedEvt.participants_ids?.includes(profile?.id)) {
                                         await supabase.from('evenements_modifications').insert({
                                           evenement_id: selectedEvt.id,
                                           demandeur_id: profile.id,
@@ -3204,7 +3204,7 @@ export default function Agenda({ profile }) {
                                     checked={!valeur}
                                     onChange={async () => {
                                       if (!valeur) return // déjà coché
-                                      if (selectedEvt.af_id !== profile?.id && selectedEvt.participants_ids?.includes(profile?.id)) {
+                                      if (selectedEvt.af_id !== profile?.id && selectedEvt.cree_par !== profile?.id && selectedEvt.participants_ids?.includes(profile?.id)) {
                                         await supabase.from('evenements_modifications').insert({
                                           evenement_id: selectedEvt.id,
                                           demandeur_id: profile.id,
