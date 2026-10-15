@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-10-15b — listes de contacts ASE : ceux rattachés à la MD choisie (ex. MNA) en premier ; (v2026-10-15a) — MNA (mineurs non accompagnés) = une MD à part, toujours en premier de la liste des MD ; (v2026-10-14a) — fin du statut "temporaire" : l'AF principal non inscrite est créée comme une vraie fiche en attente (creerAfEnAttente, ville obligatoire) et liée par af_principal_id ; un AF relais peut modifier la fiche d'un enfant dont l'AF principal est en attente d'inscription ; (v2026-08-06l : édition inline tél/email des professionnels ASE)
+// DossierEnfant.js — v2026-10-15c — Contacts ASE : chaque liste ne propose que son type (Gestionnaire Enfant = gestionnaires uniquement, plus tous les travailleurs sociaux) ; (v2026-10-15b) — listes de contacts ASE : ceux rattachés à la MD choisie (ex. MNA) en premier ; (v2026-10-15a) — MNA (mineurs non accompagnés) = une MD à part, toujours en premier de la liste des MD ; (v2026-10-14a) — fin du statut "temporaire" : l'AF principal non inscrite est créée comme une vraie fiche en attente (creerAfEnAttente, ville obligatoire) et liée par af_principal_id ; un AF relais peut modifier la fiche d'un enfant dont l'AF principal est en attente d'inscription ; (v2026-08-06l : édition inline tél/email des professionnels ASE)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -1667,8 +1667,10 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                                   <select className="form-control" value={v(idKey) || ''} onChange={e => F(idKey)(e.target.value)} style={{ fontSize:12 }}>
                                     <option value="">— Sélectionner —</option>
                                     {collegues
-                                      .filter(c => ['referent','encadrant','rtase','admin','gestionnaire'].includes(c.role))
-                                      .filter(c => roleDb !== 'referent' || !v('md_id') || c.md_id === v('md_id'))
+                                      // Chaque case ne propose QUE son propre type de contact (gestionnaire → gestionnaires, RTASE → RTASE, référent → référents) ;
+                                      // le contact déjà assigné reste toujours visible, même si son rôle en base diffère
+                                      .filter(c => c.role === roleDb || c.id === v(idKey))
+                                      .filter(c => roleDb !== 'referent' || !v('md_id') || c.md_id === v('md_id') || c.id === v(idKey))
                                       .sort((a, b) => (b.md_id && b.md_id === v('md_id') ? 1 : 0) - (a.md_id && a.md_id === v('md_id') ? 1 : 0))   // contacts de la MD choisie (ex. MNA) en premier
                                       .map(c => (
                                       <option key={c.id} value={c.id}>{c.nom} {c.prenom}</option>
