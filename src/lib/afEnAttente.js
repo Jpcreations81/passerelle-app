@@ -1,4 +1,4 @@
-// afEnAttente.js — v2026-10-14a — emplacement : src/lib/afEnAttente.js
+// afEnAttente.js — v2026-10-15a — estEnAttente réservé aux AF (un contact ASE sans email n'est plus « en attente d'inscription »), nouvel export emailFactice ; (v2026-10-14a) — emplacement : src/lib/afEnAttente.js
 // Création centralisée d'une AF "en attente d'inscription" (vraie fiche profiles, sans compte de connexion).
 // Utilisé par : ListeEnfants, DossierEnfant, FicheConges, Agenda.
 // Règles : prénom, nom ET ville obligatoires (la ville sert au calcul des frais tant que l'adresse n'est pas connue).
@@ -7,9 +7,15 @@ import { supabase } from './supabase'
 
 const RE_EN_ATTENTE = /^temp\..+@passerelle\.local$/
 
-// Une AF est "en attente" tant que son email est un faux email temp.xxx@passerelle.local
+// Faux email généré pour une fiche sans compte (AF en attente, ou contact ASE saisi sans email)
+export function emailFactice(email) {
+  return !!email && RE_EN_ATTENTE.test(email)
+}
+
+// Une AF est "en attente d'inscription" tant que son email est un faux email temp.xxx@passerelle.local.
+// Réservé aux AF : un contact ASE (gestionnaire, référent…) sans email n'est PAS « en attente d'inscription ».
 export function estEnAttente(profil) {
-  return !!profil?.email && RE_EN_ATTENTE.test(profil.email)
+  return emailFactice(profil?.email) && (!profil?.role || profil.role === 'af')
 }
 
 function norm(s) {
