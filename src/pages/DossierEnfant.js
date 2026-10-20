@@ -1,8 +1,8 @@
-// DossierEnfant.js — v2026-10-15d — saisie manuelle d'un contact ASE : réutilise celui qui existe déjà (même rôle, nom, prénom) au lieu de créer un doublon ; (v2026-10-15c) — Contacts ASE : chaque liste ne propose que son type (Gestionnaire Enfant = gestionnaires uniquement, plus tous les travailleurs sociaux) ; (v2026-10-15b) — listes de contacts ASE : ceux rattachés à la MD choisie (ex. MNA) en premier ; (v2026-10-15a) — MNA (mineurs non accompagnés) = une MD à part, toujours en premier de la liste des MD ; (v2026-10-14a) — fin du statut "temporaire" : l'AF principal non inscrite est créée comme une vraie fiche en attente (creerAfEnAttente, ville obligatoire) et liée par af_principal_id ; un AF relais peut modifier la fiche d'un enfant dont l'AF principal est en attente d'inscription ; (v2026-08-06l : édition inline tél/email des professionnels ASE)
+// DossierEnfant.js — v2026-10-15e — un contact ASE sans email (ex. gestionnaire) n'affiche plus « En attente d'inscription » (réservé aux AF) ; (v2026-10-15d) — saisie manuelle d'un contact ASE : réutilise celui qui existe déjà (même rôle, nom, prénom) au lieu de créer un doublon ; (v2026-10-15c) — Contacts ASE : chaque liste ne propose que son type (Gestionnaire Enfant = gestionnaires uniquement, plus tous les travailleurs sociaux) ; (v2026-10-15b) — listes de contacts ASE : ceux rattachés à la MD choisie (ex. MNA) en premier ; (v2026-10-15a) — MNA (mineurs non accompagnés) = une MD à part, toujours en premier de la liste des MD ; (v2026-10-14a) — fin du statut "temporaire" : l'AF principal non inscrite est créée comme une vraie fiche en attente (creerAfEnAttente, ville obligatoire) et liée par af_principal_id ; un AF relais peut modifier la fiche d'un enfant dont l'AF principal est en attente d'inscription ; (v2026-08-06l : édition inline tél/email des professionnels ASE)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { creerAfEnAttente, estEnAttente } from '../lib/afEnAttente'
+import { creerAfEnAttente, estEnAttente, emailFactice } from '../lib/afEnAttente'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
 
@@ -1719,7 +1719,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                             <div>
                               <div style={{ fontSize:13, fontWeight:600 }}>{profil.nom} {profil.prenom}</div>
                               {profil.telephone && <div style={{ fontSize:11, color:'#5a6478', marginTop:3 }}>📞 <a href={`tel:${profil.telephone}`} style={{ color:'#1a4b8f' }}>{profil.telephone}</a></div>}
-                              {profil.email && !estEnAttente(profil) && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
+                              {profil.email && !emailFactice(profil.email) && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>✉️ <a href={`mailto:${profil.email}`} style={{ color:'#1a4b8f' }}>{profil.email}</a></div>}
                               {profil.ville && estEnAttente(profil) && <div style={{ fontSize:11, color:'#5a6478', marginTop:2 }}>📍 {profil.ville}</div>}
                               {estEnAttente(profil) && (
                                 <div style={{ fontSize:11, color:'#b45309', background:'#fffbeb', borderRadius:6, padding:'3px 8px', marginTop:4, display:'inline-block', border:'1px solid #fcd34d' }}>
