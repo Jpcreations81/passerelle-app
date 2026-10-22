@@ -1,4 +1,4 @@
-// Login.js — v2026-10-14a — rattachement automatique à l'inscription : la ville devient obligatoire, la fiche d'AF "en attente" (nom+prénom+ville) est fusionnée par un trigger SQL (migration_af_en_attente.sql), plus de bouton de validation ; l'écran n'est qu'une information ("un profil existe déjà pour vous") avant de continuer ; (v2026-08-06b : retrait de la mention Département du Tarn)
+// Login.js — v2026-10-22b — « Un profil provisoire a été créé pour… » ; (v2026-10-22a) — encadré « Vous existez déjà » : explique que le profil a été créé PARCE QU'un relais de l'enfant a été fait ; (v2026-10-20a) — texte de l'encadré « Vous existez déjà » reformulé (BONJOUR, qui a créé le profil, ce que vous retrouverez) ; (v2026-10-14a) — rattachement automatique à l'inscription : la ville devient obligatoire, la fiche d'AF "en attente" (nom+prénom+ville) est fusionnée par un trigger SQL (migration_af_en_attente.sql), plus de bouton de validation ; l'écran n'est qu'une information ("un profil existe déjà pour vous") avant de continuer ; (v2026-08-06b : retrait de la mention Département du Tarn)
 import React, { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -142,19 +142,26 @@ export default function Login() {
           {showConfirmTemp && profilTemp && (
             <div style={{ background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:12, padding:20, marginBottom:20 }}>
               <div style={{ fontSize:22, textAlign:'center', marginBottom:12 }}>👋</div>
+              <div style={{ fontSize:16, fontWeight:800, color:'#1a4b8f', letterSpacing:'.5px', textAlign:'center', marginBottom:4 }}>
+                BONJOUR
+              </div>
               <div style={{ fontSize:14, fontWeight:700, color:'#b45309', marginBottom:10, textAlign:'center' }}>
                 Vous existez déjà dans Passerelle !
               </div>
               <div style={{ fontSize:13, color:'#5a6478', marginBottom:16, lineHeight:1.7 }}>
-                Un profil a été créé pour <strong>{profilTemp.prenom} {profilTemp.nom}</strong>
+                Un profil <strong>provisoire</strong> a été créé pour <strong>{profilTemp.prenom} {profilTemp.nom}</strong>
                 {profilTemp.ville && ` (${profilTemp.ville})`}.
-                {profilTemp.enfants && profilTemp.enfants.length > 0 && (
-                  <> Vous avez en accueil <strong>{profilTemp.enfants.join(', ')}</strong>.</>
-                )}
+                {profilTemp.relaisNbEvenements > 0 && profilTemp.enfants && profilTemp.enfants.length > 0 ? (
+                  <> C'est parce qu'une assistante familiale a fait un <strong>relais de {profilTemp.enfants.join(', ')}</strong> que vous accueillez : elle a créé votre profil pour enregistrer ce relais.</>
+                ) : profilTemp.relaisNbEvenements > 0 ? (
+                  <> C'est parce qu'une assistante familiale a enregistré un <strong>relais</strong> avec vous : elle a créé votre profil pour que vous le retrouviez.</>
+                ) : profilTemp.enfants && profilTemp.enfants.length > 0 ? (
+                  <> Une assistante familiale y a indiqué que vous accueillez <strong>{profilTemp.enfants.join(', ')}</strong>.</>
+                ) : null}
                 {profilTemp.relaisNbEvenements > 0 && (
-                  <> Vous avez <strong>{profilTemp.relaisNbEvenements} événement{profilTemp.relaisNbEvenements > 1 ? 's' : ''}</strong> dans l'agenda.</>
+                  <> {profilTemp.relaisNbEvenements > 1 ? `Ces ${profilTemp.relaisNbEvenements} événements seront ajoutés` : 'Cet événement sera ajouté'} automatiquement à votre agenda dès la création de votre compte.</>
                 )}
-                <br />Vous les retrouverez automatiquement dès la création de votre compte.
+                {!(profilTemp.relaisNbEvenements > 0) && <> Vous retrouverez ces informations automatiquement dès la création de votre compte.</>}
               </div>
               <div style={{ display:'flex', gap:10, marginTop:16 }}>
                 <button
