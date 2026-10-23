@@ -1,4 +1,4 @@
-// Agenda.js — v2026-10-22b — BUG événement médical invisible : date de fin avec année « 0002 » (fin avant début) → validation des dates à l'enregistrement + affichage tolérant ; (v2026-10-22a) — événement médical : liste déroulante des professionnels de santé de la fiche de l'enfant (le médecin ET son adresse remplissent le titre et le lieu) ; (v2026-10-15a) — l'AF relais créateur d'un événement (accueil relais, AF principal non inscrite) modifie transport/événement directement, sans demande de validation à une AF sans compte ; (v2026-10-14c) — accueil relais manuel : lieux de remise pré-remplis (domicile de l'AF principal : adresse si inscrite, ville sinon ; lieu = mon domicile) ; la recherche d'enfant retrouve aussi les enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) pour éviter les doublons ; (v2026-10-14b : bascule J'accueille un enfant en relais)
+// Agenda.js — v2026-10-23a — heure/date de fin recalées automatiquement quand on change le début + contrôle à la modification ; (v2026-10-22b) BUG événement médical invisible : date de fin avec année « 0002 » (fin avant début) → validation des dates à l'enregistrement + affichage tolérant ; (v2026-10-22a) — événement médical : liste déroulante des professionnels de santé de la fiche de l'enfant (le médecin ET son adresse remplissent le titre et le lieu) ; (v2026-10-15a) — l'AF relais créateur d'un événement (accueil relais, AF principal non inscrite) modifie transport/événement directement, sans demande de validation à une AF sans compte ; (v2026-10-14c) — accueil relais manuel : lieux de remise pré-remplis (domicile de l'AF principal : adresse si inscrite, ville sinon ; lieu = mon domicile) ; la recherche d'enfant retrouve aussi les enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) pour éviter les doublons ; (v2026-10-14b : bascule J'accueille un enfant en relais)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -726,7 +726,9 @@ export default function Agenda({ profile }) {
     const hDeb = editEvt.heure_debut?.slice(0,5) || '00:00'
     const hFin = editEvt.heure_fin?.slice(0,5) || '00:00'
     const debut = new Date(`${editEvt.date_debut}T${hDeb}:00`)
-    const fin = new Date(`${editEvt.date_fin}T${hFin}:00`)
+    const fin = new Date(`${editEvt.date_fin || editEvt.date_debut}T${hFin}:00`)
+    if (isNaN(debut) || isNaN(fin) || debut.getFullYear() < 2000 || fin.getFullYear() < 2000) { showToast('⚠️ Vérifiez les dates (année incorrecte)'); return }
+    if (fin < debut) { showToast('⚠️ La date/heure de fin est avant le début'); return }
 
     if (selectedEvt.af_id !== profile?.id && selectedEvt.cree_par !== profile?.id && selectedEvt.participants_ids?.includes(profile?.id)) {
       const { error } = await supabase.from('evenements_modifications').insert({
@@ -2389,12 +2391,18 @@ export default function Agenda({ profile }) {
               <div className="form-group">
                 <label className="form-label">📅 Date début</label>
                 <input className="form-control" type="date" min="2000-01-01" max="2100-12-31" value={newEvt.date_debut}
-                  onChange={e => setNewEvt(n => ({...n, date_debut: e.target.value, date_fin: n.date_fin || e.target.value}))} />
+                  onChange={e => setNewEvt(n => ({...n, date_debut: e.target.value, date_fin: (!n.date_fin || n.date_fin < e.target.value) ? e.target.value : n.date_fin}))} />
               </div>
               <div className="form-group">
                 <label className="form-label">🕐 Heure début</label>
                 <input className="form-control" type="time" value={newEvt.heure_debut}
-                  onChange={e => setNewEvt(n => ({...n, heure_debut: e.target.value}))} />
+                  onChange={e => setNewEvt(n => {
+                    const hd = e.target.value
+                    const memeJour = !n.date_fin || n.date_fin === n.date_debut
+                    let hf = n.heure_fin
+                    if (memeJour && hd && (!hf || hf <= hd)) { const [h, m] = hd.split(':').map(Number); hf = `${String(Math.min(h + 1, 23)).padStart(2, '0')}:${String(m).padStart(2, '0')}` }
+                    return {...n, heure_debut: hd, heure_fin: hf}
+                  })} />
               </div>
 
               {/* ── DATE FIN + HEURE FIN ── */}
