@@ -1,4 +1,4 @@
-// Agenda.js — v2026-10-15a — l'AF relais créateur d'un événement (accueil relais, AF principal non inscrite) modifie transport/événement directement, sans demande de validation à une AF sans compte ; (v2026-10-14c) — accueil relais manuel : lieux de remise pré-remplis (domicile de l'AF principal : adresse si inscrite, ville sinon ; lieu = mon domicile) ; la recherche d'enfant retrouve aussi les enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) pour éviter les doublons ; (v2026-10-14b : bascule J'accueille un enfant en relais)
+// Agenda.js — v2026-10-22b — BUG événement médical invisible : date de fin avec année « 0002 » (fin avant début) → validation des dates à l'enregistrement + affichage tolérant ; (v2026-10-22a) — événement médical : liste déroulante des professionnels de santé de la fiche de l'enfant (le médecin ET son adresse remplissent le titre et le lieu) ; (v2026-10-15a) — l'AF relais créateur d'un événement (accueil relais, AF principal non inscrite) modifie transport/événement directement, sans demande de validation à une AF sans compte ; (v2026-10-14c) — accueil relais manuel : lieux de remise pré-remplis (domicile de l'AF principal : adresse si inscrite, ville sinon ; lieu = mon domicile) ; la recherche d'enfant retrouve aussi les enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) pour éviter les doublons ; (v2026-10-14b : bascule J'accueille un enfant en relais)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -779,6 +779,29 @@ export default function Agenda({ profile }) {
     setShowSerieModal(false)
   }
 
+  // ── Événement médical : professionnels de santé enregistrés dans la fiche des enfants sélectionnés ──
+  const [prosSante, setProsSante] = useState([])
+  useEffect(() => {
+    const ids = newEvt.enfantsSelectionnes || []
+    if (!showModal || newEvt.categorie !== 'medical' || ids.length === 0) { setProsSante([]); return }
+    let annule = false
+    supabase.from('enfants').select('id, prenom, professionnels_sante').in('id', ids).then(({ data }) => {
+      if (annule || !data) return
+      const parseArr = (val) => {
+        if (!val) return []
+        if (Array.isArray(val)) return val.filter(Boolean)
+        if (typeof val === 'string') { try { const p = JSON.parse(val); return Array.isArray(p) ? p.filter(Boolean) : [] } catch { return [] } }
+        return []
+      }
+      const liste = []
+      data.forEach(en => parseArr(en.professionnels_sante).forEach((p, i) => {
+        if (p?.nom) liste.push({ cle: `${en.id}-${i}`, enfant: en.prenom, nom: p.nom, specialite: p.specialite || '', adresse: p.adresse || '' })
+      }))
+      setProsSante(liste)
+    })
+    return () => { annule = true }
+  }, [showModal, newEvt.categorie, newEvt.enfantsSelectionnes])
+
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 2800) }
 
   function toggleFiltre(f) {
@@ -810,7 +833,9 @@ export default function Agenda({ profile }) {
   const buildEvtsDuJour = useMemo(() => {
     return (date) => {
       const filtered = evtsFiltres().filter(e => {
-        const d = new Date(e.date_debut), f = e.date_fin ? new Date(e.date_fin) : d
+        const d = new Date(e.date_debut)
+        let f = e.date_fin ? new Date(e.date_fin) : d
+        if (f < d) f = d   // données incohérentes (fin avant début) : on affiche l'événement sur son jour de début plutôt que de le faire disparaître
         const dDate = new Date(date); dDate.setHours(0,0,0,0)
         const fDate = new Date(f); fDate.setHours(23,59,59,999)
         return dDate >= new Date(new Date(d).setHours(0,0,0,0)) && dDate <= fDate
@@ -932,6 +957,11 @@ export default function Agenda({ profile }) {
 
     const debut = new Date(`${newEvt.date_debut}T${newEvt.heure_debut}:00`)
     const fin = new Date(`${(newEvt.date_fin || newEvt.date_debut)}T${newEvt.heure_fin}:00`)
+    // Dates valides : une année tapée à moitié (ex. « 0002 ») donnait un événement qui finit avant de commencer → invisible dans l'agenda
+    if (isNaN(debut) || isNaN(fin) || debut.getFullYear() < 2000 || fin.getFullYear() < 2000 || debut.getFullYear() > 2100 || fin.getFullYear() > 2100) {
+      showToast("⚠️ Vérifiez les dates (année incorrecte)"); return
+    }
+    if (fin < debut) { showToast("⚠️ La date/heure de fin est avant le début"); return }
     const isPersonnel = newEvt.categorie === 'personnel'
 
     // Si personnel ou aucun enfant sélectionné → 1 seul événement sans enfant
@@ -2303,6 +2333,31 @@ export default function Agenda({ profile }) {
               {['medical', 'scolaire'].includes(newEvt.categorie) && (
                 <div className="form-group col-span-2">
                   <label className="form-label">{newEvt.categorie === 'medical' ? '🏥 Spécialiste / Médecin' : '🏫 Objet'}</label>
+                  {newEvt.categorie === 'medical' && (
+                    prosSante.length > 0 ? (
+                      <select className="form-control" style={{ marginBottom:6 }} value=""
+                        onChange={e => {
+                          const pro = prosSante.find(p => p.cle === e.target.value)
+                          if (!pro) return
+                          const complement = pro.specialite ? `${pro.nom} (${pro.specialite})` : pro.nom
+                          const updated = { ...newEvt, complement_titre: complement, lieu: pro.adresse || newEvt.lieu }
+                          setNewEvt({ ...updated, titre: buildTitreAuto(updated, enfants, couleursEnfants) })
+                        }}>
+                        <option value="">📋 Choisir dans la fiche de l'enfant…</option>
+                        {prosSante.map(p => (
+                          <option key={p.cle} value={p.cle}>
+                            {p.nom}{p.specialite ? ` — ${p.specialite}` : ''}{newEvt.enfantsSelectionnes.length > 1 ? ` (${p.enfant})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <div style={{ fontSize:10, color:'#9aa3b8', marginBottom:6, fontStyle:'italic' }}>
+                        {newEvt.enfantsSelectionnes.length === 0
+                          ? 'Sélectionnez un enfant pour choisir un professionnel de sa fiche (adresse remplie automatiquement).'
+                          : 'Aucun professionnel de santé enregistré dans la fiche de cet enfant — saisie libre ci-dessous.'}
+                      </div>
+                    )
+                  )}
                   <input className="form-control"
                     value={newEvt.complement_titre}
                     placeholder={newEvt.categorie === 'medical' ? 'Ex: Dr. Martin, Pédiatre...' : 'Ex: Réunion parents, Conseil de classe...'}
@@ -2333,7 +2388,7 @@ export default function Agenda({ profile }) {
               {/* ── DATE DÉBUT + HEURE DÉBUT ── */}
               <div className="form-group">
                 <label className="form-label">📅 Date début</label>
-                <input className="form-control" type="date" value={newEvt.date_debut}
+                <input className="form-control" type="date" min="2000-01-01" max="2100-12-31" value={newEvt.date_debut}
                   onChange={e => setNewEvt(n => ({...n, date_debut: e.target.value, date_fin: n.date_fin || e.target.value}))} />
               </div>
               <div className="form-group">
