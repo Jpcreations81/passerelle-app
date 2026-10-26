@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-10-15e — un contact ASE sans email (ex. gestionnaire) n'affiche plus « En attente d'inscription » (réservé aux AF) ; (v2026-10-15d) — saisie manuelle d'un contact ASE : réutilise celui qui existe déjà (même rôle, nom, prénom) au lieu de créer un doublon ; (v2026-10-15c) — Contacts ASE : chaque liste ne propose que son type (Gestionnaire Enfant = gestionnaires uniquement, plus tous les travailleurs sociaux) ; (v2026-10-15b) — listes de contacts ASE : ceux rattachés à la MD choisie (ex. MNA) en premier ; (v2026-10-15a) — MNA (mineurs non accompagnés) = une MD à part, toujours en premier de la liste des MD ; (v2026-10-14a) — fin du statut "temporaire" : l'AF principal non inscrite est créée comme une vraie fiche en attente (creerAfEnAttente, ville obligatoire) et liée par af_principal_id ; un AF relais peut modifier la fiche d'un enfant dont l'AF principal est en attente d'inscription ; (v2026-08-06l : édition inline tél/email des professionnels ASE)
+// DossierEnfant.js — v2026-10-23a — NOUVEAU bloc « 📂 Dossiers de l'enfant » (Médical, Scolaire, Visites, Administratif…) : navigation, consultation, dépôt de fichiers — les PDF importés depuis l'agenda dans « 📅 Visites » étaient enregistrés mais invisibles ; (v2026-10-15e) — un contact ASE sans email (ex. gestionnaire) n'affiche plus « En attente d'inscription » (réservé aux AF) ; (v2026-10-15d) — saisie manuelle d'un contact ASE : réutilise celui qui existe déjà (même rôle, nom, prénom) au lieu de créer un doublon ; (v2026-10-15c) — Contacts ASE : chaque liste ne propose que son type (Gestionnaire Enfant = gestionnaires uniquement, plus tous les travailleurs sociaux) ; (v2026-10-15b) — listes de contacts ASE : ceux rattachés à la MD choisie (ex. MNA) en premier ; (v2026-10-15a) — MNA (mineurs non accompagnés) = une MD à part, toujours en premier de la liste des MD ; (v2026-10-14a) — fin du statut "temporaire" : l'AF principal non inscrite est créée comme une vraie fiche en attente (creerAfEnAttente, ville obligatoire) et liée par af_principal_id ; un AF relais peut modifier la fiche d'un enfant dont l'AF principal est en attente d'inscription ; (v2026-08-06l : édition inline tél/email des professionnels ASE)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -783,6 +783,44 @@ export default function DossierEnfant({ profile }) {
     if (data) setDocsEnfant(data)
   }, [])
 
+  // ── Dossiers de l'enfant (Médical, Scolaire, Visites, Administratif…) : navigation + dépôt de fichiers ──
+  const [uploadingDossier, setUploadingDossier] = useState(false)
+
+  async function ouvrirDossierEnfant(chemin) {
+    setCheminEnfant(chemin)
+    if (chemin.length === 0) { setSousDossiersEnfant([]); setDocsEnfant([]); return }
+    const cible = chemin[chemin.length - 1]
+    await fetchSousDossiersEnfant(cible.id)
+    await fetchDocsEnfantDossier(cible.id)
+  }
+
+  async function uploadDansDossierEnfant(file) {
+    const cible = cheminEnfant[cheminEnfant.length - 1]
+    if (!file || !cible) return
+    setUploadingDossier(true)
+    try {
+      const ext = file.name.split('.').pop()
+      const path = `documents/enfant/${id}/${cible.id}/${Date.now()}.${ext}`
+      const { error: sErr } = await supabase.storage.from('documents-enfants').upload(path, file, { contentType: file.type })
+      if (sErr) { showToast('❌ Erreur upload : ' + sErr.message); return }
+      const { error: dErr } = await supabase.from('documents_generaux').insert({
+        dossier_id: cible.id, nom: file.name, storage_path: path,
+        taille: file.size, mime_type: file.type, uploaded_by: profile?.id
+      })
+      if (dErr) { showToast('❌ Erreur base : ' + dErr.message); return }
+      showToast('✅ Document ajouté au dossier')
+      fetchDocsEnfantDossier(cible.id)
+    } finally { setUploadingDossier(false) }
+  }
+
+  async function supprimerDocDossierEnfant(doc) {
+    if (!window.confirm('Supprimer ce document ?')) return
+    await supabase.storage.from('documents-enfants').remove([doc.storage_path])
+    await supabase.from('documents_generaux').delete().eq('id', doc.id)
+    showToast('🗑 Document supprimé')
+    fetchDocsEnfantDossier(doc.dossier_id)
+  }
+
   const fetchJournal = useCallback(async () => {
     if (!id) return
     const { data } = await supabase
@@ -1345,6 +1383,48 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                       </>
                     )
                   })()}
+                </SectionCard>
+                <SectionCard icon="📂" title="Dossiers de l'enfant">
+                  <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap', marginBottom:12, fontSize:12 }}>
+                    <button onClick={() => ouvrirDossierEnfant([])} style={{ border:'none', background:'transparent', cursor:'pointer', color:'#1a4b8f', fontWeight:700, fontSize:12, padding:0 }}>📂 Dossiers</button>
+                    {cheminEnfant.map((c, idx) => (
+                      <React.Fragment key={c.id}>
+                        <span style={{ color:'#9aa3b8' }}>›</span>
+                        <button onClick={() => ouvrirDossierEnfant(cheminEnfant.slice(0, idx + 1))} style={{ border:'none', background:'transparent', cursor:'pointer', color:'#1a4b8f', fontWeight:700, fontSize:12, padding:0 }}>{c.nom}</button>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:10, marginBottom: cheminEnfant.length ? 14 : 0 }}>
+                    {(cheminEnfant.length === 0 ? dossiersEnfant : sousDossiersEnfant).map(d => (
+                      <button key={d.id} onClick={() => ouvrirDossierEnfant([...cheminEnfant, { id: d.id, nom: d.nom }])}
+                        style={{ padding:'10px 16px', borderRadius:10, border:'1px solid #dde3f0', background:'#f4f6fb', cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:'Sora,sans-serif' }}>
+                        {d.nom}
+                      </button>
+                    ))}
+                    {cheminEnfant.length === 0 && dossiersEnfant.length === 0 && <div style={{ fontSize:12, color:'#9aa3b8' }}>Aucun dossier pour le moment.</div>}
+                  </div>
+                  {cheminEnfant.length > 0 && (
+                    <>
+                      {docsEnfant.length === 0 && <div style={{ fontSize:12, color:'#9aa3b8', marginBottom:10 }}>Ce dossier est vide.</div>}
+                      {docsEnfant.map(d => (
+                        <div key={d.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'7px 10px', background:'#fff', borderRadius:7, border:'1px solid #dde3f0', marginBottom:6 }}>
+                          <span style={{ fontSize:16 }}>{d.mime_type?.includes('pdf') ? '📄' : '🖼️'}</span>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{d.nom}</div>
+                            <div style={{ fontSize:10, color:'#9aa3b8' }}>{d.taille ? `${Math.round(d.taille/1024)} Ko` : ''} · {new Date(d.created_at).toLocaleDateString('fr-FR')}</div>
+                          </div>
+                          <button onClick={() => viewDocument(d.storage_path)} style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>👁</button>
+                          <button onClick={() => downloadDocument(d.storage_path, d.nom)} style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #dde3f0', background:'#fff', fontSize:11, cursor:'pointer' }}>⬇</button>
+                          {(isReferent || d.uploaded_by === profile?.id) && <button onClick={() => supprimerDocDossierEnfant(d)} style={{ padding:'3px 7px', borderRadius:5, border:'1px solid #fde8e8', background:'#fdf0ee', color:'#c0392b', fontSize:11, cursor:'pointer' }}>🗑</button>}
+                        </div>
+                      ))}
+                      <label style={{ display:'inline-block', marginTop:6, padding:'7px 14px', border:'1px dashed #c4d4f5', borderRadius:7, background:'#e8eef8', color:'#1a4b8f', fontSize:12, cursor:'pointer', fontWeight:600 }}>
+                        {uploadingDossier ? '⏳ Envoi…' : '📎 Ajouter un fichier dans ce dossier'}
+                        <input type="file" accept="image/*,application/pdf" style={{ display:'none' }}
+                          onChange={e => { if (e.target.files[0]) uploadDansDossierEnfant(e.target.files[0]); e.target.value = '' }} />
+                      </label>
+                    </>
+                  )}
                 </SectionCard>
               </>
             )}
