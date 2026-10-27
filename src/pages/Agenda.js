@@ -1,4 +1,4 @@
-// Agenda.js — v2026-10-23a — heure/date de fin recalées automatiquement quand on change le début + contrôle à la modification ; (v2026-10-22b) BUG événement médical invisible : date de fin avec année « 0002 » (fin avant début) → validation des dates à l'enregistrement + affichage tolérant ; (v2026-10-22a) — événement médical : liste déroulante des professionnels de santé de la fiche de l'enfant (le médecin ET son adresse remplissent le titre et le lieu) ; (v2026-10-15a) — l'AF relais créateur d'un événement (accueil relais, AF principal non inscrite) modifie transport/événement directement, sans demande de validation à une AF sans compte ; (v2026-10-14c) — accueil relais manuel : lieux de remise pré-remplis (domicile de l'AF principal : adresse si inscrite, ville sinon ; lieu = mon domicile) ; la recherche d'enfant retrouve aussi les enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) pour éviter les doublons ; (v2026-10-14b : bascule J'accueille un enfant en relais)
+// Agenda.js — v2026-10-23b — import PDF : un rendez-vous peut être rattaché à PLUSIEURS enfants (pastilles + « Ajouter un enfant ») ; (v2026-10-23a) heure/date de fin recalées automatiquement quand on change le début + contrôle à la modification ; (v2026-10-22b) BUG événement médical invisible : date de fin avec année « 0002 » (fin avant début) → validation des dates à l'enregistrement + affichage tolérant ; (v2026-10-22a) — événement médical : liste déroulante des professionnels de santé de la fiche de l'enfant (le médecin ET son adresse remplissent le titre et le lieu) ; (v2026-10-15a) — l'AF relais créateur d'un événement (accueil relais, AF principal non inscrite) modifie transport/événement directement, sans demande de validation à une AF sans compte ; (v2026-10-14c) — accueil relais manuel : lieux de remise pré-remplis (domicile de l'AF principal : adresse si inscrite, ville sinon ; lieu = mon domicile) ; la recherche d'enfant retrouve aussi les enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) pour éviter les doublons ; (v2026-10-14b : bascule J'accueille un enfant en relais)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -3009,19 +3009,35 @@ export default function Agenda({ profile }) {
                             {/* SELECT ENFANT */}
                             <div style={{ background:'#f0faf4', border:'1px solid #b6e2c7', borderRadius:8, padding:'6px 10px', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                               <span style={{ fontSize:10, color:'#2e8b4a', fontWeight:700, minWidth:60 }}>👶 Enfant :</span>
+                              {(evt.enfant_ids || []).map(eid => {
+                                const en = enfants.find(x => x.id === eid)
+                                return (
+                                  <span key={eid} style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, background:'#fff', border:'1px solid #b6e2c7', borderRadius:12, padding:'2px 4px 2px 8px', fontWeight:600, color:'#2e8b4a' }}>
+                                    {en ? `${en.prenom} ${en.nom}` : 'Enfant'}
+                                    <button type="button" title="Retirer cet enfant" style={{ border:'none', background:'transparent', cursor:'pointer', color:'#dc2626', fontSize:13, lineHeight:1, padding:'0 4px' }}
+                                      onClick={() => setEvtsImportes(prev => prev.map((ev,j) => {
+                                        if (j !== i) return ev
+                                        const ids = (ev.enfant_ids || []).filter(x => x !== eid)
+                                        const noms = ids.map(x => { const e2 = enfants.find(y => y.id === x); return e2 ? `${e2.prenom} ${e2.nom}` : '' }).filter(Boolean).join(', ')
+                                        return { ...ev, enfant_ids: ids, _enfantLabel: noms }
+                                      }))}>×</button>
+                                  </span>
+                                )
+                              })}
                               <select
                                 style={{ fontSize:11, border:'1px solid #dde3f0', borderRadius:6, padding:'3px 8px', background:'#fff', maxWidth:200 }}
-                                value={evt.enfant_ids?.[0] || ''}
+                                value=''
                                 onChange={e => {
-                                  const enf = enfants.find(en => en.id === e.target.value)
-                                  setEvtsImportes(prev => prev.map((ev,j) => j===i ? {
-                                    ...ev,
-                                    enfant_ids: e.target.value ? [e.target.value] : [],
-                                    _enfantLabel: enf ? `${enf.prenom} ${enf.nom}` : ''
-                                  } : ev))
+                                  if (!e.target.value) return
+                                  setEvtsImportes(prev => prev.map((ev,j) => {
+                                    if (j !== i) return ev
+                                    const ids = [...new Set([...(ev.enfant_ids || []), e.target.value])]
+                                    const noms = ids.map(x => { const e2 = enfants.find(y => y.id === x); return e2 ? `${e2.prenom} ${e2.nom}` : '' }).filter(Boolean).join(', ')
+                                    return { ...ev, enfant_ids: ids, _enfantLabel: noms }
+                                  }))
                                 }}>
-                                <option value=''>— Non lié —</option>
-                                {enfants.map(en => (
+                                <option value=''>{(evt.enfant_ids || []).length ? '+ Ajouter un enfant…' : '— Non lié —'}</option>
+                                {enfants.filter(en => !(evt.enfant_ids || []).includes(en.id)).map(en => (
                                   <option key={en.id} value={en.id}>{en.prenom} {en.nom}</option>
                                 ))}
                               </select>
