@@ -1,4 +1,4 @@
-// DocumentsEnfant.js — v2026-05-12a — version restaurée depuis historique GitHub
+// DocumentsEnfant.js — v2026-10-27a — FIX : les fichiers envoyés n'apparaissaient pas (colonne created_by inexistante → uploaded_by) + message d'erreur au lieu d'un faux succès ; (v2026-05-12a) version restaurée depuis historique GitHub
 import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -125,10 +125,18 @@ export default function DocumentsEnfant({ profile }) {
     const path = `enfants/${id}/docs/${dossierActif}/${Date.now()}.${ext}`
     const { error: sErr } = await supabase.storage.from('documents-enfants').upload(path, file, { contentType: file.type })
     if (sErr) { showToast('❌ ' + sErr.message); setUploading(false); return }
-    await supabase.from('documents_generaux').insert({
+    // La colonne s'appelle uploaded_by (created_by n'existe pas dans documents_generaux → l'insertion échouait en silence)
+    const { error: dErr } = await supabase.from('documents_generaux').insert({
       dossier_id: dossierActif, nom: file.name, storage_path: path,
-      taille: file.size, mime_type: file.type, created_by: profile?.id
+      taille: file.size, mime_type: file.type, uploaded_by: profile?.id
     })
+    if (dErr) {
+      // On ne laisse pas un fichier orphelin dans le stockage, et on prévient au lieu d'afficher un faux succès
+      await supabase.storage.from('documents-enfants').remove([path])
+      showToast('❌ Erreur : ' + dErr.message)
+      setUploading(false)
+      return
+    }
     showToast('✅ Document uploadé !')
     fetchDocuments(dossierActif)
     setUploading(false)
