@@ -1,4 +1,4 @@
-// DossierEnfant.js — v2026-10-23b — (bloc « Dossiers de l'enfant » retiré : la page Documents existe déjà, c'est elle qui est corrigée) ; (v2026-10-15e) — un contact ASE sans email (ex. gestionnaire) n'affiche plus « En attente d'inscription » (réservé aux AF) ; (v2026-10-15d) — saisie manuelle d'un contact ASE : réutilise celui qui existe déjà (même rôle, nom, prénom) au lieu de créer un doublon ; (v2026-10-15c) — Contacts ASE : chaque liste ne propose que son type (Gestionnaire Enfant = gestionnaires uniquement, plus tous les travailleurs sociaux) ; (v2026-10-15b) — listes de contacts ASE : ceux rattachés à la MD choisie (ex. MNA) en premier ; (v2026-10-15a) — MNA (mineurs non accompagnés) = une MD à part, toujours en premier de la liste des MD ; (v2026-10-14a) — fin du statut "temporaire" : l'AF principal non inscrite est créée comme une vraie fiche en attente (creerAfEnAttente, ville obligatoire) et liée par af_principal_id ; un AF relais peut modifier la fiche d'un enfant dont l'AF principal est en attente d'inscription ; (v2026-08-06l : édition inline tél/email des professionnels ASE)
+// DossierEnfant.js — v2026-10-23c — journal : 2 nouveaux tags « Visite (VM) » et « Développement » (évolution / apprentissages des petits) ; (v2026-10-23b) — (bloc « Dossiers de l'enfant » retiré : la page Documents existe déjà, c'est elle qui est corrigée) ; (v2026-10-15e) — un contact ASE sans email (ex. gestionnaire) n'affiche plus « En attente d'inscription » (réservé aux AF) ; (v2026-10-15d) — saisie manuelle d'un contact ASE : réutilise celui qui existe déjà (même rôle, nom, prénom) au lieu de créer un doublon ; (v2026-10-15c) — Contacts ASE : chaque liste ne propose que son type (Gestionnaire Enfant = gestionnaires uniquement, plus tous les travailleurs sociaux) ; (v2026-10-15b) — listes de contacts ASE : ceux rattachés à la MD choisie (ex. MNA) en premier ; (v2026-10-15a) — MNA (mineurs non accompagnés) = une MD à part, toujours en premier de la liste des MD ; (v2026-10-14a) — fin du statut "temporaire" : l'AF principal non inscrite est créée comme une vraie fiche en attente (creerAfEnAttente, ville obligatoire) et liée par af_principal_id ; un AF relais peut modifier la fiche d'un enfant dont l'AF principal est en attente d'inscription ; (v2026-08-06l : édition inline tél/email des professionnels ASE)
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -7,6 +7,18 @@ import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
 
 // ── Composants utilitaires ────────────────────────────────────────────────────
+
+// Tags du journal de l'enfant (noms stockés tels quels dans journal_enfant.tags — pas de virgule dans un nom)
+const TAGS_JOURNAL = [
+  { nom: 'Comportement', icon: '🟣' },
+  { nom: 'Scolarité', icon: '📚' },
+  { nom: 'Santé', icon: '🏥' },
+  { nom: 'Famille', icon: '👨‍👩‍👧' },
+  { nom: 'Visite (VM)', icon: '🤝' },
+  { nom: 'Développement', icon: '🌱' },
+  { nom: 'Activités', icon: '⚽' },
+  { nom: 'Admin', icon: '📋' },
+]
 
 function SectionCard({ icon, title, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
@@ -2405,14 +2417,7 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
             <div className="form-group" style={{ marginBottom:12 }}>
               <label className="form-label">Tags</label>
               <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:4 }}>
-                {[
-                  { nom: 'Comportement', icon: '🟣' },
-                  { nom: 'Scolarité', icon: '📚' },
-                  { nom: 'Santé', icon: '🏥' },
-                  { nom: 'Famille', icon: '👨‍👩‍👧' },
-                  { nom: 'Activités', icon: '⚽' },
-                  { nom: 'Admin', icon: '📋' },
-                ].map(t => {
+                {TAGS_JOURNAL.map(t => {
                   const tagsArr = newNote.tags ? newNote.tags.split(',').map(x => x.trim()).filter(Boolean) : []
                   const actif = tagsArr.includes(t.nom)
                   return (
@@ -2459,9 +2464,9 @@ Sois factuel, bienveillant et objectif. Ne génère AUCUN titre, AUCUN en-tête,
                   + Ajouter
                 </button>
               </div>
-              {newNote.tags && newNote.tags.split(',').map(t => t.trim()).filter(Boolean).some(t => !['Comportement','Scolarité','Santé','Famille','Activités','Admin'].includes(t)) && (
+              {newNote.tags && newNote.tags.split(',').map(t => t.trim()).filter(Boolean).some(t => !TAGS_JOURNAL.map(x => x.nom).includes(t)) && (
                 <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginTop:8 }}>
-                  {newNote.tags.split(',').map(t => t.trim()).filter(t => t && !['Comportement','Scolarité','Santé','Famille','Activités','Admin'].includes(t)).map((t, i) => (
+                  {newNote.tags.split(',').map(t => t.trim()).filter(t => t && !TAGS_JOURNAL.map(x => x.nom).includes(t)).map((t, i) => (
                     <span key={i} style={{ padding:'5px 10px', borderRadius:15, fontSize:11, fontWeight:600, background:'#f4f6fb', color:'#5a6478', border:'1px solid #dde3f0', display:'flex', alignItems:'center', gap:4 }}>
                       {t}
                       <span onClick={() => {
