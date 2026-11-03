@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-10-14a — création d'une AF relais non inscrite via creerAfEnAttente (prénom+nom+ville obligatoires, réutilise une fiche existante) ; (v2026-09-24d : note du formulaire plus grande/en gras sur le PDF)
+// FicheConges.js — v2026-10-14c — « ⭐ Relais habituels » proposés pour chaque enfant (AF ayant déjà fait un relais pour lui, cliquables) ; (v2026-10-14b) dates de congés : la fin ne peut plus être avant le début (champ, soumission et génération du PDF) ; (v2026-10-14a) création d'une AF relais non inscrite via creerAfEnAttente (prénom+nom+ville obligatoires, réutilise une fiche existante) ; (v2026-09-24d : note du formulaire plus grande/en gras sur le PDF)
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { creerAfEnAttente } from '../lib/afEnAttente'
@@ -122,6 +122,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     return init
   })
   const [relais2ParEnfant, setRelais2ParEnfant] = useState({})
+  const [habituelsParEnfant, setHabituelsParEnfant] = useState({}) // enfantId → [afId triés par fréquence]
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
   const [infoEnvoi, setInfoEnvoi] = useState(null)
@@ -141,6 +142,25 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
           ;(maisons || []).forEach(m => { departementParMd[m.id] = m.departement })
         }
         setEnfants(data.map(e => ({ ...e, departement: e.md_id ? departementParMd[e.md_id] : '81', inclus: true })))
+        // Relais habituels : AF ayant déjà accueilli chacun de ces enfants en relais (les plus fréquents d'abord)
+        const ids = data.map(e => e.id)
+        if (ids.length > 0) {
+          const { data: evs } = await supabase.from('evenements')
+            .select('enfant_ids, participants_ids')
+            .eq('categorie', 'relais').overlaps('enfant_ids', ids).limit(500)
+          const compte = {}
+          ;(evs || []).forEach(ev => (ev.enfant_ids || []).forEach(eid => {
+            if (!ids.includes(eid)) return
+            ;(ev.participants_ids || []).forEach(pid => {
+              if (pid === profile.id) return
+              compte[eid] = compte[eid] || {}
+              compte[eid][pid] = (compte[eid][pid] || 0) + 1
+            })
+          }))
+          const res = {}
+          Object.entries(compte).forEach(([eid, m]) => { res[eid] = Object.entries(m).sort((a, b) => b[1] - a[1]).map(([pid]) => pid) })
+          setHabituelsParEnfant(res)
+        }
       })
     // Charger les AF pour le relais
     supabase.from('profiles').select('id,nom,prenom').eq('role', 'af')
@@ -213,6 +233,9 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   async function genererPDF(overrideDebut, overrideFin, sauvegarder) {
     const dateDebut = overrideDebut || form.dateDebut
     const dateFin   = overrideFin   || form.dateFin
+    if (dateDebut && dateFin && dateFin < dateDebut) {
+      setToast('⚠️ La date de fin est avant la date de début — PDF non généré'); setTimeout(() => setToast(''), 3500); return
+    }
     // Récupérer la signature (ouvre le canvas si mode=chaque_fois)
     const sigBytes = await getSignatureBytes()
     const W = 841.89, H = 595.28
@@ -577,6 +600,9 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   async function genererPDFCD31(overrideDebut, overrideFin, sauvegarder, enfantsInclusCD31) {
     const dateDebut = overrideDebut || form.dateDebut
     const dateFin   = overrideFin   || form.dateFin
+    if (dateDebut && dateFin && dateFin < dateDebut) {
+      setToast('⚠️ La date de fin est avant la date de début — PDF non généré'); setTimeout(() => setToast(''), 3500); return
+    }
     const sigBytes = await getSignatureBytes()
     const W = 595.28, H = 841.89 // A4 portrait
     const pdfDoc = await PDFDocument.create()
@@ -859,6 +885,9 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     if (!form.dateDebut || !form.dateFin) {
       setToast('⚠️ Veuillez saisir les dates de congés'); setTimeout(() => setToast(''), 3000); return
     }
+    if (form.dateFin < form.dateDebut) {
+      setToast('⚠️ La date de fin est avant la date de début — corrigez les dates'); setTimeout(() => setToast(''), 3500); return
+    }
     const enfantsInclusCheck = enfants.filter(e => e.inclus)
     if (enfantsInclusCheck.length === 0) {
       setToast('⚠️ Sélectionnez au moins un enfant'); setTimeout(() => setToast(''), 3000); return
@@ -1028,12 +1057,18 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16, marginBottom:20 }}>
             <div>
               <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', display:'block', marginBottom:6 }}>Date de début *</label>
-              <input type="date" value={form.dateDebut} onChange={e => setForm(f => ({...f, dateDebut:e.target.value}))}
+              <input type="date" value={form.dateDebut} min="2000-01-01" max="2100-12-31"
+                onChange={e => setForm(f => ({...f, dateDebut:e.target.value, dateFin: (f.dateFin && e.target.value && f.dateFin < e.target.value) ? e.target.value : f.dateFin}))}
                 style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:13, fontFamily:'Sora,sans-serif' }} />
             </div>
             <div>
               <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', display:'block', marginBottom:6 }}>Date de fin *</label>
-              <input type="date" value={form.dateFin} onChange={e => setForm(f => ({...f, dateFin:e.target.value}))}
+              <input type="date" value={form.dateFin} min={form.dateDebut || '2000-01-01'} max="2100-12-31"
+                onChange={e => {
+                  const v = e.target.value
+                  if (v && form.dateDebut && v < form.dateDebut) { setToast('⚠️ La date de fin ne peut pas être avant la date de début'); setTimeout(() => setToast(''), 3500); return }
+                  setForm(f => ({...f, dateFin:v}))
+                }}
                 style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:13, fontFamily:'Sora,sans-serif' }} />
             </div>
             <div>
@@ -1061,6 +1096,37 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
                     )}
                   </div>
                   {enf.inclus && (
+                  <>
+                  {(() => {
+                    const hab = (habituelsParEnfant[enf.id] || []).map(id => afProfiles.find(a => a.id === id)).filter(Boolean)
+                    if (hab.length === 0) return null
+                    return (
+                      <div style={{ marginBottom:8 }}>
+                        <div style={{ fontSize:10, color:'#0891b2', marginBottom:4, fontWeight:700, textTransform:'uppercase' }}>⭐ Relais habituels</div>
+                        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                          {hab.map(af => {
+                            const sel1 = relaisParEnfant[enf.id] === af.id
+                            const sel2 = relais2ParEnfant[enf.id] === af.id
+                            return (
+                              <button key={af.id} type="button"
+                                onClick={() => {
+                                  if (sel1) { setRelaisParEnfant(r => ({...r, [enf.id]: ''})); return }
+                                  if (sel2) { setRelais2ParEnfant(r => ({...r, [enf.id]: ''})); return }
+                                  if (!relaisParEnfant[enf.id]) setRelaisParEnfant(r => ({...r, [enf.id]: af.id}))
+                                  else if (!relais2ParEnfant[enf.id]) setRelais2ParEnfant(r => ({...r, [enf.id]: af.id}))
+                                  else setRelaisParEnfant(r => ({...r, [enf.id]: af.id}))
+                                }}
+                                style={{ padding:'4px 10px', borderRadius:16, fontSize:11, fontWeight:600, cursor:'pointer',
+                                  border: (sel1 || sel2) ? '1.5px solid #0891b2' : '1px solid #dde3f0',
+                                  background: (sel1 || sel2) ? '#e0f2fe' : '#fff', color: (sel1 || sel2) ? '#0891b2' : '#5a6478' }}>
+                                {(sel1 || sel2) ? '✓ ' : ''}{af.prenom} {af.nom}{sel1 ? ' · Relais 1' : sel2 ? ' · Relais 2' : ''}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })()}
                   <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                     <div>
                       <label style={{ fontSize:10, fontWeight:600, color:'#9aa3b8', textTransform:'uppercase', display:'block', marginBottom:4 }}>Relais 1</label>
@@ -1082,6 +1148,7 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
                       />
                     </div>
                   </div>
+                  </>
                   )}
                 </div>
               ))}
