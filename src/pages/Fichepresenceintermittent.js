@@ -1,4 +1,4 @@
-// Fichepresenceintermittent.js — v2026-06-02c — fix destinataire vide dans la modal Transmettre : md_id ajouté à la requête enfants (manquait, empêchait FichePresence2 de retrouver l'email de la MD par correspondance exacte)
+// Fichepresenceintermittent.js — v2026-06-02d — la liste des enfants ne montre que ceux accueillis en relais pendant le mois choisi ; (v2026-06-02c) — fix destinataire vide dans la modal Transmettre : md_id ajouté à la requête enfants (manquait, empêchait FichePresence2 de retrouver l'email de la MD par correspondance exacte)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -65,13 +65,14 @@ export default function FichePresenceIntermittent({ profile }) {
 
   function showToast(msg) { setToast(msg); setTimeout(() => setToast(''), 3000) }
 
-  useEffect(() => { fetchEnfants() }, [])
+  // La liste des enfants dépend du mois choisi : seuls les enfants accueillis en relais CE mois-là apparaissent
+  useEffect(() => { fetchEnfants() }, [selectedMois, selectedAnnee])
   useEffect(() => { if (selectedEnfant) loadFiche() }, [selectedEnfant, selectedMois, selectedAnnee])
 
   async function fetchEnfants() {
-    // Enfants en relais chez cet AF (via participants_ids)
-    const debut = new Date(new Date().getFullYear(), 0, 1)
-    const fin = new Date(new Date().getFullYear(), 11, 31)
+    // Enfants en relais chez cet AF (via participants_ids) pendant le mois sélectionné
+    const debut = new Date(selectedAnnee, selectedMois, 1)
+    const fin = new Date(selectedAnnee, selectedMois + 1, 0, 23, 59, 59)
     const { data: relais } = await supabase.from('evenements').select('*')
       .eq('categorie', 'relais').contains('participants_ids', [profile.id])
       .gte('date_fin', debut.toISOString()).lte('date_debut', fin.toISOString())
@@ -86,7 +87,9 @@ export default function FichePresenceIntermittent({ profile }) {
       }
     }
     setEnfants(liste)
-    if (liste.length > 0) setSelectedEnfant(liste[0])
+    // On garde l'enfant déjà choisi s'il a eu un relais ce mois-ci, sinon le premier de la liste
+    setSelectedEnfant(prev => (prev && liste.find(e => e.id === prev.id)) || liste[0] || null)
+    if (liste.length === 0) { setPresences({}); setAfPrincipal(null) }
     setLoading(false)
   }
 
@@ -244,6 +247,7 @@ export default function FichePresenceIntermittent({ profile }) {
                 <div className="form-group">
                   <label className="form-label">Enfant</label>
                   <select className="form-control" value={selectedEnfant?.id || ''} onChange={e => setSelectedEnfant(enfants.find(en => en.id === e.target.value))}>
+                    {enfants.length === 0 && <option value="">Aucun relais ce mois-ci</option>}
                     {enfants.map(en => <option key={en.id} value={en.id}>{en.prenom} {en.nom}</option>)}
                   </select>
                 </div>
