@@ -1,4 +1,4 @@
-// FichePresenceCD31.js — v2026-09-03j — bandeau de sélection Enfant / Mois / Année identique à la fiche CD81, boutons Télécharger / Transmettre dans l'en-tête ; (v2026-09-03i) — séparation Télécharger (aucune sauvegarde) / Transmettre (sauvegarde Administratif + modal d'envoi) ; destinataires trouvés dynamiquement par enfant via maisons_departement, plus rien en dur
+// FichePresenceCD31.js — v2026-09-03k — liste de tous les enfants de l'AF (comme le CD81) ; choisir un enfant du 31 affiche la fiche regroupant ses 3 enfants, encart Haute-Garonne sous le choix, sous-titre « Format… » retiré ; (v2026-09-03j) — bandeau de sélection Enfant / Mois / Année identique à la fiche CD81, boutons Télécharger / Transmettre dans l'en-tête ; (v2026-09-03i) — séparation Télécharger (aucune sauvegarde) / Transmettre (sauvegarde Administratif + modal d'envoi) ; destinataires trouvés dynamiquement par enfant via maisons_departement, plus rien en dur
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -52,6 +52,7 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
   const navigate = useNavigate()
   const [groupes, setGroupes] = useState([]) // tableaux de 1 à 3 enfants
   const [groupeIndex, setGroupeIndex] = useState(0)
+  const [enfantSelId, setEnfantSelId] = useState(null)
   const [selectedMois, setSelectedMois] = useState(new Date().getMonth())
   const [selectedAnnee, setSelectedAnnee] = useState(new Date().getFullYear())
   const [presencesParEnfant, setPresencesParEnfant] = useState({}) // { enfantId: { 'YYYY-MM-DD': true/false } }
@@ -86,16 +87,18 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
     if (!enfants || enfants.length === 0) { setLoading(false); return }
 
     const mdIds = [...new Set(enfants.map(e => e.md_id).filter(Boolean))]
-    if (mdIds.length === 0) { setLoading(false); return }
-    const { data: maisons } = await supabase.from('maisons_departement').select('id, nom, email, departement').in('id', mdIds)
+    const { data: maisons } = mdIds.length ? await supabase.from('maisons_departement').select('id, nom, email, departement').in('id', mdIds) : { data: [] }
     const maisonsMap = {}
     ;(maisons || []).forEach(m => { maisonsMap[m.id] = m })
     setMaisonsById(maisonsMap)
+    // Enfants du 31 regroupés par 3 (une fiche = jusqu'à 3 enfants) ; les autres enfants de l'AF sont seuls
+    const tri = [...enfants].sort((a, b) => (a.prenom || '').localeCompare(b.prenom || ''))
     const idsCD31 = new Set((maisons || []).filter(m => m.departement === '31').map(m => m.id))
-
-    const enfantsCD31 = enfants.filter(e => idsCD31.has(e.md_id))
+    const enfants31 = tri.filter(e => idsCD31.has(e.md_id))
+    const autres = tri.filter(e => !idsCD31.has(e.md_id))
     const grps = []
-    for (let i = 0; i < enfantsCD31.length; i += 3) grps.push(enfantsCD31.slice(i, i + 3))
+    for (let i = 0; i < enfants31.length; i += 3) grps.push(enfants31.slice(i, i + 3))
+    autres.forEach(e => grps.push([e]))
     setGroupes(grps)
     if (enfantIdInitial) {
       const idx = grps.findIndex(g => g.some(e => e.id === enfantIdInitial))
@@ -447,6 +450,7 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
   )
 
   const groupe = groupes[groupeIndex]
+  const enfantChoisi = groupe.find(e => e.id === enfantSelId) || groupe[0]
   const joursPrec = getJoursMoisPrecedent(selectedAnnee, selectedMois)
   const joursCourant = getJoursMoisEnCours(selectedAnnee, selectedMois)
 
@@ -462,7 +466,6 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
           <span style={{ fontSize:20 }}>📋</span>
           <div>
             <div className="page-title">Fiche de présence — CD31</div>
-            <div className="page-subtitle">Format Haute-Garonne (31)</div>
           </div>
           <div className="header-actions">
             <button className="btn btn-primary" onClick={() => genererEtSauvegarder(false)} disabled={generating}>
@@ -479,12 +482,16 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
           <div className="card-body">
             <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
               <div className="form-group">
-                <label className="form-label">Enfant{groupe.length > 1 ? 's' : ''}</label>
-                <select className="form-control" value={groupeIndex} onChange={e => setGroupeIndex(Number(e.target.value))}>
-                  {groupes.map((g, i) => (
-                    <option key={i} value={i}>{g.map(e => `${e.prenom} ${e.nom}`).join(' + ')}</option>
+                <label className="form-label">Enfant</label>
+                <select className="form-control" value={enfantChoisi?.id || ''} onChange={e => {
+                  const gi = groupes.findIndex(g => g.some(x => x.id === e.target.value))
+                  if (gi >= 0) { setGroupeIndex(gi); setEnfantSelId(e.target.value) }
+                }}>
+                  {groupes.flatMap(g => g).map(enf => (
+                    <option key={enf.id} value={enf.id}>{enf.prenom} {enf.nom}</option>
                   ))}
                 </select>
+                {groupe.length > 1 && <div style={{ fontSize:11, color:'#9aa3b8', marginTop:4 }}>La fiche regroupe : {groupe.map(e => e.prenom).join(', ')}</div>}
               </div>
               <div className="form-group">
                 <label className="form-label">Mois</label>
@@ -498,6 +505,20 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
                   {[selectedAnnee - 1, selectedAnnee, selectedAnnee + 1].map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Encart département + titre de la fiche (sous le choix de l'enfant) */}
+        <div className="card" style={{ marginBottom:14 }}>
+          <div className="card-body" style={{ display:'flex', alignItems:'center', gap:16 }}>
+            <div style={{ background:'#1e3a5f', color:'#fff', borderRadius:8, padding:'8px 14px', textAlign:'center', lineHeight:1.2 }}>
+              <div style={{ fontWeight:800, fontSize:14, letterSpacing:1 }}>HAUTE-GARONNE</div>
+              <div style={{ fontSize:9, letterSpacing:1 }}>LE DÉPARTEMENT</div>
+            </div>
+            <div>
+              <div style={{ fontWeight:800, fontSize:16, color:'#1e3a5f', textDecoration:'underline' }}>FICHE DE PRÉSENCE CD31 {selectedAnnee}</div>
+              <div style={{ fontSize:13 }}>Mois concerné : <strong>{MOIS_LABELS[selectedMois]} {selectedAnnee}</strong></div>
             </div>
           </div>
         </div>
