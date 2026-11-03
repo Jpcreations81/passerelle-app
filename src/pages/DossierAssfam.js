@@ -1,4 +1,4 @@
-// DossierAssfam.js — v2026-07-22k — ajout de l'édition de l'email (en plus du/des téléphone(s)) sur l'Encadrant Technique et le Gestionnaire Paie déjà assignés, via le même bouton 📞✏️
+// DossierAssfam.js — v2026-07-22l — « Nouvelle demande de congés » ouvre directement la demande (fenêtre bleue) depuis le profil AF, sans passer par l'agenda ; (v2026-07-22k) — ajout de l'édition de l'email (en plus du/des téléphone(s)) sur l'Encadrant Technique et le Gestionnaire Paie déjà assignés, via le même bouton 📞✏️
 import React, { useState, useEffect, useCallback } from 'react'
 import AllocationRentreeScolaire from './AllocationRentreeScolaire'
 import SortieDepartement from './SortieDepartement'
@@ -993,7 +993,7 @@ export default function DossierAssfam({ profile }) {
                 <div style={{background:'#e8eef8',border:'1px solid #c4d4f5',borderRadius:9,padding:'10px 14px',fontSize:12,color:'#1a4b8f',marginBottom:16}}>
                   💡 La demande sera transmise à votre encadrant technique. Elle inclura les dates de relais pour chaque enfant accueilli et générera le PDF officiel du Département du Tarn.
                 </div>
-                <button onClick={() => navigate('/agenda?new=conge')} className="btn btn-primary" style={{fontSize:14,padding:'12px 24px'}}>
+                <button onClick={() => setShowFicheConges(true)} className="btn btn-primary" style={{fontSize:14,padding:'12px 24px'}}>
                   🏖️ Nouvelle demande de congés
                 </button>
               </SectionCard>
