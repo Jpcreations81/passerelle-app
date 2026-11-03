@@ -1,4 +1,4 @@
-// Fichepresenceintermittent.js — v2026-06-02d — la liste des enfants ne montre que ceux accueillis en relais pendant le mois choisi ; (v2026-06-02c) — fix destinataire vide dans la modal Transmettre : md_id ajouté à la requête enfants (manquait, empêchait FichePresence2 de retrouver l'email de la MD par correspondance exacte)
+// Fichepresenceintermittent.js — v2026-06-02e — sous-titre « Format officiel Tarn (81) » retiré ; (v2026-06-02d) — la liste des enfants ne montre que ceux accueillis en relais pendant le mois choisi ; (v2026-06-02c) — fix destinataire vide dans la modal Transmettre : md_id ajouté à la requête enfants (manquait, empêchait FichePresence2 de retrouver l'email de la MD par correspondance exacte)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -197,7 +197,6 @@ export default function FichePresenceIntermittent({ profile }) {
           <span style={{ fontSize:20 }}>📋</span>
           <div>
             <div className="page-title">🔄 Fiche de présence — Intermittente</div>
-            <div className="page-subtitle">Format officiel Tarn (81)</div>
           </div>
           <div className="header-actions">
             <button className="btn btn-secondary" onClick={() => navigate('/fiche-presence')} style={{ fontSize:12 }}>📋 Fiche permanente</button>
