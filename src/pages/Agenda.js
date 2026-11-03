@@ -1,4 +1,4 @@
-// Agenda.js — v2026-10-23b — import PDF : un rendez-vous peut être rattaché à PLUSIEURS enfants (pastilles + « Ajouter un enfant ») ; (v2026-10-23a) heure/date de fin recalées automatiquement quand on change le début + contrôle à la modification ; (v2026-10-22b) BUG événement médical invisible : date de fin avec année « 0002 » (fin avant début) → validation des dates à l'enregistrement + affichage tolérant ; (v2026-10-22a) — événement médical : liste déroulante des professionnels de santé de la fiche de l'enfant (le médecin ET son adresse remplissent le titre et le lieu) ; (v2026-10-15a) — l'AF relais créateur d'un événement (accueil relais, AF principal non inscrite) modifie transport/événement directement, sans demande de validation à une AF sans compte ; (v2026-10-14c) — accueil relais manuel : lieux de remise pré-remplis (domicile de l'AF principal : adresse si inscrite, ville sinon ; lieu = mon domicile) ; la recherche d'enfant retrouve aussi les enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) pour éviter les doublons ; (v2026-10-14b : bascule J'accueille un enfant en relais)
+// Agenda.js — v2026-10-23c — la catégorie « Congés » n'est plus proposée à l'AF dans « Nouvel événement » : la demande de congés se fait uniquement depuis le profil AF ; (v2026-10-23b) — import PDF : un rendez-vous peut être rattaché à PLUSIEURS enfants (pastilles + « Ajouter un enfant ») ; (v2026-10-23a) heure/date de fin recalées automatiquement quand on change le début + contrôle à la modification ; (v2026-10-22b) BUG événement médical invisible : date de fin avec année « 0002 » (fin avant début) → validation des dates à l'enregistrement + affichage tolérant ; (v2026-10-22a) — événement médical : liste déroulante des professionnels de santé de la fiche de l'enfant (le médecin ET son adresse remplissent le titre et le lieu) ; (v2026-10-15a) — l'AF relais créateur d'un événement (accueil relais, AF principal non inscrite) modifie transport/événement directement, sans demande de validation à une AF sans compte ; (v2026-10-14c) — accueil relais manuel : lieux de remise pré-remplis (domicile de l'AF principal : adresse si inscrite, ville sinon ; lieu = mon domicile) ; la recherche d'enfant retrouve aussi les enfants dont l'AF principal n'est pas inscrite (RPC rechercher_enfants_af_en_attente) pour éviter les doublons ; (v2026-10-14b : bascule J'accueille un enfant en relais)
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -379,8 +379,14 @@ export default function Agenda({ profile }) {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     if (params.get('new') === 'conge') {
-      setNewEvt(n => ({ ...n, categorie: 'conge', titre: 'Congé' }))
-      setShowModal(true)
+      if (profile?.role !== 'encadrant') {
+        // AF : directement la demande de congés
+        setDernierConge({ dateDebut: '', dateFin: '', congeRelais: {} })
+        setShowFicheCongesPDF(true)
+      } else {
+        setNewEvt(n => ({ ...n, categorie: 'conge', titre: 'Congé' }))
+        setShowModal(true)
+      }
       navigate('/agenda', { replace: true })
     }
   }, [location.search])
@@ -2257,7 +2263,7 @@ export default function Agenda({ profile }) {
                 <label className="form-label">📋 Catégorie</label>
                 <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
                   {Object.entries(CATEGORIES)
-                    .filter(([k]) => isEncadrant ? ['conge','formation','relais','ase','reunion','personnel','autre'].includes(k) : true)
+                    .filter(([k]) => isEncadrant ? ['conge','formation','relais','ase','reunion','personnel','autre'].includes(k) : k !== 'conge')
                     .map(([k, v]) => (
                     <button key={k} type="button"
                       onClick={() => {
