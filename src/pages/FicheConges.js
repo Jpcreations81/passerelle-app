@@ -1,4 +1,4 @@
-// FicheConges.js — v2026-10-14a — création d'une AF relais non inscrite via creerAfEnAttente (prénom+nom+ville obligatoires, réutilise une fiche existante) ; (v2026-09-24d : note du formulaire plus grande/en gras sur le PDF)
+// FicheConges.js — v2026-10-14b — dates de congés : la fin ne peut plus être avant le début (champ, soumission et génération du PDF) ; (v2026-10-14a) création d'une AF relais non inscrite via creerAfEnAttente (prénom+nom+ville obligatoires, réutilise une fiche existante) ; (v2026-09-24d : note du formulaire plus grande/en gras sur le PDF)
 import React, { useState, useEffect } from 'react'
 import { useSignature } from './useSignature'
 import { creerAfEnAttente } from '../lib/afEnAttente'
@@ -213,6 +213,9 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   async function genererPDF(overrideDebut, overrideFin, sauvegarder) {
     const dateDebut = overrideDebut || form.dateDebut
     const dateFin   = overrideFin   || form.dateFin
+    if (dateDebut && dateFin && dateFin < dateDebut) {
+      setToast('⚠️ La date de fin est avant la date de début — PDF non généré'); setTimeout(() => setToast(''), 3500); return
+    }
     // Récupérer la signature (ouvre le canvas si mode=chaque_fois)
     const sigBytes = await getSignatureBytes()
     const W = 841.89, H = 595.28
@@ -577,6 +580,9 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
   async function genererPDFCD31(overrideDebut, overrideFin, sauvegarder, enfantsInclusCD31) {
     const dateDebut = overrideDebut || form.dateDebut
     const dateFin   = overrideFin   || form.dateFin
+    if (dateDebut && dateFin && dateFin < dateDebut) {
+      setToast('⚠️ La date de fin est avant la date de début — PDF non généré'); setTimeout(() => setToast(''), 3500); return
+    }
     const sigBytes = await getSignatureBytes()
     const W = 595.28, H = 841.89 // A4 portrait
     const pdfDoc = await PDFDocument.create()
@@ -859,6 +865,9 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
     if (!form.dateDebut || !form.dateFin) {
       setToast('⚠️ Veuillez saisir les dates de congés'); setTimeout(() => setToast(''), 3000); return
     }
+    if (form.dateFin < form.dateDebut) {
+      setToast('⚠️ La date de fin est avant la date de début — corrigez les dates'); setTimeout(() => setToast(''), 3500); return
+    }
     const enfantsInclusCheck = enfants.filter(e => e.inclus)
     if (enfantsInclusCheck.length === 0) {
       setToast('⚠️ Sélectionnez au moins un enfant'); setTimeout(() => setToast(''), 3000); return
@@ -1028,12 +1037,18 @@ export default function FicheConges({ profile, onClose, dateDebutInit, dateFinIn
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:16, marginBottom:20 }}>
             <div>
               <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', display:'block', marginBottom:6 }}>Date de début *</label>
-              <input type="date" value={form.dateDebut} onChange={e => setForm(f => ({...f, dateDebut:e.target.value}))}
+              <input type="date" value={form.dateDebut} min="2000-01-01" max="2100-12-31"
+                onChange={e => setForm(f => ({...f, dateDebut:e.target.value, dateFin: (f.dateFin && e.target.value && f.dateFin < e.target.value) ? e.target.value : f.dateFin}))}
                 style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:13, fontFamily:'Sora,sans-serif' }} />
             </div>
             <div>
               <label style={{ fontSize:11, fontWeight:600, color:'#5a6478', textTransform:'uppercase', display:'block', marginBottom:6 }}>Date de fin *</label>
-              <input type="date" value={form.dateFin} onChange={e => setForm(f => ({...f, dateFin:e.target.value}))}
+              <input type="date" value={form.dateFin} min={form.dateDebut || '2000-01-01'} max="2100-12-31"
+                onChange={e => {
+                  const v = e.target.value
+                  if (v && form.dateDebut && v < form.dateDebut) { setToast('⚠️ La date de fin ne peut pas être avant la date de début'); setTimeout(() => setToast(''), 3500); return }
+                  setForm(f => ({...f, dateFin:v}))
+                }}
                 style={{ width:'100%', padding:'10px 12px', border:'1.5px solid #dde3f0', borderRadius:8, fontSize:13, fontFamily:'Sora,sans-serif' }} />
             </div>
             <div>
