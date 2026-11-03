@@ -1,4 +1,4 @@
-// FichePresenceCD31.js — v2026-09-03i — séparation Télécharger (aucune sauvegarde) / Transmettre (sauvegarde Administratif + modal d'envoi) ; destinataires trouvés dynamiquement par enfant via maisons_departement, plus rien en dur
+// FichePresenceCD31.js — v2026-09-03j — bandeau de sélection Enfant / Mois / Année identique à la fiche CD81, boutons Télécharger / Transmettre dans l'en-tête ; (v2026-09-03i) — séparation Télécharger (aucune sauvegarde) / Transmettre (sauvegarde Administratif + modal d'envoi) ; destinataires trouvés dynamiquement par enfant via maisons_departement, plus rien en dur
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -454,24 +454,52 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
     <div className="app-layout">
       <Sidebar profile={profile} />
       <div className="main-content" style={{ padding:24 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:20 }}>
+        {/* En-tête + actions (même présentation que la fiche CD81) */}
+        <header className="page-header" style={{ marginBottom:14 }}>
           {onRetourListe && (
             <button onClick={onRetourListe} style={{ background:'none', border:'none', cursor:'pointer', fontSize:20, color:'#5a6478' }}>‹</button>
           )}
-          <h2 style={{ margin:0 }}>📋 Fiche de présence — CD31</h2>
-          {groupes.length > 1 && (
-            <select value={groupeIndex} onChange={e => setGroupeIndex(Number(e.target.value))} className="form-control" style={{ width:'auto' }}>
-              {groupes.map((g, i) => (
-                <option key={i} value={i}>{g.map(e => e.prenom).join(', ')}</option>
-              ))}
-            </select>
-          )}
-          <select value={selectedMois} onChange={e => setSelectedMois(Number(e.target.value))} className="form-control" style={{ width:'auto' }}>
-            {MOIS_LABELS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-          </select>
-          <select value={selectedAnnee} onChange={e => setSelectedAnnee(Number(e.target.value))} className="form-control" style={{ width:'auto' }}>
-            {[selectedAnnee - 1, selectedAnnee, selectedAnnee + 1].map(a => <option key={a} value={a}>{a}</option>)}
-          </select>
+          <span style={{ fontSize:20 }}>📋</span>
+          <div>
+            <div className="page-title">Fiche de présence — CD31</div>
+            <div className="page-subtitle">Format Haute-Garonne (31)</div>
+          </div>
+          <div className="header-actions">
+            <button className="btn btn-primary" onClick={() => genererEtSauvegarder(false)} disabled={generating}>
+              {generating ? '⏳...' : '📄 Télécharger'}
+            </button>
+            <button className="btn btn-success" onClick={() => genererEtSauvegarder(true)} disabled={generating}>
+              {generating ? '⏳...' : '📤 Transmettre'}
+            </button>
+          </div>
+        </header>
+
+        {/* Bandeau de sélection : enfant(s) / mois / année */}
+        <div className="card" style={{ marginBottom:14 }}>
+          <div className="card-body">
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 }}>
+              <div className="form-group">
+                <label className="form-label">Enfant{groupe.length > 1 ? 's' : ''}</label>
+                <select className="form-control" value={groupeIndex} onChange={e => setGroupeIndex(Number(e.target.value))}>
+                  {groupes.map((g, i) => (
+                    <option key={i} value={i}>{g.map(e => `${e.prenom} ${e.nom}`).join(' + ')}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mois</label>
+                <select className="form-control" value={selectedMois} onChange={e => setSelectedMois(Number(e.target.value))}>
+                  {MOIS_LABELS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Année</label>
+                <select className="form-control" value={selectedAnnee} onChange={e => setSelectedAnnee(Number(e.target.value))}>
+                  {[selectedAnnee - 1, selectedAnnee, selectedAnnee + 1].map(a => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div style={{ background:'#fff', border:'1px solid #dde3f0', borderRadius:12, padding:20, marginBottom:16 }}>
@@ -520,15 +548,6 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
               })}
             </tbody>
           </table>
-        </div>
-
-        <div style={{ display:'flex', gap:10 }}>
-          <button className="btn btn-secondary" onClick={() => genererEtSauvegarder(false)} disabled={generating}>
-            {generating ? '⏳...' : '📄 Télécharger'}
-          </button>
-          <button className="btn btn-success" onClick={() => genererEtSauvegarder(true)} disabled={generating}>
-            {generating ? '⏳...' : '📤 Transmettre'}
-          </button>
         </div>
 
         {toast && <div className="toast">{toast}</div>}
