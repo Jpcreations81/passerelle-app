@@ -1,4 +1,4 @@
-// Fichepresencepermanent.js — v2026-06-17d — sous-titre « Format officiel Tarn (81) » retiré ; (v2026-06-17c) — remplacement du bouton "Transmettre ASE" (factice, marquait juste un flag sans rien envoyer) par un vrai flux : "Télécharger" = téléchargement seul, "Transmettre" = sauvegarde Administratif + modal d'envoi email (via FichePresence2 avecEnvoi)
+// Fichepresencepermanent.js — v2026-06-17e — passe onChangerEnfant à la fiche CD31 (bascule vers la fiche du département de l'enfant choisi) ; (v2026-06-17d) — sous-titre « Format officiel Tarn (81) » retiré ; (v2026-06-17c) — remplacement du bouton "Transmettre ASE" (factice, marquait juste un flag sans rien envoyer) par un vrai flux : "Télécharger" = téléchargement seul, "Transmettre" = sauvegarde Administratif + modal d'envoi email (via FichePresence2 avecEnvoi)
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -180,7 +180,7 @@ export default function FichePresence({ profile }) {
     </div>
   )
 
-  if (selectedEnfant?.departement === '31') return <FichePresenceCD31 profile={profile} enfantIdInitial={selectedEnfant.id} onRetourListe={() => setSelectedEnfant(null)} />
+  if (selectedEnfant?.departement === '31') return <FichePresenceCD31 profile={profile} enfantIdInitial={selectedEnfant.id} onRetourListe={() => setSelectedEnfant(null)} onChangerEnfant={(id) => setSelectedEnfant(enfants.find(en => en.id === id) || null)} />
 
   return (
     <div className="app-layout">
