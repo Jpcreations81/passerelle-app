@@ -1,4 +1,4 @@
-// FichePresenceCD31.js — v2026-09-03k — liste de tous les enfants de l'AF (comme le CD81) ; choisir un enfant du 31 affiche la fiche regroupant ses 3 enfants, encart Haute-Garonne sous le choix, sous-titre « Format… » retiré ; (v2026-09-03j) — bandeau de sélection Enfant / Mois / Année identique à la fiche CD81, boutons Télécharger / Transmettre dans l'en-tête ; (v2026-09-03i) — séparation Télécharger (aucune sauvegarde) / Transmettre (sauvegarde Administratif + modal d'envoi) ; destinataires trouvés dynamiquement par enfant via maisons_departement, plus rien en dur
+// FichePresenceCD31.js — v2026-09-03l — choisir un enfant d'un autre département bascule sur la fiche de son département (prop onChangerEnfant) ; (v2026-09-03k) — liste de tous les enfants de l'AF (comme le CD81) ; choisir un enfant du 31 affiche la fiche regroupant ses 3 enfants, encart Haute-Garonne sous le choix, sous-titre « Format… » retiré ; (v2026-09-03j) — bandeau de sélection Enfant / Mois / Année identique à la fiche CD81, boutons Télécharger / Transmettre dans l'en-tête ; (v2026-09-03i) — séparation Télécharger (aucune sauvegarde) / Transmettre (sauvegarde Administratif + modal d'envoi) ; destinataires trouvés dynamiquement par enfant via maisons_departement, plus rien en dur
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -48,11 +48,12 @@ function getJoursMoisEnCours(annee, mois) {
   return jours
 }
 
-export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourListe }) {
+export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourListe, onChangerEnfant }) {
   const navigate = useNavigate()
   const [groupes, setGroupes] = useState([]) // tableaux de 1 à 3 enfants
   const [groupeIndex, setGroupeIndex] = useState(0)
   const [enfantSelId, setEnfantSelId] = useState(null)
+  const [idsAutresDept, setIdsAutresDept] = useState(new Set()) // enfants d'un autre département que le 31
   const [selectedMois, setSelectedMois] = useState(new Date().getMonth())
   const [selectedAnnee, setSelectedAnnee] = useState(new Date().getFullYear())
   const [presencesParEnfant, setPresencesParEnfant] = useState({}) // { enfantId: { 'YYYY-MM-DD': true/false } }
@@ -99,6 +100,7 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
     const grps = []
     for (let i = 0; i < enfants31.length; i += 3) grps.push(enfants31.slice(i, i + 3))
     autres.forEach(e => grps.push([e]))
+    setIdsAutresDept(new Set(autres.map(e => e.id)))
     setGroupes(grps)
     if (enfantIdInitial) {
       const idx = grps.findIndex(g => g.some(e => e.id === enfantIdInitial))
@@ -484,6 +486,8 @@ export default function FichePresenceCD31({ profile, enfantIdInitial, onRetourLi
               <div className="form-group">
                 <label className="form-label">Enfant</label>
                 <select className="form-control" value={enfantChoisi?.id || ''} onChange={e => {
+                  // Enfant d'un autre département : on bascule sur sa propre fiche (via la page parente)
+                  if (idsAutresDept.has(e.target.value) && onChangerEnfant) { onChangerEnfant(e.target.value); return }
                   const gi = groupes.findIndex(g => g.some(x => x.id === e.target.value))
                   if (gi >= 0) { setGroupeIndex(gi); setEnfantSelId(e.target.value) }
                 }}>
